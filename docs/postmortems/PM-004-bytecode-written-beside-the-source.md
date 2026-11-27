@@ -11,7 +11,13 @@ guards:
   - kind: rule
     ref: skills/anima-tech-mise.md
     added: 2026-11-27
-recurrences: []
+  - kind: test
+    ref: test_R107_agent_settings_refuse_bare_interpreter
+    added: 2026-11-27
+recurrences:
+  - 2026-11-27
+  - 2026-11-27
+  - 2026-11-27
 ---
 
 # PM-004: Bytecode written beside the source
@@ -32,6 +38,12 @@ Python run outside `mise` does not get `PYTHONPYCACHEPREFIX`, so it writes bytec
 
 The directory was removed. The ignore file stays a single entry; the guard is a check.
 
+## Recurrence
+
+On 2026-11-27 an implementer ran two small edits with a bare `python3` and a heredoc, outside `mise`, although the rule says Python runs only through `mise`. The rule guard did not stop it, and the test guard did not notice it, because reading a script from standard input writes no bytecode; the event was found only because the implementer reported it. The same class: a tool run outside the repository's entry point.
+
+It recurred twice more the same day, in other implementers' runs, which is why the stronger guard was built: the generated agent settings refuse the command line of a bare interpreter (a `Bash` deny rule on `python` and `python3` as the first word), which stops it instead of noticing a result. The rule does not match a command that starts with `mise`, so `mise exec -- python` and `mise run` still work. Unverified: that the deny rule is effective in a session (the vendor's matching of a command prefix was read, not observed).
+
 ## Impact
 
 One stray file, untracked. It could have been committed.
@@ -51,5 +63,6 @@ Went well: the likely cause was read from the interpreter version in the file na
 
 - test `test_R91_no_bytecode_outside_cache`: fails on any `__pycache__` or compiled file among the files git does not ignore.
 - rule, `skills/anima-tech-mise.md`: Python runs only through `mise`.
+- test `test_R107_agent_settings_refuse_bare_interpreter` (requirement R107, with its `_detects_violation` companion): the generated settings deny `python` and `python3` as the first word of a command and deny nothing that starts with the task runner.
 
-The status is guarded. It is not closed by design: running an interpreter by hand remains possible; the test notices the result.
+The status is guarded. It is not closed by design: an interpreter can still be started through another word (a shell, a script), and the settings are a rule of the agent's tool, not of the machine.

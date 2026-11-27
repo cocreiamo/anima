@@ -4,6 +4,7 @@ title: Write the tests of upgrade, backup and the booted image
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:44Z'
+updated_date: '2026-11-27T20:19:58Z'
 labels:
   - pending-tests
 dependencies: []
@@ -19,7 +20,7 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The verifications about an upgrade converging to a new installation, removing only what is declared, never destroying data, the tested upgrade paths, all state in one store, the restore into an empty system, the image booting as an operating system and its atomic upgrade. Each test is written with its `_detects_violation` companion where it is a check of the repository.
+The verifications about an upgrade converging to a new installation, removing only what is declared, never destroying data, the tested upgrade paths, all state in one store and the restore into an empty system. The booted image has its own task (TASK-79).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -29,9 +30,7 @@ The verifications about an upgrade converging to a new installation, removing on
 - [ ] #3 test_R43_upgrade_removes_only_declared
 - [ ] #4 test_R44_upgrade_never_destroys_data
 - [ ] #5 test_R46_upgrade_paths_tested
-- [ ] #6 test_R50_engine_image_boots_as_operating_system
-- [ ] #7 test_R51_booted_upgrade_atomic_and_reversible
-- [ ] #8 test_R60_all_state_in_one_store
+- [ ] #6 test_R60_all_state_in_one_store
 <!-- AC:END -->
 
 ## Brief
@@ -44,7 +43,7 @@ Task: TASK-48, Write the tests of upgrade, backup and the booted image. Role: im
 
 ### Load these skills
 
-- anima-designing-for-production, anima-image-design, anima-database-design
+- anima-designing-for-production, anima-image-design, anima-database-design, anima-specifying-requirements
 
 ### Own these paths
 
@@ -62,8 +61,6 @@ Task: TASK-48, Write the tests of upgrade, backup and the booted image. Role: im
 - test_R43_upgrade_removes_only_declared
 - test_R44_upgrade_never_destroys_data
 - test_R46_upgrade_paths_tested
-- test_R50_engine_image_boots_as_operating_system
-- test_R51_booted_upgrade_atomic_and_reversible
 - test_R60_all_state_in_one_store
 
 ### Done when

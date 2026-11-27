@@ -21,6 +21,8 @@ from sysml_model import ROOT
 COMMIT = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 EXACT_VERSION = re.compile(r"\d+\.\d+\.\d+")
+# Submodules that hold the organization's shared repository, not a component.
+ORGANIZATION = {"shared"}
 
 # Registry of the sample references in the companion tests. The samples are put
 # together from parts, so that this file holds no image reference of its own for
@@ -80,11 +82,19 @@ def pinning_faults(
                 faults.append(f"{name}: not pinned by a full commit")
         elif not DIGEST.fullmatch(c.get("digest", "")):
             faults.append(f"{name}: image not pinned by digest")
-    if declared != set(submodule_pins):
+    # The submodules of the organization (its shared repository) are not
+    # components: they must be pinned by a full commit, which the index makes so.
+    fork_pins = {p: c for p, c in submodule_pins.items() if p not in ORGANIZATION}
+    faults += [
+        f"{path}: not pinned by a full commit"
+        for path, commit in submodule_pins.items()
+        if path in ORGANIZATION and not COMMIT.fullmatch(commit)
+    ]
+    if declared != set(fork_pins):
         faults.append("every submodule must be a declared component")
     faults += [
         f"{path} is not under third_party/"
-        for path in submodule_pins
+        for path in fork_pins
         if not path.startswith("third_party/")
     ]
 
@@ -276,6 +286,15 @@ def test_R11_every_dependency_pinned_detects_violation():
     assert faults(components=[{"name": "bare", "version": "1.0.0"}], submodule_pins={})
     assert faults(tools={"tool": "latest"})
     assert faults(workflows={"w.yml": "uses: actions/checkout@v4"})
+    # The reusable workflows of the organization are pinned like any action.
+    shared = "uses: cocreiamo/.github/.github/workflows/check.yml@"
+    assert faults(workflows={"w.yml": shared + "main"})
+    assert faults(workflows={"w.yml": shared + "0b4136b"})
+    assert faults(workflows={"w.yml": shared + "a" * 40 + " # shared"}) == []
+    # The shared repository is a submodule that is not a component.
+    organization = {**good["submodule_pins"], "shared": "d" * 40}
+    assert faults(submodule_pins=organization) == []
+    assert faults(submodule_pins={**organization, "shared": "short"})
     assert faults(devcontainer=container_config("base:1", {}))
     assert faults(devcontainer=container_config("base:1", {"f": {"version": "1.2.3"}}))
 

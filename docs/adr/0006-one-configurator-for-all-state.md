@@ -113,9 +113,21 @@ being vendored with a lock file; no secret in the state when write-only
 attributes are used; an identity with an unknown role refused before any
 change.
 
-Pending, not written: R37 (`test_R37_upgrade_converges_to_new_installation`),
-R43, R44 and R63 (see `tests/pending.toml`). Nothing of the configurator is
-built in this repository by this record.
+The configurator is written in this repository (`engine/configure/`: the
+declarations, the run script, the image and the guard of deletions). Observed on
+2026-11-27 in a pod of throwaway containers (the standalone proof, `mise run
+engine:configure-prove`), which passed every one of its checks: a first run that
+applies everything, a second run that changes nothing, hand-made changes on
+tracked objects reverted, the state encrypted and holding no secret, and a failed
+run that applies nothing and succeeds on the next. Observed on 2026-11-27 in the
+engine by the system tests: the configurator runs as a unit with the superuser's
+peer authentication and applies everything declared. The identity provider was in
+its development mode. Written tests: R6, R7, R14, R22, R34, R36, R37, R39, R48,
+R49, R63, R100, R101, R102, R104, R105 and R106 (the configurator's tests; those
+that need the pod are skipped by `check`). Pending, not written: R43, R44 and the
+rest of R7, R36 and R37 (see `tests/pending.toml`). Not run: an upgrade, because
+no release exists to compare with, the rotation of credentials (a task is in the
+backlog) and a token login of a person.
 
 ## Pros and Cons of the Options
 

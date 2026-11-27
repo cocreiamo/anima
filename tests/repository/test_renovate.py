@@ -28,7 +28,7 @@ def registered_image_names():
     return [c["image"] for c in components() + tool_images() if "image" in c]
 
 
-def test_R70_renovate_finds_every_image():
+def test_R70_update_bot_finds_every_image():
     expected = registered_image_names()
     assert expected, "no image in components.toml"
     text = (ROOT / "components.toml").read_text()
@@ -42,7 +42,7 @@ def entry(image_line):
     )
 
 
-def test_R70_renovate_finds_every_image_detects_violation():
+def test_R70_update_bot_finds_every_image_detects_violation():
     pattern = manager_pattern()
     name = "registry" + ".example/a/b"  # put together: no reference in this file
     spaced = "im" + f'age = "{name}"'

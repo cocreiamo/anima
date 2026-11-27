@@ -11,8 +11,9 @@ decision-makers: [founder]
 
 ## Context and Problem Statement
 
-Anima is several processes: the database server, the identity provider and its
-configurator, the secret store. They must run together on any machine an
+Anima is several processes: the database server, the identity provider, the
+configurator ([ADR-0006](0006-one-configurator-for-all-state.md)) and the
+secret store. They must run together on any machine an
 agency or a developer has, without the machine being prepared for them, and
 without the adopter installing or managing an orchestrator.
 
@@ -31,8 +32,8 @@ How is Anima delivered and started as several processes on any machine an agency
 
 ## Decision Drivers
 
-- Anima is several processes: the database server, the identity provider and
-  its configurator, the secret store.
+- Anima is several processes: the database server, the identity provider, the
+  configurator and the secret store.
 - They must run together on any machine, without the machine being prepared
   for them.
 - The adopter does not install or manage an orchestrator.
@@ -95,22 +96,23 @@ engine that is booted (R9, R41).
 ### The units are native Quadlet files
 
 The engine's containers are declared as Quadlet units (`.pod`, `.container`
-and the other files Quadlet reads), in `engine/image/`. There is no
+and the other files Quadlet reads): the pod and the readiness target in
+`engine/image/`, the units of each part in the directory of its capability
+under `engine/`. There is no
 Kubernetes manifest, no `podman kube play` and no compose file. What this gives
 by design:
 
 - **Start order is declared**, with `After=` and `Requires=`. It is not
   obtained by restarts, and there are no "wait for" scripts.
 - **The configurator is a unit that runs to completion at every start**, and
-  the other units wait for it. Configuring is part of every start, not only of
+  publishing to the outside waits for it. Configuring is part of every start, not only of
   the first (see "Converge, then become ready").
 - **Startup, liveness and readiness checks are the units' health settings**,
   and a failed health check restarts the container. The three checks are
   declared by every unit (R41).
 - **Nothing is published to the outside before the configurator has
   succeeded**, by ordering: the units that publish a port are ordered after
-  the configurator (R40). How the configurator reaches the stores while
-  nothing is published yet is one of the things the spike checks.
+  the configurator (R40).
 - **systemd is the init**: stopping on request is clean, and starting after an
   abrupt stop is a normal start (R42).
 - **The host alias and the published ports are settings of the units**, derived
@@ -133,8 +135,8 @@ services they generate, and `systemd-analyze verify` checks those. Both run
 inside a container of the engine image, so that the check works on any machine
 and needs nothing installed on it (R52). `kubeconform` and `kube-linter` are
 no longer needed, because the engine is no longer declared as a Kubernetes
-manifest. The check is adopted and not in use: it cannot run before the engine
-image exists (`anima-repository-conventions`).
+manifest. The check exists (`mise-tasks/engine/units-check`, R52, with a
+written test).
 
 ### Production is the default environment
 
@@ -171,8 +173,8 @@ other on the loopback. The rules:
    fixed hostname and its certificate carries it. Inside the pod the same name
    resolves to the pod itself, by a host alias that is a setting of the units,
    so a container validates the same issuer as a client outside does. A spike
-   of 2026-11-27 verified this for the earlier design; for the units it is
-   verified by the spike now under way.
+   of 2026-11-27 verified this for the earlier design; for the units it is not
+   yet verified by a test of this repository.
 3. **From outside the pod the database server accepts only TLS connections
    authenticated by token.** Password authentication exists only on the pod's
    loopback and only for service roles ([ADR-0004](0004-roles-and-access.md)).
@@ -191,20 +193,21 @@ leaves the engine closed and not ready, with a message the adopter can act on
 (R48). It holds no secret (R7). The configuration is not a state store: the
 engine never writes to it. The repository's own `config/` is the example
 configuration, used by tests and local development, which is the special
-environment. Nothing of this is built.
+environment. That the configuration is validated before ready is R48, whose verification is pending.
 
 ### Converge, then become ready
 
 The start sequence has two parts in this order: every place that holds state
 is brought to its declared state (see "Upgrades converge"), then the system
 becomes ready. The configurator is the unit that does the first part and runs
-to completion at every start; the units that serve are ordered after it. The
+to completion at every start; the database server starts first, inside the
+pod, and publishing to the outside is ordered after the configurator. The
 system accepts connections from outside only after the first part has been done
 and checked. A start that cannot converge leaves the system not ready and
 closed, never half-configured and serving: there is no state in which the
 database server accepts connections with yesterday's roles and today's access
 rules (R40, `anima-product-principles`). The requirement is stated and its verification is
-pending; the mechanism is not built.
+pending; the units that implement it exist and have not been seen to hold it.
 
 The database server does not need the identity provider to start: the
 validator reads the issuer at login time, not at start (R13). It does not need
@@ -235,10 +238,9 @@ real token login within the time limit of R9 and checks that the target was
 reached by then, and not before the login could succeed (R9, `anima-product-principles`).
 
 Observed on 2026-11-27 (see "Confirmation"): with both added capabilities, a
-container became healthy through its declared checks. Not observed and not
-claimed: that the readiness target is reached, that a failing check restarts
-its container, and that the target stays unreached when the configurator fails.
-The verification of R41 is pending. GAP-018 and GAP-019, which
+container became healthy through its declared checks, the readiness target was
+reached, a failing check restarted its container, and the target stayed
+unreached when the configurator failed (R41, R97, R98). GAP-018 and GAP-019, which
 concern an older podman and `podman kube play`, are closed: they no longer apply
 to a design that does not use them.
 
@@ -248,7 +250,7 @@ Container work in development, tests, continuous integration and documentation
 uses a daemonless, rootless container engine (podman), never Docker. Tests that
 start the engine use Testcontainers through podman's own API service, started
 on demand for the test session; no daemon and no host service is assumed. A
-spike of 2026-11-27 (rootless podman 4.9.3, testcontainers 4.15.0) started
+spike of 2026-11-27 (versions in "Confirmation") started
 the system through that service and left nothing behind; two limits remain
 (GAP-022).
 
@@ -294,8 +296,10 @@ The configurator is one for all state, OpenTofu with three providers
 ([ADR-0006](0006-one-configurator-for-all-state.md)); it sees only what is
 declared.
 
-The secret store's own self-initialization runs once only (GAP-020); its
-policies converge through the configurator. The requirement is stated (R37)
+The secret store's own self-initialization runs once only (GAP-020): what it
+creates (the certificate authority, the seed values, the first machine
+credential) is not converged afterwards. The secret store's policies, engines
+and roles converge through the configurator at every start. The requirement is stated (R37)
 and its verification is pending.
 
 **When the image is booted**, the upgrade of the machine is atomic: it runs
@@ -311,19 +315,19 @@ beyond it.
 
 ### Operations, Day 0 to Day 2
 
-| Phase   | Covers                                 | Mechanism                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Day 0   | model, ADRs, build, images on GHCR     | `mise`, `buildah`, GitHub Actions, SysML v2 Pilot Implementation; disk images with `bootc-image-builder`                                                                                                                                                                                                                                                                                                                                                 |
-| Day 1   | first start from an empty state        | the engine's units start in their declared order; a first-start unit with the `bao` command line generates the seed values; the secret store initializes itself and issues secrets and certificates ([ADR-0003](0003-secret-management.md)); the database server's `docker-entrypoint-initdb.d` may only create the empty cluster; the configurator unit applies everything declared, `keycloak-config-cli` for identities, and then the system is ready |
-| Runtime | logins and refusals                    | PostgreSQL `oauth` method over TLS, `pg_oidc_validator`                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Day 2   | changed identities, backup and restore | the configurator applied again; `pgBackRest` for the database server, with the secret store and the root of trust ([ADR-0003](0003-secret-management.md)); for a booted host, the atomic upgrade and its rollback                                                                                                                                                                                                                                        |
+| Phase   | Covers                                 | Mechanism                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Day 0   | model, ADRs, build, images on GHCR     | `mise`, `buildah`, GitHub Actions, SysML v2 Pilot Implementation; disk images with `bootc-image-builder`                                                                                                                                                                                                                                                                                                                                                                |
+| Day 1   | first start from an empty state        | the engine's units start in their declared order; a first-start unit with the `bao` command line generates the seed values; the secret store initializes itself and issues secrets and certificates ([ADR-0003](0003-secret-management.md)); the database server's `docker-entrypoint-initdb.d` may only create the empty cluster; the configurator unit applies everything declared ([ADR-0006](0006-one-configurator-for-all-state.md)), and then the system is ready |
+| Runtime | logins and refusals                    | PostgreSQL `oauth` method over TLS, `pg_oidc_validator`                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Day 2   | changed identities, backup and restore | the configurator applied again; `pgBackRest`, one backup of the database server that holds all state, restored with the root of trust that is kept apart ([ADR-0003](0003-secret-management.md)); for a booted host, the atomic upgrade and its rollback                                                                                                                                                                                                                |
 
-- An adapter that runs in the database server's process is governed in three
+- An adapter that runs in the database server's process or container is governed in three
   places: its fork and pin (`components.toml`), its build into the database
   server's image (the container file), and its activation. One that is on by default is created in the
   template database, so every database created later has it. `pgvector` is the
-  first; `pg_oidc_validator` and `pgbackrest` are the other adapters that run
-  in the database server's process ([ADR-0001](0001-hexagonal-architecture.md)). Its activation is reconciled at every start (see
+  first; `pg_oidc_validator` runs in the database server's process and `pgbackrest`
+  inside its container, invoked by it ([ADR-0001](0001-hexagonal-architecture.md)). Its activation is reconciled at every start (see
   "Upgrades converge").
 - Secrets and the TLS certificates are issued by the secret store, which
   initializes itself at first start ([ADR-0003](0003-secret-management.md)). Consumers get them from
@@ -336,9 +340,9 @@ beyond it.
 ### Consequences
 
 - Good, because the engine image is the unit that is tested, released and
-  attested (R16, R24); the units it runs will live in `engine/image/`
-  together with its container file, and will be validated without starting
-  them (R52).
+  attested (R16, R24); the pod and the readiness target live in `engine/image/`
+  with its container file, the units of each part in its capability's
+  directory, and they are validated without starting them (R52).
 - Good, because an adopter is never asked to install or manage an
   orchestrator, and has one artefact with two ways to start it (R9, R50).
 - Bad, because the image is an operating system, not only a program: it is
@@ -354,11 +358,12 @@ beyond it.
 - Neutral, because readiness is declared by the units and costs nothing to
   ask; that it is honest costs a login, so its test needs a configured
   identity provider and a user.
-- Good, because ready means converged: a start that cannot converge is not
-  ready and takes no connection from outside (R40).
+- Neutral, because ready means converged: a start that cannot converge is not
+  ready, but in a container run the services themselves are not held back until
+  convergence, only the readiness target and the access rules gate (R40, pending).
 - Neutral, because each unit carries three checks and the engine one
-  readiness answer (R41); a container became healthy through its declared
-  checks, and the rest of what the health settings promise is not yet verified.
+  readiness answer (R41); what the health settings promise was observed in a
+  container run and not on a booted machine.
 - Bad, because the operating system of a booted machine can be rolled back
   and the data cannot; the promise of R51 is bounded by "expand only".
 - Neutral, because there are two installation parameters. The address has a
@@ -367,29 +372,19 @@ beyond it.
 
 ### Confirmation
 
-Pending, not written: R9 (`test_R9_single_command_start`), R29, R36, R40, R41,
-R42, R48, R50, R51, R52, R60 and R61 (see `tests/pending.toml`). The evidence
-below is from a spike, not from a test of this repository.
+Observed on 2026-11-27 by the system tests (`mise run engine:test`, 27 passed, and R98 run alone): the engine image runs as a container with the two added capabilities, reaches readiness in 45 to 106 s, a failing check restarts its container, the readiness target stays unreached when the configurator fails, a killed first start is repeated with the same command, the units are validated without starting (17 units), and the tag of an inner image changes with every file it copies. Written: R9, R11, R13, R29, R30, R41, R42, R48, R52, R61, R97, R98 and R99; R21 is written and was not run by the tests. Pending, not written: R7, R16, R20, R24, R36, R37, R40, R43, R50, R51 and R60 (see `tests/pending.toml`).
+
+What this record does not claim. R40 is pending and not met in a container run: the readiness target and the access rules hold the outside back, but the services themselves start before the configurator has finished (a task is in the backlog). The state volumes of a container run are anonymous, so removing the container loses the state (a task). The booted way was not run: only the script and the condition of the booted listen address were. The identity provider runs in its development mode. The configurator runs as a unit with the superuser's peer authentication, observed.
 
 Observed on 2026-11-27 in a spike, with the pinned base image, which ships
 podman 6.2.0 and systemd 262: the image builds from that base and runs as a
-rootless container; the declared start order and the gate work, so nothing is
-served before the configurator has succeeded; the inner images load from an OCI
-directory by a unit at first start. Image size observed: 2.45 GB with two inner
-images, of which 2.02 GB is the base image; there is no limit on the size of
-the engine image.
+rootless container; the inner images load from an OCI directory by a unit at
+first start. Image size observed: 2.45 GB with two inner images, of which 2.02 GB
+is the base image; there is no limit on the size of the engine image.
 
-Observed on 2026-11-27, running the engine image as a container with the two
-added capabilities (`SYS_ADMIN` and `SYS_PTRACE`) and no full privilege: a
-container became healthy through its declared checks. Before the second
-capability, every exec into an inner container failed (GAP-034): the inner
-container runtime opens the namespace files of the target process when it
-executes a command in a container, a check that needs the capability, and a
-health check is such a command. Not observed: the readiness target reached, a
-failing check restarting its container, and the target staying unreached when
-the configurator fails. **The design is unproven on those three points**, and
-this record does not claim that the health settings behave as described
-beyond a healthy container.
+Observed on 2026-11-27 with rootless podman 4.9.3 and Testcontainers 4.15.0 on the host: a test session started the system through podman's own API service and left nothing behind, and `podman wait --condition=healthy` returned at once (GAP-055).
+
+Before the second capability, every exec into an inner container failed (GAP-034): the inner container runtime opens the namespace files of the target process when it executes a command in a container, a check that needs the capability, and a health check is such a command.
 
 ## Pros and Cons of the Options
 

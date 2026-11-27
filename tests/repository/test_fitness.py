@@ -253,9 +253,56 @@ def test_R69_fitness_markers_are_complete_detects_violation():
 
 # ---- R56: every check seen to fail ----------------------------------------------
 
-# Verifications of a repository-level requirement that have no companion that
-# shows them failing, each with the reason. Few, and in this one place.
-EXCEPTIONS = {}
+# Verifications that have no companion that shows them failing, each with the
+# reason, in this one place. The check reads the tests of the repository, of
+# the configurator and of the engine. A system test that starts the engine is of
+# one of two kinds, and a companion for either would need a deliberately broken
+# engine, which no test here builds:
+#  - it carries its negative case inside its own body (a bad input is run and
+#    refused, or a broken unit is checked), so the refusal is what it asserts;
+#  - it observes the running engine and asserts a property of what it sees.
+NEGATIVE_INSIDE = (
+    "carries its negative case in its own body: a wrong input is run and refused"
+)
+OBSERVES_ENGINE = (
+    "observes a running engine; its wrong input is a broken engine, which no test "
+    "builds (proposed rule: a system test is paired with a companion that feeds "
+    "its assertion a recorded wrong observation, as the configurator's tests do)"
+)
+EXCEPTIONS = {
+    **dict.fromkeys(
+        [
+            "test_R3_1_tampered_token_rejected",
+            "test_R12_superuser_local_only",
+            "test_R15_encrypted_connections_only",
+            "test_R52_engine_parts_validated_without_starting",
+            "test_R103_adopter_secrets_arrive_as_files",
+        ],
+        NEGATIVE_INSIDE,
+    ),
+    **dict.fromkeys(
+        [
+            "test_R1_engine_built_from_pinned_sources",
+            "test_R2_valid_token_opens_session",
+            "test_R5_identity_maps_to_role",
+            "test_R9_single_command_start",
+            "test_R13_database_server_starts_without_identity_provider",
+            "test_R21_upstream_regression_suite_passes",
+            "test_R29_depends_only_on_container_engine",
+            "test_R30_listen_address_follows_the_way_of_starting",
+            "test_R30_nothing_reachable_by_default",
+            "test_R41_probes_and_single_readiness",
+            "test_R42_abrupt_stop_recovers_with_same_start",
+            "test_R61_database_server_serves_without_secret_store",
+            "test_R62_storage_connection_uses_no_secret",
+            "test_R64_mail_delivered_through_configured_service",
+            "test_R95_absent_setting_takes_production_default",
+            "test_R97_failing_health_check_restarts_container",
+            "test_R98_readiness_negative_when_configurator_fails",
+        ],
+        OBSERVES_ENGINE,
+    ),
+}
 
 
 def checks_without_companion(names, exceptions):
@@ -284,7 +331,9 @@ def checks_without_companion(names, exceptions):
 
 
 def test_R56_every_check_seen_to_fail():
-    names = defined_function_names(ROOT / "tests" / "repository")
+    names = set()
+    for directory in ("repository", "configure", "system"):
+        names |= defined_function_names(ROOT / "tests" / directory)
     faults = checks_without_companion(names, EXCEPTIONS)
     assert not faults, faults
 
@@ -298,5 +347,10 @@ def test_R56_every_check_seen_to_fail_detects_violation():
     assert checks_without_companion({check}, {check: "why"}) == []
     assert checks_without_companion({check}, {check: ""})
     assert checks_without_companion({check, companion}, {check: "why"})
+    # A test of the configurator or of the engine is read like the others: its
+    # directory is one of those the check scans.
+    assert {"configure", "system"} <= {
+        p.name for p in (ROOT / "tests").iterdir() if p.is_dir()
+    }
     assert checks_without_companion({check}, {"test_R8_y": "why"})
     assert checks_without_companion({"test_helper_x"}, {}) == []

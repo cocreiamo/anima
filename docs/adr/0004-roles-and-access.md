@@ -38,20 +38,31 @@ Which roles exist, which rule admits each kind of caller, and how does an identi
 
 Chosen option: "Functional role names, authorization by scope in `pg_hba.conf`, and the `idp` database closed by `pg_hba.conf`", because the database server then keeps no per-user list, and a database created later cannot be left open.
 
+### Three things are called "user"
+
+The word covers three different things, which this record keeps apart.
+
+1. **Database roles** are few and fixed, and the product owns them (below). Nothing is ever created in the database for a person.
+2. **Declared identities** are the few, known people and applications that may reach the database. The installation declares them in its configuration.
+3. **End users of an application** built on Anima are many. They are created at run time in the identity provider when they register, and are never written in any file.
+
+The identities and the end users are not synchronized. The two worlds meet at exactly one point, the scope in the token: an identity whose token carries the scope of a role may open a session as that shared role, and the session still records who it is (`system_user`, below).
+
 ### Roles
 
 Names are functional, with no product prefix. They are reserved (below).
 
-| Role          | Kind      | Reaches the database server by                      | What it is                                                                                      |
-| ------------- | --------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `admin`       | token     | token, over TLS, from outside                       | May create databases and roles; not a superuser.                                                |
-| `readwrite`   | token     | token, over TLS, from outside                       | Login role, member of `pg_write_all_data` and `pg_read_all_data`.                               |
-| `readonly`    | token     | token, over TLS, from outside                       | Login role, member of `pg_read_all_data`.                                                       |
-| `monitor`     | token     | token, over TLS, from outside                       | Login role, member of `pg_monitor`.                                                             |
-| `svc_idp`     | service   | password, from the pod's loopback                   | The identity provider. Reaches only its own database, `idp`.                                    |
-| `svc_backup`  | service   | password, from the pod's loopback                   | The backup.                                                                                     |
-| `svc_secrets` | service   | password, from the pod's loopback                   | The management role of the secret store: `CREATEROLE` and `pg_signal_backend`, not a superuser. |
-| `postgres`    | superuser | local socket inside the database server's container | No password. Reachable from nowhere else.                                                       |
+| Role                 | Kind      | Reaches the database server by                                | What it is                                                                                                                                                                                        |
+| -------------------- | --------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin`              | token     | token, over TLS, from outside                                 | May create databases and roles; not a superuser.                                                                                                                                                  |
+| `readwrite`          | token     | token, over TLS, from outside                                 | Login role, member of `pg_write_all_data` and `pg_read_all_data`.                                                                                                                                 |
+| `readonly`           | token     | token, over TLS, from outside                                 | Login role, member of `pg_read_all_data`.                                                                                                                                                         |
+| `monitor`            | token     | token, over TLS, from outside                                 | Login role, member of `pg_monitor`.                                                                                                                                                               |
+| `svc_idp`            | service   | password, from the pod's loopback                             | The identity provider. Reaches only its own database, `idp`.                                                                                                                                      |
+| `svc_backup`         | service   | password, from the pod's loopback                             | The backup.                                                                                                                                                                                       |
+| `svc_secrets_manage` | service   | operating-system peer authentication, local socket, no secret | The role with which the secret store manages the credentials of other roles: `CREATEROLE` and `pg_signal_backend`, not a superuser.                                                               |
+| `svc_secrets_store`  | service   | operating-system peer authentication, local socket, no secret | The role with which the secret store reaches its storage. Reaches only its own database, `secrets_store`.                                                                                         |
+| `postgres`           | superuser | local socket inside the database server's container           | No password. Reachable from nowhere else, except by the configurator, which runs as the operating-system user of the same name and reaches the server on the local socket by peer authentication. |
 
 `admin` is not a superuser; it may create databases and roles and nothing
 more. The three other token roles are login roles that are members of
@@ -60,23 +71,29 @@ work and no grant is written per database.
 
 ### Two rules
 
-1. **A service role is never reached by token.** A role whose name begins with
-   `svc_` authenticates only by password, only from the pod's loopback. No
-   rule accepts a token for it and no rule lets it in from outside.
+1. **A service role is never reached by token and never from outside the
+   engine.** A role whose name begins with `svc_` authenticates, from inside,
+   either by password on the pod's loopback (the roles of components that speak
+   the database protocol over TCP: `svc_idp`, `svc_backup`) or, for the secret
+   store's two roles `svc_secrets_store` and `svc_secrets_manage`, by
+   operating-system peer authentication over the local socket, with no secret
+   and no password. No rule accepts a token for it and no rule lets it in from
+   outside.
 2. **A token role is reached only by token.** From outside the pod the database server
    accepts only TLS connections authenticated by token ([ADR-0005](0005-engine-image-and-runtime.md)). A password
    is accepted nowhere from outside. The one exception to "token only" is the
    local superuser, `postgres`, which has no password and no network access.
 
 These rules are requirements (R4, R31). Their verifications are listed in
-`tests/pending.toml` until written; nothing in this ADR is built yet.
+`tests/pending.toml` until written (Confirmation).
 
 ### Authorization by scope
 
 One `pg_hba.conf` rule per token role admits that role with the `oauth`
 method. The rule requires a scope with the same name as the role and delegates
-the mapping to the validator. The database server keeps no per-user list: `pg_ident.conf`
-is empty. Verified by a spike on 2026-11-27 with `pg_oidc_validator` 1.1.0.
+the mapping to the validator. The database server keeps no per-user list: the
+one mapping in `pg_ident.conf` is the secret store's operating-system user to
+its storage role, and none concerns a person or an application.
 
 - In the identity provider, a scope is granted only to the holders of the
   matching realm role. Who may assume which role is therefore declared only in
@@ -88,6 +105,14 @@ is empty. Verified by a spike on 2026-11-27 with `pg_oidc_validator` 1.1.0.
 - Every rule that accepts tokens requires a non-empty scope. A test on our
   configuration forbids an empty one (R34), because with delegated mapping an
   empty scope would admit any valid token of the issuer (GAP-011).
+
+### Declared identities: people and applications
+
+1. **The configuration declares two kinds of identity: people and applications.** An application authenticates as itself and connects with a token that carries the scopes of its roles, which it requests itself (R6). Its credential is derived from the root of trust, set write-only in the identity provider and readable there by an operator; its rotation is not built (TASK-71). The token validator identifies an identity by a claim that people and applications both carry, never by the e-mail, which an application does not have. These decisions are not yet shown by a test: no token login of an application has been run against the database server.
+2. **A configuration in which no identity holds the administrator role is refused** before the engine becomes ready, with a message that says so (R100).
+3. **Only declared identities can hold the scope of a role, and the scope of a role is granted only to the engine's own client and to declared applications.** An identity created at run time is never touched by the configurator and never receives the scope of a role (R101); a client that is not declared does not obtain it either (R102).
+4. **No default person ships with the product.** The first administrator is declared by whoever installs.
+5. **End users of applications live in a realm of their own,** separate from the engine's, and the database server trusts only the issuer of the engine's realm. A token of an end user then cannot open a session even by a mistake of configuration, which makes rule 3 impossible to break, by design. This is decided and not built: no realm of end users exists, and no test of it is written; what already follows from the single trusted issuer is R3.3.
 
 ### The `idp` database is closed by `pg_hba.conf`
 
@@ -117,7 +142,7 @@ included, and the database server takes no connection from outside before it
 has (`anima-designing-for-production`; [ADR-0005](0005-engine-image-and-runtime.md)). After an upgrade an
 installation therefore holds the same roles, privileges and access rules as a
 new installation of the same version (R37, verification pending). The
-declaration and the configurator are not built; the configurator is OpenTofu
+configurator is OpenTofu
 ([ADR-0006](0006-one-configurator-for-all-state.md)), which sees only declared
 objects.
 
@@ -153,8 +178,9 @@ and libpq's discovery round makes every token login log one `FATAL` first
 - Good, because who may assume which role is read in one file, the
   identities file; the database server's access rules are the same whatever
   the people are.
-- Good, because a password exists only for service roles, and is issued and
-  rotated by the secret store ([ADR-0003](0003-secret-management.md)).
+- Good, because a password exists only for service roles, none for the secret
+  store's storage role, and the passwords are issued by the secret store
+  ([ADR-0003](0003-secret-management.md)).
 - Good, because the `svc_idp` password never leaves the pod's loopback; a
   connection from anywhere else is refused by `pg_hba.conf` before
   authentication.
@@ -166,14 +192,18 @@ and libpq's discovery round makes every token login log one `FATAL` first
 
 ### Confirmation
 
-Not built: nothing in this ADR is built. Pending, not written: R4 (`test_R4_no_password_access`), R22, R27, R31, R32, R33, R34 (a test on our configuration forbids an empty scope), R35 and R37 (see `tests/pending.toml`); R27 and R32 include a test of the order of the `idp` rules in `pg_hba.conf`.
+Built and observed on 2026-11-27: the access rules and the identity map are rendered from the one declaration of the roles (`engine/configure/roles.yaml`) by the configurator's task at build time into the cache, and are inputs of the image tag, not committed files; the engine's system tests logged an application in with its token over TLS as the role it holds and had the session of a role it does not hold refused (`tests/system/test_tokens.py`, R2 and R5), and the configurator's proof (a pod of throwaway containers, 2026-11-27) showed the declared roles, the confinement of `svc_idp` and the refusal of a configuration without an administrator. Observed on 2026-11-27 in a spike with `pg_oidc_validator` 1.1.0: authorization by scope with delegated mapping. Written: R6, R22, R34, R100, R101 and R102. Pending, not written: R3.3 (`test_R3_3_foreign_issuer_token_rejected`), R4, R27, R31, R32, R33, R35 and R37 (see `tests/pending.toml`); R27 and R32 include a test of the order of the `idp` rules. Not observed: a person's token login (it needs a browser flow), the realm of the end users of applications (decided and not built, without a requirement of its own), the rules of every token role in a booted machine.
 
 ## Pros and Cons of the Options
 
 ### Role names with a product prefix
 
-- Bad, because the decision is that names are functional, with no product prefix. The known cost of the functional names is that unbranded names such as `admin` and `monitor` will collide with names that applications and tools already use; the collision fails loudly rather than being resolved silently.
+- Bad, because a prefix is not what protects the brand: the trademark does (`anima-licensing-and-brand`). A prefix also ties the names of roles, scopes and files to a product, so that replacing the product renames them. The cost of functional names is that unbranded names such as `admin` and `monitor` will collide with names that applications and tools already use; the collision fails loudly rather than being resolved silently.
 
 ### Protecting the `idp` database with `GRANT`
 
 - Bad, because PostgreSQL grants `CONNECT` on a new database to everyone by default, so a protection written as grants would have to be remembered for every database created later.
+
+## More Information
+
+If end users ever query data through a general interface with their own row-level permissions, the interface holds the database session and tells the database who the user is; end users still do not become database roles. This is noted for later (TASK-67) and is not decided.

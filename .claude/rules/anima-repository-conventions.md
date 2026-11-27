@@ -6,8 +6,6 @@ paths:
   - ".gitignore"
   - ".prettierignore"
   - ".devcontainer/**"
-  - "docs/adr/**"
-  - "adrs.toml"
   - "REUSE.toml"
   - "MODULE.bazel"
   - "BUILD.bazel"

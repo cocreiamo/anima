@@ -22,7 +22,7 @@ and by whom is in `anima-writing-a-decision-record`.
 ## Rules
 
 1. **Create a record with `adrs new "Title"` and quote a multi-word title.** Observed on 2026-11-27 with adrs 0.13.0; working files `adrs.toml`, `docs/adr/`, `mise-tasks/generate/generators.py`.
-2. **Give every record `number` and `title` besides plain MADR front matter.** Example (`docs/adr/0010-roles-and-access.md`): `number: 10`, `title: …`, `status: proposed`, `date: 2026-11-27`, `decision-makers: [<role>]`. Not: plain MADR front matter; without `number` the record is not listed and no error is shown (GAP-044). Run `adrs export json` and count the records after converting.
+2. **Give every record `number` and `title` besides plain MADR front matter.** Example (`docs/adr/0004-roles-and-access.md`): `number: 4`, `title: …`, `status: proposed`, `date: 2026-11-27`, `category: architecture`, `decision-makers: [founder]`. Not: plain MADR front matter; without `number` the record is not listed and no error is shown (GAP-044). Run `adrs export json` and count the records after converting.
 3. **Write decision makers as a YAML list, even for one.** Not: `decision-makers: Name`, which is not read.
 4. **Check with `adrs doctor --warnings-as-errors`, and add what it does not check.** It checks required sections, status values, dates, numbering and Markdown links between records. Not: expecting it to check plain-text references to other records or the "Considered Options" section (GAP-045); a test of ours must check what matters.
 5. **Keep every key in `adrs.toml` and point the tool at it.** Keys: `adr_dir`, `mode = "nextgen"`, `default_status`, `no_edit = true`, `[templates]` with `format = "madr"` and `variant = "full"`, and `[doctor]` with `warnings_as_errors = true`; `ADRS_CONFIG = "{{config_root}}/adrs.toml"` in `mise.toml`. Not: expecting the same result on every machine; the tool also reads a user-level configuration, so a key set in `adrs.toml` wins over a global one only if named there.
@@ -33,7 +33,7 @@ and by whom is in `anima-writing-a-decision-record`.
 
 ## Questions to answer before proposing
 
-- Does the record list at least two options that were really considered?
+- Does the record list only options that were really considered (`anima-writing-a-decision-record`)?
 - Are references to other records Markdown links?
 - After the change, does `adrs export json` count every record?
 - Does the decision belong in a new record or an amendment?

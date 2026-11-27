@@ -25,14 +25,14 @@ Look here before building something. Each section is derived from its source; th
 | Id | Name | Verification |
 | --- | --- | --- |
 | R1 | engine built from pinned sources | written |
-| R2 | valid token opens session | pending |
+| R2 | valid token opens session | written |
 | R3 | invalid token rejected | see its parts |
-| R3.1 | tampered token rejected | pending |
+| R3.1 | tampered token rejected | written |
 | R3.2 | expired token rejected | pending |
 | R3.3 | foreign issuer token rejected | pending |
 | R4 | no password access | pending |
-| R5 | identity maps to role | pending |
-| R6 | identities declared | pending |
+| R5 | identity maps to role | written |
+| R6 | identities declared | written |
 | R7 | secrets generated | pending |
 | R8 | database server depends on standard issuer only | pending |
 | R9 | single command start | written |
@@ -40,15 +40,15 @@ Look here before building something. Each section is derived from its source; th
 | R11 | every dependency pinned | written |
 | R12 | superuser local only | written |
 | R13 | database server starts without identity provider | written |
-| R14 | identities reapplied | pending |
-| R15 | encrypted connections only | pending |
+| R14 | identities reapplied | written |
+| R15 | encrypted connections only | written |
 | R16 | published images attested | pending |
 | R17 | component licenses allowed | written |
 | R18 | every file licensed | written |
 | R19 | vector search in every database | pending |
 | R20 | backup restores into empty system | pending |
-| R21 | postgresql compatible | pending |
-| R22 | roles declared with identities | pending |
+| R21 | passes upstream regression suite | written |
+| R22 | roles declared with identities | written |
 | R23 | images for both architectures | pending |
 | R24 | release only from verified commit | pending |
 | R25 | every gap registered | written |
@@ -60,12 +60,12 @@ Look here before building something. Each section is derived from its source; th
 | R31 | roles authenticate by kind | pending |
 | R32 | idp database only for its role | pending |
 | R33 | token for other client refused | pending |
-| R34 | token rules require scope | pending |
+| R34 | token rules require scope | written |
 | R35 | fixed role names reserved | pending |
 | R36 | failed first start repeatable | pending |
 | R37 | upgrade converges | pending |
 | R38 | derived files generated | written |
-| R39 | each fact declared once | pending |
+| R39 | each fact declared once | written |
 | R40 | serves only when converged | pending |
 | R41 | probes and single readiness | written |
 | R42 | one start path after crash | written |
@@ -74,8 +74,8 @@ Look here before building something. Each section is derived from its source; th
 | R45 | contractions register well formed | written |
 | R46 | upgrade paths tested | pending |
 | R47 | builds reproducible | pending |
-| R48 | configuration validated before ready | pending |
-| R49 | configuration names no adapter | pending |
+| R48 | configuration validated before ready | written |
+| R49 | configuration names no adapter | written |
 | R50 | image boots as operating system | pending |
 | R51 | booted upgrade atomic and reversible | pending |
 | R52 | engine parts validated without starting | written |
@@ -88,15 +88,15 @@ Look here before building something. Each section is derived from its source; th
 | R59 | one adapter active per port | pending |
 | R60 | all state in one store | pending |
 | R61 | server serves without secret store | written |
-| R62 | storage connection uses no secret | pending |
-| R63 | declared identity can set its credential | pending |
-| R64 | mail delivered through configured service | pending |
+| R62 | storage connection uses no secret | written |
+| R63 | declared identity credential never in file | written |
+| R64 | mail delivered through configured service | written |
 | R65 | every setting has production default | pending |
 | R66 | profile differs only in selection and data | pending |
 | R67 | every adapter is part of the engine | written |
 | R68 | limits held in model | written |
 | R69 | fitness markers complete | written |
-| R70 | renovate finds every image | written |
+| R70 | update bot finds every image | written |
 | R71 | every test verifies requirement | written |
 | R72 | skills have one schema | written |
 | R73 | unverified rules counted | written |
@@ -121,10 +121,19 @@ Look here before building something. Each section is derived from its source; th
 | R92 | advisory hook never blocks | written |
 | R93 | only architecture records exist | written |
 | R94 | no reference to missing record | written |
-| R95 | absent setting takes production default | pending |
+| R95 | absent setting takes production default | written |
 | R96 | declared identity receives credential link | pending |
 | R97 | failing health check restarts container | written |
-| R98 | readiness negative when configurator fails | pending |
+| R98 | readiness negative when configurator fails | written |
+| R99 | image rebuilt when any input changes | written |
+| R100 | configuration without administrator refused | written |
+| R101 | undeclared identity never holds role scope | written |
+| R102 | undeclared client gets no role scope | written |
+| R103 | adopter secrets arrive as files | written |
+| R104 | second run changes nothing | written |
+| R105 | declarations follow provider guards | written |
+| R106 | plan guard refuses undeclared contraction | written |
+| R107 | bare interpreter refused | written |
 
 ## Components
 
@@ -133,10 +142,11 @@ Look here before building something. Each section is derived from its source; th
 | postgresql | database server: PostgreSQL fork (part of the engine) |
 | pg_oidc_validator | adapter: token validation (runs in the database server's process) |
 | pgvector | adapter: vector search (runs in the database server's process) |
-| pgbackrest | adapter: backup and restore (runs in the database server's process) |
+| pgbackrest | adapter: backup and restore (runs inside the database server's container, invoked by it) |
 | openbao | adapter: secret store (part of the engine) |
 | keycloak | adapter: identity provider (part of the engine) |
 | opentofu | adapter: configurator, the one that applies all declared state (part of the engine) |
+| opentofu-image | binary of the configurator: copied from the official image into the configurator's image |
 | terraform-provider-postgresql | provider of the configurator: the database server's roles, privileges and extensions |
 | terraform-provider-vault | provider of the configurator: the secret store, used against the secret store's compatible API |
 | terraform-provider-keycloak | provider of the configurator: the token issuer's realm, roles, scopes, clients and users |
@@ -144,8 +154,9 @@ Look here before building something. Each section is derived from its source; th
 | debian | base of the database server's image: operating system of the inner container |
 | ubi9 | base of the identity provider's image: the stage that installs its packages (the upstream container file's own base) |
 | ubi9-micro | base of the identity provider's image: the final stage (the upstream container file's own base) |
-| alpine | base of the secret store's image: the final stage (the upstream container file's own base) |
+| alpine | base of the secret store's image (the upstream container file's own base) and of the configurator's image |
 | mailpit | adapter: outgoing mail (stand-in, local development and CI only) |
+| mailpit-image | stand-in of outgoing mail: the upstream image the engine's mail unit is built from |
 
 ## Tasks (`mise run <task>`)
 
@@ -155,13 +166,22 @@ Look here before building something. Each section is derived from its source; th
 | `build` | Build Anima's own code with Bazel |
 | `check` | Run every check |
 | `commit-msg` | Git commit-msg hook: the message follows Conventional Commits |
-| `engine:build` | Build the inner images (database, access, secrets) from the pinned forks, or the ones named; skips an image whose inputs did not change |
+| `engine:build` | Build the inner images (database, access, secrets, mail) from the pinned forks, or the ones named; skips an image whose inputs did not change |
+| `engine:configure-build` | Build the configurator image; its tag is a hash of every input, so an unchanged image is not rebuilt |
+| `engine:configure-check` | Static checks of the configurator's declarations (no secret persisted, seconds, destroy protection, facts declared once, no adapter named, identities file, generated access rules) |
+| `engine:configure-guard` | Guard of expand-only: apply the declarations of a previous state to throwaway containers, plan the current ones, and fail unless planned deletions and replacements equal contractions.toml |
+| `engine:configure-pod` | Start (up), remove (down) or run the configurator once in (run) the throwaway pod of its proof: database server, secret store and identity provider from the engine's images |
+| `engine:configure-prove` | Prove the configurator standalone: a pod of throwaway containers, a first run from empty, a second run that changes nothing, identity changes, refusals, drift repair, no secret in the state, a target that is down; results in .cache/configure/proof/ |
+| `engine:configure-render` | Generate the database server's access rules (pg_hba.conf) and identity map from the declaration of the fixed roles, into .cache/configure/ |
+| `engine:configure-test` | Run the configurator's tests, including the ones that need the pod of throwaway containers (CONFIGURE_PROOF=1) |
 | `engine:down` | Stop the engine container and remove it with its volumes |
 | `engine:image` | Build the engine image (operating system, units and the inner images as archives) |
 | `engine:regress` | Run PostgreSQL's own regression suite against the database server build (R21); long |
+| `engine:tag` | Print the tag of an inner image: a hash of its source commits (standard input), its container file and every file that it copies |
 | `engine:test` | Run the system tests (they start the engine image as a container); extra arguments go to pytest |
 | `engine:units-check` | Validate the engine's units without starting them: Quadlet's dry run and systemd-analyze verify, inside a container of the engine image |
 | `engine:up` | Start the engine image as a container with rootless podman (name: anima-engine) |
+| `engine:wait` | Wait until the engine container (ANIMA_NAME, default anima-engine) is healthy; prints the seconds it took |
 | `format` | Write the generated files, then format Anima's own files |
 | `generate` | Write every generated file (ADR index from adrs, skills index and pointers, pending tests) |
 | `generate:check` | Fail if a generated file is out of date; writes nothing |
@@ -206,10 +226,10 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
 - R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
 - R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
-- R30, nothing reachable by default, against the running system: `test_R30_nothing_reachable_by_default` (written).
-- R37, upgrade converges, when an image is promoted: `test_R37_upgrade_converges_to_new_installation` (pending).
+- R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
+- R37, upgrade converges, when an image is promoted: `test_R37_declared_state_is_applied` (written).
 - R38, derived files generated, at every commit: `test_R38_derived_files_generated` (written).
-- R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (pending).
+- R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_recovers_with_same_start` (written).
@@ -217,7 +237,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
 - R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
-- R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (pending).
+- R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (written).
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
 - R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
@@ -230,7 +250,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
 - R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
-- R70, renovate finds every image, at every commit: `test_R70_renovate_finds_every_image` (written).
+- R70, update bot finds every image, at every commit: `test_R70_update_bot_finds_every_image` (written).
 - R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
 - R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
 - R73, unverified rules counted, at every commit: `test_R73_unverified_rules_counted` (written).
@@ -255,6 +275,11 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R92, advisory hook never blocks, at every commit: `test_R92_advisory_hook_never_blocks` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
 - R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
+- R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
+- R101, undeclared identity never holds role scope, when an image is promoted: `test_R101_undeclared_identity_never_holds_role_scope` (written).
+- R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
+- R105, declarations follow provider guards, at every commit: `test_R105_declarations_follow_the_guards` (written).
+- R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
 
 ## Skills
 
@@ -267,6 +292,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - `anima-designing-for-production` (product)
 - `anima-image-design` (capability)
 - `anima-licensing-and-brand` (product)
+- `anima-mail-design` (capability)
 - `anima-maintaining-a-fork` (product)
 - `anima-product-principles` (product)
 - `anima-repository-conventions` (product)

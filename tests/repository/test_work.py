@@ -231,10 +231,13 @@ def repository_read(path):
 
 
 def written_test_functions():
+    """The tests of the repository and the system tests, by name, with the file
+    that defines each (a guard may be a test that starts the engine)."""
     found = {}
-    for path in sorted((ROOT / "tests" / "repository").glob("test_*.py")):
-        for name in defined_function_names_of(path):
-            found[name] = str(path.relative_to(ROOT))
+    for directory in ("repository", "system"):
+        for path in sorted((ROOT / "tests" / directory).glob("test_*.py")):
+            for name in defined_function_names_of(path):
+                found[name] = str(path.relative_to(ROOT))
     return found
 
 
@@ -397,13 +400,28 @@ def open_too_long(pms, today, limit):
     ]
 
 
+def limit_in_days(limits):
+    """The limit, held in seconds in the model (GAP-035: the pilot does not check
+    a unit, so the unit is asserted here), as a number of days."""
+    value, unit = limits["maxTimeOpen"]
+    assert unit == "s", f"maxTimeOpen is in {unit}, not in seconds"
+    return value / 86400
+
+
 def test_R85_postmortem_not_open_too_long(model):
-    limit = thresholds(model)["R85"]["maxDaysOpen"][0]
+    limit = limit_in_days(thresholds(model)["R85"])
     wrong = open_too_long(read_postmortems(), date.today(), limit)
     assert not wrong, wrong
 
 
 def test_R85_postmortem_not_open_too_long_detects_violation():
+    assert limit_in_days({"maxTimeOpen": (1209600, "s")}) == 14
+    try:
+        limit_in_days({"maxTimeOpen": (14, "B")})
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("a limit in another unit was accepted")
     pms = [_pm(status="open", date="2026-11-01")]
     assert open_too_long(pms, date(2026, 11, 10), 14) == []
     assert open_too_long(pms, date(2026, 11, 20), 14)

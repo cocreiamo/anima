@@ -20,7 +20,7 @@ paths:
 How agents work in this repository: one pipeline, neutral files for everything
 an agent reads, and checks that keep the files true. How the backlog tool
 behaves is `anima-tech-backlog-md`; what a record of architecture is,
-`anima-repository-conventions`.
+`anima-writing-a-decision-record`.
 
 ## Use this when
 

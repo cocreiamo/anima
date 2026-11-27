@@ -4,6 +4,7 @@ title: Write the tests of identities and configuration
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:44Z'
+updated_date: '2026-11-27T18:56:07Z'
 labels:
   - pending-tests
 dependencies: []
@@ -20,7 +21,7 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The verifications about the declaration of identities, the configuration read at every start (defaults, profiles, unknown settings, no secret in a file), the configuration naming no adapter, one adapter active per port, and an identity receiving a message with a link to set its credential. Each test is written with its `_detects_violation` companion where it is a check of the repository.
+The verifications about the declaration of identities of two kinds (people and applications), the refusal of a configuration without an administrator, an identity or a client that is not declared never holding the scope of a role, the configuration read at every start (defaults, profiles, no adapter named), one adapter active per port, no credential written in a file and an identity receiving a message with a link to set its credential. The tests of the refusal of an invalid configuration and of an absent setting taking its default are written already.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -29,14 +30,15 @@ The verifications about the declaration of identities, the configuration read at
 - [ ] #2 test_R14_identities_reapplied
 - [ ] #3 test_R22_roles_declared_with_identities
 - [ ] #4 test_R39_each_fact_declared_once
-- [ ] #5 test_R48_configuration_validated_before_ready
-- [ ] #6 test_R49_configuration_names_no_adapter
-- [ ] #7 test_R59_one_adapter_active_per_port
-- [ ] #8 test_R63_declared_identity_can_set_its_credential
-- [ ] #9 test_R65_every_setting_has_production_default
-- [ ] #10 test_R66_profile_differs_only_in_selection_and_data
-- [ ] #11 test_R95_absent_setting_takes_production_default
-- [ ] #12 test_R96_declared_identity_receives_credential_link
+- [ ] #5 test_R49_configuration_names_no_adapter
+- [ ] #6 test_R59_one_adapter_active_per_port
+- [ ] #7 test_R65_every_setting_has_production_default
+- [ ] #8 test_R66_profile_differs_only_in_selection_and_data
+- [ ] #9 test_R96_declared_identity_receives_credential_link
+- [ ] #10 test_R63_declared_identity_credential_never_in_file
+- [ ] #11 test_R100_configuration_without_administrator_refused
+- [ ] #12 test_R101_undeclared_identity_never_holds_role_scope
+- [ ] #13 test_R102_undeclared_client_gets_no_role_scope
 <!-- AC:END -->
 
 ## Brief
@@ -49,7 +51,7 @@ Task: TASK-45, Write the tests of identities and configuration. Role: implemente
 
 ### Load these skills
 
-- anima-configuration-design, anima-access-design, anima-tech-opentofu
+- anima-configuration-design, anima-access-design, anima-tech-opentofu, anima-specifying-requirements
 
 ### Own these paths
 
@@ -67,14 +69,15 @@ Task: TASK-45, Write the tests of identities and configuration. Role: implemente
 - test_R14_identities_reapplied
 - test_R22_roles_declared_with_identities
 - test_R39_each_fact_declared_once
-- test_R48_configuration_validated_before_ready
 - test_R49_configuration_names_no_adapter
 - test_R59_one_adapter_active_per_port
-- test_R63_declared_identity_can_set_its_credential
 - test_R65_every_setting_has_production_default
 - test_R66_profile_differs_only_in_selection_and_data
-- test_R95_absent_setting_takes_production_default
 - test_R96_declared_identity_receives_credential_link
+- test_R63_declared_identity_credential_never_in_file
+- test_R100_configuration_without_administrator_refused
+- test_R101_undeclared_identity_never_holds_role_scope
+- test_R102_undeclared_client_gets_no_role_scope
 
 ### Done when
 

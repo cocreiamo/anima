@@ -30,7 +30,8 @@ run. The rules for work, the unit of work and its templates are in
 5. **Add repository fields as extra front matter keys and extra sections after the tool's own.** Observed on 2026-11-27 with Backlog.md 1.57.4: two hand-added keys (`gap: …`, `role: …`) and two hand-added sections (`## Brief`, `## Report`) survived `backlog task edit` with a status change, an added label, notes, an added criterion and a final summary. Not: editing the text between the tool's own markers by hand; use the command.
 6. **Run `backlog doctor` after seeding.** It reports duplicate ids, self-referential dependencies and cycles; it printed none for a probe task.
 7. **Do not commit through the tool.** `auto_commit: false` and `filesystem_only: true` are the configuration; the repository's rule is that an agent never commits.
-8. Unverified: concurrent `backlog task create` from two processes (id assignment), the web and board commands (never run), moving a task between worktrees, and the ids after `backlog task delete`.
+8. **A seeded task owns the paths where its acceptance is met, and its labels say whose remedy it is.** A task whose acceptance needs our code owns that code, not only `gaps.toml`; a task that writes tests owns `tests/**` and loads `anima-specifying-requirements`; the label `upstream` is for a remedy that is a contribution to another project, with its fork named or its project named, and a gap whose remedy is ours is labelled `gap` with its area; a defect of our own build is a task, never a gap. Not: one template for every register entry; it gave a task whose acceptance was the configurator's work the ownership of `gaps.toml` alone. A written test is not acceptance: seed from the pending list only.
+9. Unverified: concurrent `backlog task create` from two processes (id assignment), the web and board commands (never run), moving a task between worktrees, and the ids after `backlog task delete`.
 
 ## Questions to answer before proposing
 

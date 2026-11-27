@@ -324,7 +324,7 @@ def skills_index(all_skills, not_yet):
             "`## Questions to answer before proposing`, `## Where the result goes`, "
             "with the front matter `name`, `description`, `family` and `paths`. A "
             "product skill is named for a kind of work. A capability skill is named "
-            "`anima-<capability>-design` and covers one directory of `engine/` or "
+            "`anima-<capability>-design` and covers the directories of one capability under `engine/` or "
             "`config/`. A technology skill is named `anima-tech-<technology>`, "
             "records how that technology actually behaves, and is retired when the "
             "technology is replaced. A rule that nobody has seen working starts with "
@@ -487,6 +487,10 @@ def vendor_role(role):
 # ---- Settings and the advisory hook (R86, R92) -------------------------------------
 
 LOCK_FILES = ["mise.lock", "uv.lock", "MODULE.bazel.lock", ".mise/locks/**"]
+# A bare interpreter runs outside the task runner, where the bytecode prefix and
+# the pinned version are not set (PM-004, R107). `mise exec -- python` and
+# `mise run` start with another word and are not matched.
+BARE_INTERPRETERS = ["Bash(python:*)", "Bash(python3:*)"]
 HOOK = ".claude/hooks/new-file-reminder.sh"
 
 
@@ -496,6 +500,7 @@ def settings_json(refused):
     deny = [f"Edit(/{path})" for path in refused]
     deny += ["Edit(/third_party/**)"]
     deny += [f"Edit(/{path})" for path in LOCK_FILES]
+    deny += BARE_INTERPRETERS
     settings = {
         "$schema": "https://json.schemastore.org/claude-code-settings.json",
         "permissions": {"deny": deny},

@@ -32,10 +32,12 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
    adapter is a part usage, whether it runs in the database server's process or in its
    own container (ADR 0001).
 4. **A product is a part usage, and `satisfy` links it** to the requirements
-   it fulfils (`satisfy Day1::unattendedStart by anima.openbao;`). Adding or
+   it fulfils (`satisfy Day1::unattendedStart by anima.engine.openbao;`). Adding or
    changing an adapter changes usages and `satisfy` lines, never a requirement.
-   Each port has exactly one adapter (R28, tested by
-   `tests/repository/test_architecture.py`).
+   Each port has one default adapter, alternatives may be selected, exactly
+   one is active, and an adapter may fill several ports (R28, R59, tested by
+   `tests/repository/test_architecture.py`). Every requirement is linked by
+   one `satisfy` line.
 5. **Each requirement has at least one verification** (R10), and each
    verification is a `verification def` whose objective is `verify <package>::<name>;`.
 6. **Naming.** A verification is named exactly like its test:
@@ -72,7 +74,7 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
 14. **Where a test lives.** Verifications that need only the repository are in
     `tests/repository/`; those that start the engine image with Testcontainers
     through podman's API service, never Docker, are in `tests/system/` (ADR
-    0006, 0011). Tests are
+    0005). Tests are
     written with `pytest`; a test may run an adopted tool and assert on its
     result. Token logins use `oauth_hook_client`.
 15. **A requirement that cannot be verified is not accepted.** If no test can
@@ -85,10 +87,11 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
     and the requirement text states no number. A helper test that verifies
     nothing is justified in one line where it lives.
 17. **Texts that do not age (R57).** A text states a version, a size, a
-    duration or any other measured number only in two places: the single
-    source that pins or limits it (`components.toml`, `mise.toml`, a threshold
-    in the model) and dated evidence (a paragraph or list item that says it was
+    duration or any other measured number only at the single source that pins
+    or limits it (`components.toml`, `mise.toml`, a threshold in the model) or
+    as dated evidence (a paragraph or list item that says it was
     observed and carries a date: "observed on 2026-11-27 with <name> <version>").
+    This is the one home of this rule; other texts point here.
     Everywhere else it names the thing by its role: "the container runtime of
     the base image", not a version; "the pinned base", not a tag. A check
     fails when a skill or a requirement states the version of a component or

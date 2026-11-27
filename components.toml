@@ -16,8 +16,8 @@ allowed_licenses = [
   # A distribution image whose packages carry their own licences; see its entry.
   "LicenseRef-Fedora-Distribution",
   # The same kind of reference for the base images of the inner images (see
-  # their entries). Unverified: the founder confirmed only the first one; the
-  # three below are listed because the engine's container files use these bases.
+  # their entries). The founder confirmed on 2026-11-27 that the three below
+  # are allowed, because the engine's container files use these bases.
   "LicenseRef-Debian-Distribution",
   "LicenseRef-UBI-Distribution",
   "LicenseRef-Alpine-Distribution",
@@ -52,7 +52,7 @@ commit = "f37c13f68b57d2c3472b2214fbcff699d6d34876"
 
 [[component]]
 name = "pgbackrest"
-role = "adapter: backup and restore (runs in the database server's process)"
+role = "adapter: backup and restore (runs inside the database server's container, invoked by it)"
 version = "2.60.1"
 license = "MIT"
 upstream = "https://github.com/pgbackrest/pgbackrest"
@@ -90,6 +90,19 @@ version = "1.13.10"
 license = "MPL-2.0"
 upstream = "https://github.com/opentofu/opentofu"
 commit = "4dcfb2efaaf7d3e95a92d1c10b7fd000e82bc51f"
+
+# The binary of the configurator is taken from the project's official image
+# (minimal variant) and copied into a small base, because that image refuses to
+# be a base image (GAP-030, closed). The source of the same release is the
+# `opentofu` entry above; the digest here pins the image the binary comes from.
+[[component]]
+name = "opentofu-image"
+role = "binary of the configurator: copied from the official image into the configurator's image"
+version = "1.13.10-minimal"
+license = "MPL-2.0"
+upstream = "https://github.com/opentofu/opentofu"
+image = "ghcr.io/opentofu/opentofu"
+digest = "sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c"
 
 [[component]]
 name = "terraform-provider-postgresql"
@@ -138,7 +151,9 @@ digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b
 # container file under engine/. Each is a distribution image, a collection of
 # packages with their own licences, so each is declared with a LicenseRef like
 # the base of the engine image, and the licence of each package is the one the
-# package declares. Tags move, so the digest is the pin.
+# package declares. The founder confirmed on 2026-11-27 that the three
+# references added for them (Debian, UBI, Alpine) are allowed licences
+# (`anima-licensing-and-brand`). Tags move, so the digest is the pin.
 [[component]]
 name = "debian"
 role = "base of the database server's image: operating system of the inner container"
@@ -168,7 +183,7 @@ digest = "sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068d
 
 [[component]]
 name = "alpine"
-role = "base of the secret store's image: the final stage (the upstream container file's own base)"
+role = "base of the secret store's image (the upstream container file's own base) and of the configurator's image"
 version = "3.24.4"
 license = "LicenseRef-Alpine-Distribution"
 upstream = "https://github.com/alpinelinux/docker-alpine"
@@ -180,7 +195,7 @@ digest = "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71b
 # so it is pinned by the commit of the upstream release tag, looked up with
 # `gh api repos/axllent/mailpit/commits/<tag> --jq .sha`. Unverified: the
 # release was chosen as the latest at the time of writing, not by the engine's
-# builder, and nothing builds it yet.
+# builder.
 [[component]]
 name = "mailpit"
 role = "adapter: outgoing mail (stand-in, local development and CI only)"
@@ -188,6 +203,18 @@ version = "1.34.0"
 license = "MIT"
 upstream = "https://github.com/axllent/mailpit"
 commit = "55a301791fed4c757850bf7afb9672a1dace30bb"
+
+# The image of the same release, which the engine's mail container file starts
+# from until the fork is built from source: it holds the one program of the
+# release.
+[[component]]
+name = "mailpit-image"
+role = "stand-in of outgoing mail: the upstream image the engine's mail unit is built from"
+version = "v1.34.0"
+license = "MIT"
+upstream = "https://github.com/axllent/mailpit"
+image = "docker.io/axllent/mailpit"
+digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e"
 
 # ---- Images used only by tools, tests and builds: not shipped ----------------
 #

@@ -29,7 +29,12 @@ How Anima adds a capability and chooses the product that provides it
    the standard itself as its contract.
 2. **A default adapter, alternatives, and one active** (R28, R59). Every port
    has exactly one default adapter, shipped in the engine, and may have
-   alternative adapters, also shipped in the engine. The configuration selects
+   alternative adapters, also shipped in the engine. An adapter may fill
+   several ports. For a capability that an external service provides (a key
+   management service, the adopter's mail service) the adapter is always in the
+   engine: it is the engine's own client and wiring for that service, selected
+   and configured by the configuration; the service runs outside, its adapter
+   does not. The configuration selects
    the active one with a driver setting; exactly one is active. Adapters are
    code and live in the engine; choosing one is configuration. A stand-in is
    the alternative that the local profile selects. Replacing the adapter means
@@ -37,9 +42,10 @@ How Anima adds a capability and chooses the product that provides it
    the port table (ADR 0001) which alternatives exist and that none is built,
    if so.
 3. **Adapter-ness is independent of where it runs.** Ask "is it replaceable
-   behind a contract?", not "is it a separate process?". Example: pgvector,
-   pgBackRest and `pg_oidc_validator` run inside the database server's process and
-   are adapters all the same (ports: vector search, backup, token validation);
+   behind a contract?", not "is it a separate process?". Example: pgvector
+   and `pg_oidc_validator` run inside the database server's process and
+   pgBackRest inside its container, invoked by it; they are adapters all the
+   same (ports: vector search, token validation, backup);
    Keycloak and OpenBao run in their own containers, the configurator in a unit that runs to completion, and
    are adapters too (ADR 0001). All of them are parts of the engine, which also
    contains the database server, the build of the PostgreSQL fork into which the
@@ -50,13 +56,13 @@ How Anima adds a capability and chooses the product that provides it
    engine's composition, its units and wiring (ADR 0001). Example: R8; the
    database server learns the issuer's URL,
    not the word Keycloak. A consumer of the secret store receives a certificate
-   and a credential, not the name OpenBao (R7). Check with a search of
-   `engine/database/` for any adapter's product name.
+   and a credential, not the name OpenBao (R7); the check is in
+   `anima-database-design`.
 5. **The default adapter is designed first.** A stand-in is an alternative
    adapter behind the same port, named as a stand-in, for local development.
-   Example: the root of trust is a port whose default adapter is an external
-   key management service (Google Cloud KMS first); the
-   local key is its stand-in. The local key is described as not
+   Example: the root of trust is a port whose default adapter is the
+   engine's client of an external key management service (Google Cloud KMS
+   first); the local key is its stand-in. The local key is described as not
    protecting data at rest, never as the normal way.
 6. **Every port has a contract suite, and every adapter passes it** (R58,
    Liskov, `anima-product-principles`). Any adapter of a port, the local stand-in included, can
@@ -78,7 +84,7 @@ How Anima adds a capability and chooses the product that provides it
    `satisfy` lines.
 9. **Decide where the adapter keeps its state, and what that does to backup
    and restore.** All state of the engine lives in the database server, so
-   one backup covers it (R60): the token issuer in the database `idp`, the
+   one backup of it covers it, and the root of trust is kept apart (R60): the token issuer in the database `idp`, the
    secret store's sealed data, the configurator's state. The circle is broken
    by the start order, not by a second store (ADR 0003). An adapter that
    needs a second place for state is a decision of its own. Every place that
@@ -92,16 +98,13 @@ How Anima adds a capability and chooses the product that provides it
     its own (ADR 0003).
 11. **Start order is declared, not obtained by restarts or wait scripts.** A
     unit that needs another is ordered after it (`After=`, `Requires=`, ADR
-    0011). Not: a container that exits until what it needs exists; a "wait
-    for" script or an init container that polls.
+    0005); the rule is in `anima-designing-for-production`.
 12. **Say how the adapter is loaded.** An in-process adapter (the validator,
-    vector search, backup) is built into the database server's image, forked and pinned
+    vector search) is built into the database server's image, forked and pinned
     (`anima-maintaining-a-fork`); the composition loads it, and the configuration that does so is
     the composition's, not the database server's. An adapter in its own container is run
     by a Quadlet unit of the engine. Either way it is the port's adapter.
-13. **Say which configurator converges its state** (`anima-product-principles`): one declared
-    file, one configurator applied at every start. Not: state created by a
-    first-start script.
+13. **Say which configurator converges its state** (`anima-product-principles`): one declared file, one configurator applied at every start. Not: state created by a first-start script.
 14. **Record the limits of the chosen product** as `GAP-nnn` entries, with the
     workaround in the capability's directory under `engine/`, naming the id.
 15. Unverified: **a contract suite for any port, and a second adapter for any

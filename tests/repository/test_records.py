@@ -17,8 +17,12 @@ from sysml_model import ROOT
 
 ADR_DIR = ROOT / "docs" / "adr"
 RECORD_NAME = re.compile(r"(\d{4})-[a-z0-9-]+\.md")
-# "ADR 0004", "ADR-0004", "ADR 0004, 0005", "ADRs 0004 and 0005".
-REFERENCE = re.compile(r"\bADRs?[ -]?(\d{4}(?:(?:,\s*|\s+and\s+|\s+to\s+)\d{4})*)")
+# "ADR 0004", "ADR-0004", "ADR 0004, 0005", "ADRs 0004 and 0005", and the same
+# with a line break between the word and the number. A number that is the start
+# of a date ("ADR 2026-11-27") is not a reference.
+REFERENCE = re.compile(
+    r"\bADRs?(?:\s+|-)?(\d{4}(?!-?\d)(?:(?:,\s*|\s+and\s+|\s+to\s+)\d{4}(?!-?\d))*)"
+)
 # Binary or generated files that hold no prose.
 SKIPPED_SUFFIXES = (".png", ".jpg", ".gz", ".pyc", ".lock", ".sum")
 
@@ -124,3 +128,9 @@ def test_R94_no_reference_to_a_record_that_does_not_exist_detects_violation():
     assert reference_faults({"a.md": missing}, existing)
     assert reference_faults({"a.md": "ADR 0001, 0003"}, existing)
     assert reference_faults({"a.md": "ADRs 0001 and 0004"}, existing)
+    # A line break between the word and the number does not hide a reference.
+    assert reference_faults({"a.md": "(`After=`, ADR\n 0011)"}, existing)
+    assert reference_faults({"a.md": "(ADR\n 0002, 0011)"}, existing)
+    assert reference_faults({"a.md": "(ADR\n 0002)"}, existing) == []
+    # A date after the word is not a reference.
+    assert reference_faults({"a.md": "the ADR\n2026-11-27"}, existing) == []

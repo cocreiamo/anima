@@ -25,11 +25,11 @@ taken; their home is ADR 0001. Who may connect is `anima-access-design`.
 ## Rules
 
 1. **The database server knows ports, never adapters.** The configuration that loads an in-process adapter belongs to the engine's composition; a product name in the server's own configuration is a fault (ADR 0001, R8). Check with a search of `engine/database/` for any adapter's product name.
-2. **An in-process adapter is built into the server's image, from a pinned fork.** Token validation, vector search and backup run in the server's process and are adapters all the same (`anima-maintaining-a-fork`).
+2. **An in-process adapter is built into the server's image, from a pinned fork.** Token validation and vector search run in the server's process, and the backup program inside its container, invoked by it; they are adapters all the same (`anima-maintaining-a-fork`).
 3. **The server starts without the identity provider and serves without the secret store.** It needs neither to start (R13, R61); its certificate comes from the secret store when that is up (`anima-secrets-design`).
-4. **Backups cover every place that holds state:** the database server (which includes the identity provider's database) and the secret store (R20). A backup that omits one cannot be restored; the restore is proven by a drill run as a test, from backups plus the root of trust into an empty system, with the same logins.
+4. **One backup of the database server covers all state** (R20, R60): it includes the identity provider's database and the secret store's sealed data; the root of trust is kept apart. The restore is proven by a drill run as a test, from the backup plus the root of trust into an empty system, with the same logins.
 5. **Vector search is created in the template database,** so it is in every database (R19). The extension is part of the declared state, not of a script.
-6. **A new database is closed by access rules, not grants** (`anima-access-design`, R27, R32).
+6. **A new database is closed by access rules, not grants:** the rule is in `anima-access-design`.
 7. Unverified: **backup and restore.** The backup adapter's PostgreSQL support is to be confirmed by our own restore test (R20, GAP-009), and no restore drill exists yet.
 8. Unverified: **vector search in every database.** The declaration that creates the extension in the template database is designed, and no test shows it in a database created later (R19).
 

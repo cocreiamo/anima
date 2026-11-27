@@ -4,8 +4,10 @@ title: 'GAP-022: Podman''s own API for Testcontainers'
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:40Z'
+updated_date: '2026-11-27T18:55:56Z'
 labels:
-  - upstream
+  - gap
+  - testing
 dependencies: []
 ordinal: 17000
 gaps:
@@ -13,22 +15,22 @@ gaps:
 fork: none
 role: implementer
 owns:
+  - tests/system/**
+  - components.toml
   - gaps.toml
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-GAP-022 (Testcontainers): Testcontainers assumes a Docker-compatible API. A spike confirmed that a test can start the system through podman's own API service, started for the session with `podman system service` on a Unix socket and `DOCKER_HOST` pointing at it, with no daemon and no host service, and that it leaves nothing behind. Two limits remain. A Unix socket path is limited to 108 bytes and podman rejects a relative socket URL, so the socket cannot live under a long `.cache/` path. Testcontainers also pulls its own reaper image, at a version it chooses.
+GAP-022 (Testcontainers): Testcontainers assumes a Docker-compatible API; the tests start podman's own API service on a short absolute socket, and the reaper image Testcontainers pulls is not pinned by digest.
 
-Impact: The socket of the API service needs a short absolute path, and the reaper image is a container image that is not pinned by digest unless it is pinned or disabled.
-
-The remedy is a contribution upstream; no fork of ours exists for this project, so it is prepared against upstream directly.
+The remedy is ours: the wiring of our system tests and the pin of the reaper image; the gap stays open until the condition below holds.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: The tests start the API service on a short absolute socket path, and the reaper image is pinned by digest in components.toml (tool images) or the reaper is disabled.
+- [ ] #1 Check: the tests start the API service on a short absolute socket path, and the reaper image is pinned by digest in components.toml (tool images) or the reaper is disabled
 - [ ] #2 Check: GAP-022 is updated in gaps.toml (status, upstream link)
 <!-- AC:END -->
 
@@ -42,19 +44,21 @@ Task: TASK-17, GAP-022: Podman's own API for Testcontainers. Role: implementer.
 
 ### Load these skills
 
-- anima-tech-testcontainers-podman
+- anima-tech-testcontainers-podman, anima-specifying-requirements
 
 ### Own these paths
 
+- tests/system/**
+- components.toml
 - gaps.toml
 
 ### Do not touch
 
-- third_party/**; the code of the fork is changed in the fork's own repository, not here
+- third_party/**, generated files, lock files; do not weaken a check
 
 ### Acceptance
 
-- Check: The tests start the API service on a short absolute socket path, and the reaper image is pinned by digest in components.toml (tool images) or the reaper is disabled.
+- Check: the tests start the API service on a short absolute socket path, and the reaper image is pinned by digest in components.toml (tool images) or the reaper is disabled
 - Check: GAP-022 is updated in gaps.toml (status, upstream link)
 
 ### Done when

@@ -19,13 +19,13 @@ daemon. The test layout is in `anima-specifying-requirements`.
 
 ## Rules
 
-1. **Start podman's own API service for the session, on a short absolute socket.** Example: `podman system service --time=0 unix://$XDG_RUNTIME_DIR/<short name>.sock &`. Observed on 2026-11-27 with Testcontainers 4.15.0 and rootless podman 4.9.3: the test started a container, read from it, and nothing was left behind (spike, may disappear: `spike-appliance/tc-podman.sh`, `spike-appliance/tests/test_appliance.py`). Not: a long path; an AF_UNIX path is limited to 108 bytes and podman rejects a relative `unix://` URL, so not under a long `.cache/` path (GAP-022).
+1. **Start podman's own API service for the session, on a short absolute socket.** Example: `tests/system/conftest.py` starts `podman system service` on a socket named by the process id under `$XDG_RUNTIME_DIR`. Observed on 2026-11-27 with Testcontainers 4.15.0 and rootless podman 4.9.3: the test started a container, read from it, and nothing was left behind. Not: a long path; an AF_UNIX path is limited to 108 bytes and podman rejects a relative `unix://` URL, so not under a long `.cache/` path (GAP-022).
 2. **Point Testcontainers at it with `DOCKER_HOST=unix://<that socket>`, and wait for the socket (`[ -S "$SOCK" ]`) before starting the tests.** Not: expecting a daemon to exist; none does.
 3. **Stop the service and delete the socket afterwards, in a trap.** Example: `trap 'kill $SVC; wait $SVC; rm -f "$SOCK"' EXIT`.
 4. **With the reaper, run it privileged and give it the socket; without it, disable it.** Example: `TESTCONTAINERS_RYUK_PRIVILEGED=true` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=<that socket>`; or `TESTCONTAINERS_RYUK_DISABLED=true`. Not: expecting the reaper to reach the socket unprivileged; rootless podman needed it privileged because it mounts the socket.
 5. **Pin the reaper image by digest or disable it.** Not: expecting the reaper image to be fixed; Testcontainers pulls it at a version it chooses (GAP-022).
 6. **Write the test with the ordinary API.** Example: `DockerContainer(image).with_exposed_ports(…).waiting_for(HttpWaitStrategy(…))`; it needs no podman-specific code.
-7. Unverified: behaviour on a CI runner other than the machine of the spike; containers that need more privileges than the spike's (an engine image run as a container needs `--cap-add SYS_ADMIN`, see `anima-tech-podman-quadlet-bootc`); what the reaper cleans up after a test that fails midway (the spike's test passed).
+7. Unverified: behaviour on a CI runner other than the machine of the spike; containers that need more privileges than the spike's (an engine image run as a container needs both `--cap-add SYS_ADMIN` and `--cap-add SYS_PTRACE`, see `anima-tech-podman-quadlet-bootc`); what the reaper cleans up after a test that fails midway (the spike's test passed).
 
 ## Questions to answer before proposing
 

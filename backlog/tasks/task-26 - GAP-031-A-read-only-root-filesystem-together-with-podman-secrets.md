@@ -4,6 +4,7 @@ title: 'GAP-031: A read-only root filesystem together with podman secrets'
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:41Z'
+updated_date: '2026-11-27T19:35:30Z'
 labels:
   - gap
 dependencies: []
@@ -19,17 +20,17 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-GAP-031 (podman): A read-only root filesystem together with podman secrets failed.
+GAP-031 (podman): a read-only root filesystem together with podman secrets fails when the secrets directory is not a temporary filesystem; it works when /run/secrets is one (observed on 2026-11-27 with the configurator).
 
-Impact: A container that holds a secret cannot be given a read-only root filesystem as a hardening step.
+Impact: a container that holds a secret and has a read-only root filesystem needs a temporary filesystem on its secrets directory.
 
 The remedy is ours, or a change of what we adopt; the gap stays open until the condition below holds.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: The condition is gone, or the implementation of the engine image settles it.
-- [ ] #2 Check: GAP-031 is updated in gaps.toml (status, upstream link)
+- [ ] #1 Check: GAP-031 is updated in gaps.toml (status, upstream link)
+- [ ] #2 Check: podman creates the mount point of a secret on a read-only root without a temporary filesystem, or every unit of the engine that holds a secret carries that filesystem
 <!-- AC:END -->
 
 ## Brief
@@ -54,8 +55,8 @@ Task: TASK-26, GAP-031: A read-only root filesystem together with podman secrets
 
 ### Acceptance
 
-- Check: The condition is gone, or the implementation of the engine image settles it.
 - Check: GAP-031 is updated in gaps.toml (status, upstream link)
+- Check: podman creates the mount point of a secret on a read-only root without a temporary filesystem, or every unit of the engine that holds a secret carries that filesystem
 
 ### Done when
 

@@ -31,7 +31,7 @@ package Anima {
         enum runtime;    // against the running system
     }
     // Marks a requirement that protects a property of the architecture. The
-    // list of fitness functions in the decision record is generated from it.
+    // list of fitness functions in docs/catalog.md is generated from it.
     metadata def FitnessFunction {
         :> annotatedElement : SysML::RequirementUsage;
         attribute trigger : Trigger [1];
@@ -40,7 +40,10 @@ package Anima {
     // A port is a capability the system needs, with a product-neutral
     // contract. An adapter is a replaceable product behind that contract,
     // wherever it runs: inside the database server's process or in its own
-    // container. Every adapter is part of the engine, and an adapter may fill
+    // container. For a capability that an external service provides, the
+    // adapter is the engine's own client and wiring for that service, selected
+    // and configured by the configuration; the service runs outside, its
+    // adapter is in the engine. Every adapter is part of the engine, and an adapter may fill
     // more than one port: its part usage is typed by every port it fills.
     // Each port has exactly one default adapter, shipped in the engine, and
     // may have alternative adapters, also shipped in the engine; the
@@ -91,8 +94,9 @@ package Anima {
                      * server's process, created in the template database. */
             }
             part pgbackrest : Backup {
-                doc /* pgBackRest, an adapter that runs in the database
-                     * server's process, for backup and restore. */
+                doc /* pgBackRest, an adapter that runs inside the database
+                     * server's container, invoked by the server, for backup
+                     * and restore. */
             }
             part keycloak : TokenIssuer {
                 doc /* Keycloak, the default token issuer, storing its state
@@ -114,15 +118,17 @@ package Anima {
             }
             part openbao : SecretKeeping, CertificateAuthority, ServiceCredentials {
                 doc /* OpenBao, the default adapter of three ports: it keeps
-                     * the secrets, issues certificates and sets and rotates
-                     * the credentials of the service roles. Its sealed data
+                     * the secrets, issues certificates and sets the
+                     * credentials of the service roles. Its sealed data
                      * lies in the database server, which it reaches through
                      * the local socket with no password, and it unseals from
                      * the root of trust. */
             }
             part mailRelay : OutgoingMail {
-                doc /* The default adapter of outgoing mail: the SMTP service
-                     * that the configuration names. */
+                doc /* The default adapter of outgoing mail: the engine's
+                     * client and wiring for the SMTP service that the
+                     * configuration names. The service runs outside the
+                     * engine; its adapter is in it. */
             }
             part mailCatcher : MailCatcher {
                 doc /* The stand-in of outgoing mail, which the local profile
@@ -130,14 +136,17 @@ package Anima {
                      * and delivers none. */
             }
             part keyManagementService : RootOfTrust {
-                doc /* The production adapter of the root of trust: an
-                     * external key management service, Google Cloud KMS
-                     * first. Not built in 0.0.1. */
+                doc /* The production adapter of the root of trust: the
+                     * engine's client and wiring for an external key
+                     * management service, Google Cloud KMS first. The service
+                     * runs outside the engine; its adapter is in it. Not
+                     * built in 0.0.1. */
             }
             part localKey : LocalKey {
                 doc /* The stand-in of the root of trust, for local
                      * development and CI: a local key given to the engine by
-                     * the host. A key kept beside the data does not protect
+                     * the host or generated at first start, kept in a place
+                     * of its own. A key kept beside the data does not protect
                      * data at rest. It is the only root of trust built in
                      * 0.0.1. */
             }
@@ -317,9 +326,8 @@ package Anima {
             subject sys : System;
         }
         requirement <'R65'> everySettingHasProductionDefault {
-            doc /* Every setting of the configuration shall have a
-                 * production default shipped in the engine, so that an
-                 * adopter writes only what differs. */
+            doc /* The engine shall ship a production default for every
+                 * setting that the configuration can set. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject sys : System;
         }
@@ -332,9 +340,9 @@ package Anima {
             subject sys : System;
         }
         requirement <'R67'> everyAdapterIsPartOfTheEngine {
-            doc /* Every adapter that fills a port shall be a part of the engine, wherever it runs. */
+            doc /* Every adapter that fills a port shall be a part of the engine, wherever it runs; the adapter of a capability that an external service provides is the engine's client and wiring for that service. */
             @FitnessFunction { trigger = Trigger::commit; }
-            subject tools : Toolchain;
+            subject engine : Engine;
         }
         requirement <'R68'> limitsHeldInModel {
             doc /* Every limit or count that a check uses shall be a threshold of the model, with a unit where it is a quantity, and the text of the requirement that holds it shall state no number. */
@@ -346,7 +354,7 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
-        requirement <'R70'> renovateFindsEveryImage {
+        requirement <'R70'> updateBotFindsEveryImage {
             doc /* The configuration of the update bot shall find every image reference that the registers declare. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
@@ -433,7 +441,7 @@ package Anima {
             doc /* No postmortem shall stay open longer than the limit held by this requirement. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
-            attribute maxDaysOpen : ScalarValues::Integer = 14;
+            attribute maxTimeOpen : ISQ::DurationValue = 1209600 [SI::s];
         }
         requirement <'R86'> agentSettingsRefuseGeneratedFiles {
             doc /* The agent settings shall refuse edits to every generated file, to everything under the forks and to the lock files, and shall grant nothing. */
@@ -470,6 +478,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R107'> bareInterpreterRefused {
+            doc /* The agent settings shall refuse a command that starts a bare Python interpreter, and shall not refuse one that starts through the task runner. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R93'> onlyArchitectureRecordsExist {
             doc /* Every decision record shall carry the category architecture, its number shall be the one in its file name, and the directory of the records shall hold nothing but records and their generated index. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -480,26 +493,52 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R105'> declarationsFollowProviderGuards {
+            doc /* The declarations of the configurator shall follow the guards that its providers need: no attribute that persists a secret, durations in the unit the provider accepts, protection against destruction for whatever holds data, and no membership declared in two ways. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject engine : Engine;
+        }
+        requirement <'R99'> imageRebuiltWhenAnyInputChanges {
+            doc /* Every inner image shall be rebuilt when any of its inputs changes: the tag of an image shall change when any file that its container file copies changes. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
     }
 
     // ---- Day 1: first start from an empty state --------------------------
 
     package Day1 {
+        // Three things are called "user" and are kept apart (ADR 0004):
+        // database roles, which are few, fixed and owned by the product, so
+        // that nothing is ever created in the database for a person; declared
+        // identities, the few known people and applications that the
+        // installation declares in its configuration (R6, R22, R100); and the
+        // end users of an application built on Anima, who are many, are
+        // created at run time in the identity provider, are never written in a
+        // file and never hold the scope of a role (R101, R102). The two worlds
+        // are not synchronized and meet at one point, the scope in the token.
         requirement <'R6'> identitiesDeclared {
             doc /* Identities shall be defined in the configuration, in a
-                 * versioned declarative file. Starting the engine from an
-                 * empty state shall reproduce them without any manual
-                 * step. */
+                 * versioned declarative file, of two kinds: people and
+                 * applications. An application shall authenticate as itself.
+                 * Starting the engine from an empty state shall reproduce
+                 * them without any manual step. No identity shall ship with
+                 * the product. */
             subject configurator : Configurator;
         }
         requirement <'R7'> secretsGenerated {
-            doc /* Every secret shall be generated at first start. No secret
-                 * value shall be written in an image, in a repository or in
-                 * a configuration file: a setting that needs a secret names
-                 * it, and the value reaches the engine as a file from the
-                 * host's secret mechanism. */
+            doc /* Every secret that the engine generates shall be generated
+                 * at first start and held only in the secret store: none
+                 * shall be written in an image, in a repository or in a
+                 * configuration file. The stand-in root of trust, a local
+                 * key kept in a place of its own, is the stated exception:
+                 * it does not protect data at rest. */
             @FitnessFunction { trigger = Trigger::promotion; }
             subject secrets : SecretKeeping;
+        }
+        requirement <'R103'> adopterSecretsArriveAsFiles {
+            doc /* A secret that the adopter supplies shall be named in the configuration, and its value shall reach the engine as a file of the host's secret mechanism and shall never be written in the configuration, in a repository or in an image. */
+            subject engine : Engine;
         }
         requirement <'R26'> unattendedStart {
             doc /* The system shall start unattended, the secret store
@@ -545,16 +584,14 @@ package Anima {
             doc /* The engine shall publish nothing to the outside and accept
                  * no connection from outside until every place that holds
                  * state has reached its declared state, and this shall hold
-                 * by the declared order of its parts. A start that fails to
-                 * converge shall leave the engine not ready and closed. */
+                 * by the declared order of its parts. */
             @FitnessFunction { trigger = Trigger::promotion; }
             subject engine : Engine;
         }
         requirement <'R41'> probesAndSingleReadiness {
             doc /* Every part of the engine that runs as a container shall
                  * declare a startup check, a liveness check and a readiness
-                 * check, and a container that fails its health check shall
-                 * be restarted. The engine shall expose one readiness answer
+                 * check. The engine shall expose one readiness answer
                  * that is true only when every part is active and healthy
                  * and the engine has converged. */
             @FitnessFunction { trigger = Trigger::promotion; }
@@ -574,7 +611,8 @@ package Anima {
         }
         requirement <'R60'> allStateInOneStore {
             doc /* All state of the engine shall live in one store covered by
-                 * one backup. */
+                 * one backup, except the root of trust, which shall be kept
+                 * apart from that store on purpose. */
             subject engine : Engine;
         }
         requirement <'R61'> serverServesWithoutSecretStore {
@@ -587,10 +625,9 @@ package Anima {
                  * secret. */
             subject secrets : SecretKeeping;
         }
-        requirement <'R63'> declaredIdentityCanSetItsCredential {
-            doc /* An identity declared in the configuration shall receive
-                 * the means to set its credential, with no credential
-                 * written in any file. */
+        requirement <'R63'> declaredIdentityCredentialNeverInFile {
+            doc /* No credential of an identity declared in the
+                 * configuration shall be written in any file. */
             subject configurator : Configurator;
         }
         requirement <'R48'> configurationValidatedBeforeReady {
@@ -606,8 +643,16 @@ package Anima {
             subject sys : System;
         }
         requirement <'R96'> declaredIdentityReceivesCredentialLink {
-            doc /* An identity declared in the configuration shall receive a message with a link at which it sets its credential. */
+            doc /* An identity declared in the configuration shall receive a message with a link at which it sets its credential, sent through the mail service that the configuration names, which the configurator sets as the outgoing mail of the identity provider. */
             subject configurator : Configurator;
+        }
+        requirement <'R104'> secondRunChangesNothing {
+            doc /* The configurator, run again on an installation that is already at its declared state, shall change nothing and say so. */
+            subject configurator : Configurator;
+        }
+        requirement <'R100'> configurationWithoutAdministratorRefused {
+            doc /* A configuration in which no identity holds the administrator role shall be refused before the engine becomes ready, with a message that says so. */
+            subject engine : Engine;
         }
     }
 
@@ -660,20 +705,23 @@ package Anima {
         }
         requirement <'R12'> superuserLocalOnly {
             doc /* The database superuser shall be reachable only through the
-                 * local socket with operating-system peer authentication, and
-                 * shall have no password. */
+                 * local socket, authenticated as the operating-system user of
+                 * the same name by peer authentication, and shall have no
+                 * password; a connection from another operating-system user or
+                 * from the network shall be refused. */
             subject server : DatabaseServer;
         }
-        requirement <'R21'> postgresqlCompatible {
-            doc /* A client that works with the upstream release of the
-                 * database that the database server is built from shall work
-                 * with the database server without change. */
+        requirement <'R21'> passesUpstreamRegressionSuite {
+            doc /* The database server shall pass the regression suite of the
+                 * upstream release of the database that it is built from. */
             subject server : DatabaseServer;
         }
         requirement <'R22'> rolesDeclaredWithIdentities {
-            doc /* Which roles an identity may assume shall be declared in
-                 * the configuration's declarative identity file and nowhere
-                 * else. */
+            doc /* Which roles an identity, a person or an application, may
+                 * assume shall be declared in the configuration's declarative
+                 * identity file and nowhere else, and an identity shall obtain
+                 * a session only through the scopes of the roles declared for
+                 * it. */
             subject sys : System;
         }
         requirement <'R15'> encryptedConnectionsOnly {
@@ -689,10 +737,14 @@ package Anima {
             subject engine : Engine;
         }
         requirement <'R31'> rolesAuthenticateByKind {
-            doc /* A role whose name begins with "svc_" shall authenticate
-                 * only from inside the system and never with a token; every
-                 * other role, except the local superuser, shall authenticate
-                 * only with a token. */
+            doc /* A role whose name begins with "svc_" shall never
+                 * authenticate with a token and never from outside the
+                 * system: from inside, by password on the loopback of the
+                 * engine for a component that speaks the database protocol
+                 * over TCP or, for the two roles of the secret store, by
+                 * operating-system peer authentication over the local socket
+                 * with no secret and no password. Every other role, except the local
+                 * superuser, shall authenticate only with a token. */
             subject server : DatabaseServer;
         }
         requirement <'R32'> idpDatabaseOnlyForItsRole {
@@ -725,6 +777,16 @@ package Anima {
         requirement <'R64'> mailDeliveredThroughConfiguredService {
             doc /* Outgoing mail shall be delivered through the mail service
                  * that the configuration names. */
+            subject engine : Engine;
+        }
+        requirement <'R101'> undeclaredIdentityNeverHoldsRoleScope {
+            doc /* An identity that is not declared in the configuration, such as one created at run time in the identity provider, shall never hold the scope of a role, and the configurator shall leave it untouched. */
+            @FitnessFunction { trigger = Trigger::promotion; }
+            subject engine : Engine;
+        }
+        requirement <'R102'> undeclaredClientGetsNoRoleScope {
+            doc /* The scope of a role shall be granted only to the engine's own client and to the applications declared in the configuration, and a client that is not declared shall not obtain it. */
+            @FitnessFunction { trigger = Trigger::promotion; }
             subject engine : Engine;
         }
         requirement <'R97'> failingHealthCheckRestartsContainer {
@@ -784,12 +846,16 @@ package Anima {
                  * verified by a test. */
             subject engine : Engine;
         }
+        requirement <'R106'> planGuardRefusesUndeclaredContraction {
+            doc /* The guard over the configurator's plan shall fail on a deletion, a replacement or an in-place narrowing that the register of contractions does not declare, shall accept one that it declares, and shall leave what the adopter declares alone. */
+            subject configurator : Configurator;
+        }
         requirement <'R37'> upgradeConverges {
             doc /* Every place that holds state shall be brought to its
                  * declared state at every start, removals included: the
                  * fixed roles, their privileges, the access rules, the
-                 * declared identities, the secret store's policies and the
-                 * installed extensions. After an upgrade, every declared
+                 * declared identities, the secret store's policies,
+                 * engines and roles and the installed extensions. After an upgrade, every declared
                  * object of an installation shall equal the same object of a
                  * new installation of the same version. Something that was
                  * changed by hand and that no declaration tracks is not
@@ -825,10 +891,10 @@ package Anima {
     satisfy Day0::everySettingHasProductionDefault by anima;
     satisfy Day0::profileDiffersOnlyInSelectionAndData by anima;
     satisfy Day0::everyCheckSeenToFail by toolchain;
-    satisfy Day0::everyAdapterIsPartOfTheEngine by toolchain;
+    satisfy Day0::everyAdapterIsPartOfTheEngine by anima.engine;
     satisfy Day0::limitsHeldInModel by toolchain;
     satisfy Day0::fitnessMarkersComplete by toolchain;
-    satisfy Day0::renovateFindsEveryImage by toolchain;
+    satisfy Day0::updateBotFindsEveryImage by toolchain;
     satisfy Day0::everyTestVerifiesRequirement by toolchain;
     satisfy Day0::skillsHaveOneSchema by toolchain;
     satisfy Day0::unverifiedRulesCounted by toolchain;
@@ -851,6 +917,11 @@ package Anima {
     satisfy Day0::exportWritesNothingOutsideCache by toolchain;
     satisfy Day0::noBytecodeOutsideCache by toolchain;
     satisfy Day0::advisoryHookNeverBlocks by toolchain;
+    satisfy Day0::imageRebuiltWhenAnyInputChanges by toolchain;
+    satisfy Day0::declarationsFollowProviderGuards by anima.engine;
+    satisfy Day0::bareInterpreterRefused by toolchain;
+    satisfy Day0::onlyArchitectureRecordsExist by toolchain;
+    satisfy Day0::noReferenceToMissingRecord by toolchain;
 
     satisfy Day1::identitiesDeclared by anima.engine.opentofu;
     satisfy Day1::secretsGenerated by anima.engine.openbao;
@@ -868,7 +939,12 @@ package Anima {
     satisfy Day1::allStateInOneStore by anima.engine;
     satisfy Day1::serverServesWithoutSecretStore by anima.engine.postgresql;
     satisfy Day1::storageConnectionUsesNoSecret by anima.engine.openbao;
-    satisfy Day1::declaredIdentityCanSetItsCredential by anima.engine.opentofu;
+    satisfy Day1::declaredIdentityCredentialNeverInFile by anima.engine.opentofu;
+    satisfy Day1::configurationWithoutAdministratorRefused by anima.engine;
+    satisfy Day1::secondRunChangesNothing by anima.engine.opentofu;
+    satisfy Day1::adopterSecretsArriveAsFiles by anima.engine;
+    satisfy Day1::absentSettingTakesProductionDefault by anima;
+    satisfy Day1::declaredIdentityReceivesCredentialLink by anima.engine.opentofu;
 
     satisfy Runtime::validTokenOpensSession by anima.engine;
     satisfy Runtime::invalidTokenRejected by anima.engine.pgOidcValidator;
@@ -878,7 +954,7 @@ package Anima {
     satisfy Runtime::databaseServerDependsOnStandardIssuerOnly by anima.engine.postgresql;
     satisfy Runtime::superuserLocalOnly by anima.engine.postgresql;
     satisfy Runtime::encryptedConnectionsOnly by anima.engine;
-    satisfy Runtime::postgresqlCompatible by anima.engine.postgresql;
+    satisfy Runtime::passesUpstreamRegressionSuite by anima.engine.postgresql;
     satisfy Runtime::rolesDeclaredWithIdentities by anima;
     satisfy Runtime::nothingReachableByDefault by anima.engine;
     satisfy Runtime::rolesAuthenticateByKind by anima.engine.postgresql;
@@ -888,9 +964,14 @@ package Anima {
     satisfy Runtime::fixedRoleNamesReserved by anima;
     satisfy Runtime::oneAdapterActivePerPort by anima.engine;
     satisfy Runtime::mailDeliveredThroughConfiguredService by anima.engine;
+    satisfy Runtime::undeclaredIdentityNeverHoldsRoleScope by anima.engine;
+    satisfy Runtime::undeclaredClientGetsNoRoleScope by anima.engine;
+    satisfy Runtime::failingHealthCheckRestartsContainer by anima.engine;
+    satisfy Runtime::readinessNegativeWhenConfiguratorFails by anima.engine;
 
     satisfy Day2::identitiesReapplied by anima.engine.opentofu;
     satisfy Day2::backupRestoresIntoEmptySystem by anima.engine;
+    satisfy Day2::planGuardRefusesUndeclaredContraction by anima.engine.opentofu;
     satisfy Day2::upgradeConverges by anima;
     satisfy Day2::upgradeOnlyExpands by anima;
     satisfy Day2::upgradeNeverDestroysData by anima.engine;
@@ -918,7 +999,7 @@ package Anima {
         }
         verification def test_R21_upstream_regression_suite_passes {
             subject sys : System;
-            objective { verify Runtime::postgresqlCompatible; }
+            objective { verify Runtime::passesUpstreamRegressionSuite; }
         }
         verification def test_R20_backup_restores_into_empty_system {
             subject sys : System;
@@ -1044,6 +1125,10 @@ package Anima {
             subject sys : System;
             objective { verify Runtime::nothingReachableByDefault; }
         }
+        verification def test_R30_listen_address_follows_the_way_of_starting {
+            subject sys : System;
+            objective { verify Runtime::nothingReachableByDefault; }
+        }
         verification def test_R31_service_roles_internal_token_roles_by_token {
             subject sys : System;
             objective { verify Runtime::rolesAuthenticateByKind; }
@@ -1156,9 +1241,9 @@ package Anima {
             subject sys : System;
             objective { verify Day1::storageConnectionUsesNoSecret; }
         }
-        verification def test_R63_declared_identity_can_set_its_credential {
+        verification def test_R63_declared_identity_credential_never_in_file {
             subject sys : System;
-            objective { verify Day1::declaredIdentityCanSetItsCredential; }
+            objective { verify Day1::declaredIdentityCredentialNeverInFile; }
         }
         verification def test_R64_mail_delivered_through_configured_service {
             subject sys : System;
@@ -1184,9 +1269,9 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::fitnessMarkersComplete; }
         }
-        verification def test_R70_renovate_finds_every_image {
+        verification def test_R70_update_bot_finds_every_image {
             subject tools : Toolchain;
-            objective { verify Day0::renovateFindsEveryImage; }
+            objective { verify Day0::updateBotFindsEveryImage; }
         }
         verification def test_R71_every_test_verifies_a_requirement {
             subject tools : Toolchain;
@@ -1299,6 +1384,82 @@ package Anima {
         verification def test_R98_readiness_negative_when_configurator_fails {
             subject engine : Engine;
             objective { verify Runtime::readinessNegativeWhenConfiguratorFails; }
+        }
+        verification def test_R100_configuration_without_administrator_refused {
+            subject engine : Engine;
+            objective { verify Day1::configurationWithoutAdministratorRefused; }
+        }
+        verification def test_R101_undeclared_identity_never_holds_role_scope {
+            subject engine : Engine;
+            objective { verify Runtime::undeclaredIdentityNeverHoldsRoleScope; }
+        }
+        verification def test_R102_undeclared_client_gets_no_role_scope {
+            subject engine : Engine;
+            objective { verify Runtime::undeclaredClientGetsNoRoleScope; }
+        }
+        verification def test_R7_state_holds_no_secret {
+            subject engine : Engine;
+            objective { verify Day1::secretsGenerated; }
+        }
+        verification def test_R36_run_fails_when_a_target_is_down_and_succeeds_on_the_next {
+            subject engine : Engine;
+            objective { verify Day1::failedFirstStartRepeatable; }
+        }
+        verification def test_R37_declared_state_is_applied {
+            subject sys : System;
+            objective { verify Day2::upgradeConverges; }
+        }
+        verification def test_R37_hand_changes_on_tracked_objects_are_reverted {
+            subject sys : System;
+            objective { verify Day2::upgradeConverges; }
+        }
+        verification def test_R104_second_run_changes_nothing {
+            subject configurator : Configurator;
+            objective { verify Day1::secondRunChangesNothing; }
+        }
+        verification def test_R105_declarations_follow_the_guards {
+            subject engine : Engine;
+            objective { verify Day0::declarationsFollowProviderGuards; }
+        }
+        verification def test_R106_guard_passes_a_plan_with_no_deletion {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_guard_fails_on_an_undeclared_deletion_and_replacement {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_guard_accepts_a_declared_contraction {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_guard_fails_on_a_narrowing_in_place {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_guard_leaves_the_adopters_declarations_alone {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_the_register_of_contractions_is_empty_so_nothing_is_declared {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R106_guard_reads_a_plan_file {
+            subject configurator : Configurator;
+            objective { verify Day2::planGuardRefusesUndeclaredContraction; }
+        }
+        verification def test_R107_agent_settings_refuse_bare_interpreter {
+            subject tools : Toolchain;
+            objective { verify Day0::bareInterpreterRefused; }
+        }
+        verification def test_R103_adopter_secrets_arrive_as_files {
+            subject engine : Engine;
+            objective { verify Day1::adopterSecretsArriveAsFiles; }
+        }
+        verification def test_R99_image_tag_depends_on_every_input {
+            subject tools : Toolchain;
+            objective { verify Day0::imageRebuiltWhenAnyInputChanges; }
         }
     }
 }

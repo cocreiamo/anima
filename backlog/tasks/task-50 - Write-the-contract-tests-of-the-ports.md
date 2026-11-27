@@ -4,6 +4,7 @@ title: Write the contract tests of the ports
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:45Z'
+updated_date: '2026-11-27T18:55:58Z'
 labels:
   - pending-tests
 dependencies: []
@@ -27,7 +28,6 @@ The verifications about vector search in every database, compatibility with the 
 - [ ] #1 test_R19_vector_search_in_every_database
 - [ ] #2 test_R21_upstream_regression_suite_passes
 - [ ] #3 test_R58_every_adapter_passes_its_contract_suite
-- [ ] #4 test_R64_mail_delivered_through_configured_service
 <!-- AC:END -->
 
 ## Brief
@@ -56,7 +56,6 @@ Task: TASK-50, Write the contract tests of the ports. Role: implementer.
 - test_R19_vector_search_in_every_database
 - test_R21_upstream_regression_suite_passes
 - test_R58_every_adapter_passes_its_contract_suite
-- test_R64_mail_delivered_through_configured_service
 
 ### Done when
 

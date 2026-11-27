@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:43Z'
+updated_date: '2026-11-27T19:35:30Z'
 labels:
   - upstream
 dependencies: []
@@ -21,11 +22,11 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-GAP-043 (Keycloak): A scope that the user is not entitled to is dropped silently from the token: the token request does not fail.
+GAP-043 (Keycloak): a scope that is assigned to the client but that the user is not entitled to is dropped silently from the token and the token request does not fail; a scope that is not assigned to the client is refused with invalid_scope, which is not the gap.
 
-Impact: A missing scope is found only by decoding the token; a test that only checks that a token is issued passes.
+Impact: a missing scope is found only by decoding the token.
 
-The remedy is a contribution upstream, prepared in the fork cocreiamo/anima-keycloak (`anima-maintaining-a-fork`): written for upstream first, in upstream's licence and with its tools, then submitted the way upstream asks.
+The remedy is a contribution upstream; the gap stays open until the condition below holds.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

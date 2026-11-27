@@ -18,8 +18,8 @@ container written for the purpose. It was the only piece of the product that
 reinvented what an existing product does, against the rule of `anima-adopting-a-component`: no
 tooling invented where an existing tool does the job.
 
-A spike on 2026-11-27 with OpenBao 2.7.3 and PostgreSQL 18.7 verified the
-facts recorded below.
+A spike on 2026-11-27 verified the facts recorded below (the versions are in
+Confirmation).
 
 Which existing product issues, stores and rotates these secrets, and what unseals it so that the system starts unattended?
 
@@ -71,8 +71,8 @@ is removed by design, in this order:
 5. Only then is anything published outside the pod.
 
 What protects the secrets is the seal, not the place where the sealed data lies.
-Decided on 2026-11-27, not built and not verified by a spike; R60, R61 and R62
-state it and are pending.
+Decided on 2026-11-27 and not verified by a spike; R60, R61 and R62 state it
+(Confirmation says which tests exist).
 
 ### Verified by the spike
 
@@ -89,14 +89,18 @@ state it and are pending.
    as units of the engine ([ADR-0005](0005-engine-image-and-runtime.md)), each ordered before the unit it serves,
    that render certificates and credentials into shared in-memory volumes. Neither the database server nor the identity provider names the secret
    store product; each receives a certificate and a credential (R7).
-4. **`svc_idp` is a static role** whose password OpenBao sets and rotates.
-   Short-lived dynamic users are not used for the identity provider, because
+4. **`svc_idp` is a static role** whose password OpenBao sets; its rotation
+   is outside the first release. Short-lived dynamic users are not used for the identity provider, because
    Keycloak cannot reload its database password while running (GAP-017).
-5. **Two steps are not declarative.** They run in a first-start unit with
-   the official `bao` command line: generating the seed values (the unseal key
-   when none is given, the machine credential and the management password),
-   and rotating the management password so that only the secret store knows
-   it. The management role is `svc_secrets` ([ADR-0004](0004-roles-and-access.md)).
+5. **Two steps are not declarative.** They ran in a first-start unit with
+   the official `bao` command line in the spike: generating the seed values
+   (the unseal key when none is given, the machine credential and the
+   management password), and rotating the management password so that only the
+   secret store knows it. The management role is `svc_secrets_manage`
+   ([ADR-0004](0004-roles-and-access.md)), reached by peer authentication over
+   the local socket with no password, so the password and its rotation have no
+   object in the product; the secret store's connection as that role is not yet
+   written and not verified.
 6. **A failed self-initialization cannot be repaired.** There is no rollback;
    the storage is left unusable and the server then refuses to unseal
    (GAP-015). A first start must therefore be repeatable from an empty state
@@ -105,7 +109,7 @@ state it and are pending.
 
 ### The root of trust is a port
 
-A third port unseals the secret store, so that the system starts unattended
+A fourth port unseals the secret store, so that the system starts unattended
 (R26). Its contract: it gives the secret store the key that unseals it.
 
 - **Production adapter: an external key management service**, Google Cloud
@@ -117,14 +121,17 @@ A third port unseals the secret store, so that the system starts unattended
   beside the data does not protect data at rest; the stand-in is not a way to
   run production. **It is the only adapter built in 0.0.1.**
 - When no key is given, the first-start unit generates one for the
-  stand-in. Whoever uses the stand-in must keep that key apart from the data if
+  stand-in and keeps it in a place of its own, apart from the database server's data. This is the stated exception
+  to "secrets are held only in the secret store" (R7): the root of trust is
+  kept apart on purpose, and the stand-in does not protect data at rest. Whoever uses the stand-in must keep that key apart from the data if
   the data matters at all.
 
 ### State and backup
 
-All state lives in one place, the database server, so one backup covers
-everything (R60, R20). Restoring elsewhere needs the same root of trust, which
-is therefore kept apart from the backups.
+All state lives in one place, the database server, so one backup of the
+database server covers everything (R60, R20); the root of trust is the one
+exception, kept apart on purpose. Restoring elsewhere needs the same root of
+trust, which is therefore kept apart from the backups.
 
 ### Consequences
 
@@ -147,12 +154,16 @@ is therefore kept apart from the backups.
   does not protect data at rest; an installation that needs that protection
   waits for the production adapter (GAP-016 for the cloud seals).
 - Bad, because the rotation of secrets over time is not part of 0.0.1.
-- Bad, because self-initialization runs once only, so the secret store's
-  policies do not converge after first start (GAP-020).
+- Bad, because a unit logs in to the secret store by a role of its machine authentication that holds no second factor, so any local process in the pod could obtain what that role allows. Guardrails stop accidents, not a determined owner; whether a second factor is worth its cost is a task in the backlog.
+- Bad, because the secret store's own self-initialization runs once only. The
+  configurator ([ADR-0006](0006-one-configurator-for-all-state.md)) converges
+  the secret store's policies, engines and roles at every start; only what the
+  initialization itself does (the certificate authority, the seed values, the
+  first machine credential) runs once (GAP-020).
 
 ### Confirmation
 
-Not built. `engine/secrets/` holds only a `.gitkeep` file. The facts under "Verified by the spike" were observed in a spike of 2026-11-27, not by a test of this repository. Pending, not written: R7 (`test_R7_secrets_generated`), R26 (`test_R26_unattended_start`), R36 (`test_R36_failed_first_start_repeatable`), R20 (`test_R20_backup_restores_into_empty_system`), R60 (`test_R60_all_state_in_one_store`), R61 (`test_R61_database_server_serves_without_secret_store`) and R62 (`test_R62_storage_connection_uses_no_secret`). Validating the OpenBao configuration in continuous integration is intended and not built.
+Built and observed on 2026-11-27 by the system tests (`mise run engine:test`): the secret store starts in the engine on the database server as its storage, unseals from the stand-in root of trust, signs the database server's certificate request and the server turns TLS on by a reload; token logins over TLS then work. Written: R61 (`test_R61_database_server_serves_without_secret_store`), R62 (`test_R62_storage_connection_uses_no_secret`) and R103 (`test_R103_adopter_secrets_arrive_as_files`). Pending, not written: R7 (`test_R7_secrets_generated`; the configurator's `test_R7_state_holds_no_secret` is written), R20 (`test_R20_backup_restores_into_empty_system`), R26 (`test_R26_unattended_start`), R36 (`test_R36_failed_first_start_repeatable`, the configurator's `test_R36_run_fails_when_a_target_is_down_and_succeeds_on_the_next` is written), R37 and R60 (see `tests/pending.toml`). Not observed: renewal of the certificate (a task is in the backlog), the manage role in use by the secret store, a restore from a backup. The facts under "Verified by the spike" were observed on 2026-11-27 with OpenBao 2.7.3 and PostgreSQL 18.7, in a spike. Validating the OpenBao configuration in continuous integration is intended and not built.
 
 ## Pros and Cons of the Options
 
@@ -183,5 +194,6 @@ Not built. `engine/secrets/` holds only a `.gitkeep` file. The facts under "Veri
 ## More Information
 
 Outside 0.0.1: Periodic rotation of secrets. Upgrades: R37 states that an installation
-converges on upgrade and its verification is pending; the secret store's own
-convergence after first start is not solved (GAP-020, [ADR-0005](0005-engine-image-and-runtime.md)).
+converges on upgrade and its verification is pending; what the secret store's
+own initialization created is not converged after first start (GAP-020,
+[ADR-0005](0005-engine-image-and-runtime.md)).

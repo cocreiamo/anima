@@ -40,7 +40,7 @@ Task: TASK-49, Write the tests of release and supply chain. Role: implementer.
 
 ### Load these skills
 
-- anima-branching-and-releasing, anima-tech-github-governance
+- anima-branching-and-releasing, anima-tech-github-governance, anima-specifying-requirements
 
 ### Own these paths
 

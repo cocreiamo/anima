@@ -4,37 +4,39 @@ title: 'GAP-020: Reconcile the secret store''s declared settings at every start'
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:39Z'
+updated_date: '2026-11-27T18:55:55Z'
 labels:
-  - upstream
+  - gap
+  - engine
 dependencies: []
 ordinal: 16000
 gaps:
   - GAP-020
-fork: cocreiamo/anima-openbao
+fork: none
 role: implementer
 owns:
+  - engine/configure/**
+  - tests/configure/**
   - gaps.toml
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-GAP-020 (OpenBao): Self-initialization runs once only, on an empty storage. Policies and other declared settings of the secret store are not reconciled at later starts, and its declared profiles do not prune: a declaration that is removed leaves its object behind.
+GAP-020 (OpenBao): the secret store's self-initialization runs once only, on an empty storage. What it creates (the certificate authority, the seed values, the first machine credential) is not reconciled at later starts. The secret store's policies, engines and roles are converged by the configurator at every start.
 
-Impact: An upgrade that changes a policy or a secrets engine setting does not reach an installation that already exists (R37).
-
-The remedy is a contribution upstream, prepared in the fork cocreiamo/anima-openbao (`anima-maintaining-a-fork`): written for upstream first, in upstream's licence and with its tools, then submitted the way upstream asks.
+The remedy is ours (the configurator, ADR 0006), or a change of what we adopt; the gap stays open until the condition below holds.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: The declared state of the secret store converges at every start, removals included, by OpenBao itself or by the configurator (ADR 0006).
+- [ ] #1 Check: OpenBao reconciles what its initialization created at every start, or an upgrade that must change it has a declared path (ADR 0006)
 - [ ] #2 Check: GAP-020 is updated in gaps.toml (status, upstream link)
 <!-- AC:END -->
 
 ## Brief
 
-Task: TASK-16, GAP-020: Reconcile the secret store's declared settings at every start. Role: implementer.
+Task: TASK-16, Reconcile the secret store's declared settings at every start. Role: implementer.
 
 ### Read first
 
@@ -42,19 +44,21 @@ Task: TASK-16, GAP-020: Reconcile the secret store's declared settings at every 
 
 ### Load these skills
 
-- anima-tech-openbao, anima-maintaining-a-fork, anima-secrets-design
+- anima-tech-openbao, anima-secrets-design, anima-configuration-design, anima-tech-opentofu
 
 ### Own these paths
 
+- engine/configure/**
+- tests/configure/**
 - gaps.toml
 
 ### Do not touch
 
-- third_party/**; the code of the fork is changed in the fork's own repository, not here
+- third_party/**, generated files, lock files; do not weaken a check
 
 ### Acceptance
 
-- Check: The declared state of the secret store converges at every start, removals included, by OpenBao itself or by the configurator (ADR 0006).
+- Check: OpenBao reconciles what its initialization created at every start, or an upgrade that must change it has a declared path (ADR 0006)
 - Check: GAP-020 is updated in gaps.toml (status, upstream link)
 
 ### Done when

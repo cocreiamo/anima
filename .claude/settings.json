@@ -14,6 +14,7 @@
       "Edit(/.claude/rules/anima-database-design.md)",
       "Edit(/.claude/rules/anima-image-design.md)",
       "Edit(/.claude/rules/anima-licensing-and-brand.md)",
+      "Edit(/.claude/rules/anima-mail-design.md)",
       "Edit(/.claude/rules/anima-maintaining-a-fork.md)",
       "Edit(/.claude/rules/anima-repository-conventions.md)",
       "Edit(/.claude/rules/anima-secrets-design.md)",
@@ -41,6 +42,7 @@
       "Edit(/.claude/skills/anima-designing-for-production/SKILL.md)",
       "Edit(/.claude/skills/anima-image-design/SKILL.md)",
       "Edit(/.claude/skills/anima-licensing-and-brand/SKILL.md)",
+      "Edit(/.claude/skills/anima-mail-design/SKILL.md)",
       "Edit(/.claude/skills/anima-maintaining-a-fork/SKILL.md)",
       "Edit(/.claude/skills/anima-product-principles/SKILL.md)",
       "Edit(/.claude/skills/anima-repository-conventions/SKILL.md)",
@@ -67,7 +69,9 @@
       "Edit(/mise.lock)",
       "Edit(/uv.lock)",
       "Edit(/MODULE.bazel.lock)",
-      "Edit(/.mise/locks/**)"
+      "Edit(/.mise/locks/**)",
+      "Bash(python:*)",
+      "Bash(python3:*)"
     ]
   },
   "hooks": {

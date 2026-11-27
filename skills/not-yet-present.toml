@@ -6,7 +6,6 @@
 
 paths = [
   # The configurator and its providers: forks that are not yet submodules.
-  "**/*.tf",
   "third_party/opentofu/**",
   "third_party/terraform-provider-postgresql/**",
   "third_party/terraform-provider-vault/**",

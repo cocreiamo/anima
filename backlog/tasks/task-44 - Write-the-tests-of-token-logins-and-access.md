@@ -4,6 +4,7 @@ title: Write the tests of token logins and access
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:44Z'
+updated_date: '2026-11-27T18:55:57Z'
 labels:
   - pending-tests
 dependencies: []
@@ -32,13 +33,12 @@ The verifications about logins by token, the refusal of other ways in, the mappi
 - [ ] #5 test_R4_no_password_access
 - [ ] #6 test_R5_identity_maps_to_role
 - [ ] #7 test_R8_database_server_depends_on_standard_issuer_only
-- [ ] #8 test_R15_encrypted_connections_only
-- [ ] #9 test_R27_idp_role_confined_to_its_database
-- [ ] #10 test_R31_service_roles_internal_token_roles_by_token
-- [ ] #11 test_R32_idp_database_reachable_only_by_its_role
-- [ ] #12 test_R33_token_for_other_client_refused
-- [ ] #13 test_R34_token_rules_require_scope
-- [ ] #14 test_R35_fixed_role_names_reserved
+- [ ] #8 test_R27_idp_role_confined_to_its_database
+- [ ] #9 test_R31_service_roles_internal_token_roles_by_token
+- [ ] #10 test_R32_idp_database_reachable_only_by_its_role
+- [ ] #11 test_R33_token_for_other_client_refused
+- [ ] #12 test_R34_token_rules_require_scope
+- [ ] #13 test_R35_fixed_role_names_reserved
 <!-- AC:END -->
 
 ## Brief
@@ -51,7 +51,7 @@ Task: TASK-44, Write the tests of token logins and access. Role: implementer.
 
 ### Load these skills
 
-- anima-access-design, anima-tech-keycloak, anima-tech-postgresql-oauth, anima-tech-testcontainers-podman
+- anima-access-design, anima-tech-keycloak, anima-tech-postgresql-oauth, anima-tech-testcontainers-podman, anima-specifying-requirements
 
 ### Own these paths
 
@@ -72,7 +72,6 @@ Task: TASK-44, Write the tests of token logins and access. Role: implementer.
 - test_R4_no_password_access
 - test_R5_identity_maps_to_role
 - test_R8_database_server_depends_on_standard_issuer_only
-- test_R15_encrypted_connections_only
 - test_R27_idp_role_confined_to_its_database
 - test_R31_service_roles_internal_token_roles_by_token
 - test_R32_idp_database_reachable_only_by_its_role

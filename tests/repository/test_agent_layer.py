@@ -574,6 +574,44 @@ def test_R87_catalog_synonym_keys_exist_detects_violation():
     assert synonym_faults({}, keys) == []
 
 
+# ---- R107: a bare interpreter is refused (PM-004) -----------------------------------------
+
+
+def bare_interpreter_faults(settings):
+    """The settings deny `python` and `python3` as the first word of a command,
+    and deny nothing that starts with the task runner."""
+    deny = settings.get("permissions", {}).get("deny", [])
+    faults = [
+        f"not refused: {c}"
+        for c in ("Bash(python:*)", "Bash(python3:*)")
+        if c not in deny
+    ]
+    faults += [
+        f"refuses the task runner: {d}"
+        for d in deny
+        if d.startswith("Bash(") and d[5:].startswith(("mise", "uv"))
+    ]
+    return faults
+
+
+def test_R107_agent_settings_refuse_bare_interpreter():
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text())
+    faults = bare_interpreter_faults(settings)
+    assert not faults, faults
+
+
+def test_R107_agent_settings_refuse_bare_interpreter_detects_violation():
+    good = json.loads(al.settings_json(["a.md"]))
+    assert bare_interpreter_faults(good) == []
+    without = {"permissions": {"deny": ["Edit(/a.md)"]}}
+    assert bare_interpreter_faults(without)
+    too_wide = {
+        "permissions": {"deny": ["Bash(python:*)", "Bash(python3:*)", "Bash(mise:*)"]}
+    }
+    assert bare_interpreter_faults(too_wide)
+    assert bare_interpreter_faults({"permissions": {"deny": ["Bash(python:*)"]}})
+
+
 # ---- R92: the advisory hook ---------------------------------------------------------------------
 
 HOOK_CASES = [

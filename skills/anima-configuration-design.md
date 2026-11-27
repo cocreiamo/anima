@@ -1,9 +1,10 @@
 ---
 name: anima-configuration-design
-description: "Use when touching anything under config/ or any setting the engine reads: what an adopter configures, defaults, profiles, the driver that selects an adapter, and where secrets are named."
+description: "Use when touching anything under config/ or engine/configure/ (the configurator) or any setting the engine reads: what an adopter configures, defaults, profiles, the driver that selects an adapter, and where secrets are named."
 family: capability
 paths:
   - config/**
+  - engine/configure/**
 ---
 
 # Configuration design
@@ -49,8 +50,8 @@ two layers, drivers) and this skill.
    a profile that edits a unit.
 8. **An unknown or forbidden setting is refused before anything changes**, and
    the engine does not become ready; the message names the setting (R48).
-9. **No secret value in a configuration file** (R7). A setting that needs a
-   secret names it; the value arrives as a file from the host's secret
+9. **No secret value in a configuration file** (R7, R103). A setting that needs a
+   secret the adopter supplies names it; the value arrives as a file from the host's secret
    mechanism. See `anima-secrets-design`.
 10. **The format is a promise to adopters.** It is validated before ready and
     follows "expand only": a new version accepts every configuration the
@@ -65,8 +66,11 @@ two layers, drivers) and this skill.
     database roles derive from it. The identity provider's public URL: one
     installation parameter; its hostname, the issuer in the access rules, the
     name on the certificate and the host alias of the units derive from it.
-    Secrets: the secret store only; consumers receive rendered copies in
-    memory, none is in a repository, an image or a file on a volume (R7).
+    Secrets the engine generates: the secret store only; consumers receive
+    rendered copies in memory, none is in a repository or an image (R7).
+    Secrets the adopter supplies: named in the configuration, the value a file
+    of the host's secret mechanism (R103). The stand-in root of trust is the
+    stated exception (`anima-secrets-design`).
     Component versions: `components.toml`; tool versions: `mise.toml`.
     Unverified: none of the first three declarations is built, so their
     repetition is prevented only by the files not existing; the test that
@@ -76,9 +80,14 @@ two layers, drivers) and this skill.
     roles) and the database server (roles, memberships, privileges, access
     rules, installed extensions) each have one declared file and are converged
     by the same configurator (ADR 0006). It sees only what is declared: something granted by
-    hand on an object that no declaration tracks stays. The secret store's own
-    self-initialization runs once only and is not converged (GAP-020). Not
-    built: the configurator.
+    hand on an object that no declaration tracks stays. The secret store's
+    policies, engines and roles are converged at every start; only what its own
+    first-start initialization does (the certificate authority, the seed values,
+    the first machine credential) runs once (GAP-020).
+    Unverified: the configurator is written (`engine/configure/`) and has not
+    been seen to converge all three stores.
+14. **The configuration is read in layers, and what the schema does not declare is refused.** The layers are the engine's defaults, the base and the profile, each overriding the previous one; the defaults file of a capability is also its schema: an unknown key, a forbidden key, a value of another type than its default and a driver that is not listed are refused, naming the setting, and nothing is written unless everything is valid; a value that needs a secret is a `_file` setting (R48, R95, R103). Example: `engine/image/anima-config` and `tests/system/test_configuration.py`. Observed on 2026-11-27.
+15. **The configuration declares two kinds of identity, people and applications, and refuses a configuration without an administrator.** Nothing else about users is configuration: end users of an application are created at run time in the identity provider and are never written in a file or touched by the configurator, and no default person ships (R6, R100, R101, R102; `anima-access-design`). The first administrator is declared by whoever installs. Role scopes are granted only to the engine's own client and to declared applications.
 
 ## Questions to answer before proposing
 

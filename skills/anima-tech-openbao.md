@@ -1,6 +1,6 @@
 ---
 name: anima-tech-openbao
-description: "Use when writing or debugging the secret store in Anima with OpenBao: declarative self-initialization stanzas, the static seal and unattended unseal, Raft snapshots, the database secrets engine against PostgreSQL, the PKI engine, running the container unprivileged."
+description: "Use when writing or debugging the secret store in Anima with OpenBao: declarative self-initialization stanzas, the static seal and unattended unseal, the database secrets engine against PostgreSQL, the PKI engine, running the container unprivileged."
 family: technology
 paths:
   - third_party/openbao/**
@@ -17,22 +17,23 @@ of secrets is in `anima-secrets-design`.
 - Writing or changing the `initialize` stanzas, the seal or the audit settings.
 - Making the secret store start, unseal and configure itself with no human.
 - Handing out database credentials, or issuing certificates.
-- Taking or restoring a snapshot.
+- Choosing the storage of the secret store.
 
 ## Rules
 
-1. **Declare the setup as `initialize` stanzas.** Example: `initialize "<name>" { request "<name>" { operation, path, data } }`; stanzas run in file order with a root token that is revoked afterwards; a value comes from the environment (`password = { eval_type = "string", eval_source = "env", env_var = "NAME", require_present = true }`) or a file (`eval_source = "file"` and `path = "…"`, for a policy). Observed on 2026-11-27 with OpenBao 2.7.3 (and PostgreSQL 18.7 for the database engine), in one file: policies from files, AppRole with a fixed role id and a custom secret id from the environment, a KV mount, a PKI mount with a root authority and a server role, the database secrets mount with a connection and a role. Working configuration in a spike (may disappear): `spike-openbao/config/openbao.hcl`; the repository's own is `engine/secrets/openbao.hcl`.
+1. **Declare the setup as `initialize` stanzas.** Example: `initialize "<name>" { request "<name>" { operation, path, data } }`; stanzas run in file order with a root token that is revoked afterwards; a value comes from the environment (`password = { eval_type = "string", eval_source = "env", env_var = "NAME", require_present = true }`) or a file (`eval_source = "file"` and `path = "…"`, for a policy). Observed on 2026-11-27 with OpenBao 2.7.3 (and PostgreSQL 18.7 for the database engine), in one file: policies from files, AppRole with a fixed role id and a custom secret id from the environment, a KV mount, a PKI mount with a root authority and a server role, the database secrets mount with a connection and a role. Example: `engine/secrets/openbao.hcl`.
 2. **Validate the stanzas before shipping them.** Not: expecting a failed self-initialization to be retryable; there is no rollback, a failure leaves the storage unusable and the server refuses to unseal ("self-initialization failed: refusing to unseal"); start again from empty storage (GAP-015).
-3. **Do not expect the stanzas to run at every start.** They run once, on empty storage, and are not reconciled later, so a changed policy does not reach an existing installation (GAP-020).
+3. **Do not expect the stanzas to run at every start.** They run once, on empty storage, and are not reconciled later, so a changed stanza does not reach an existing installation (GAP-020); what the configurator converges (policies, engines, roles) is outside the stanzas.
 4. **Use an auto-unseal seal.** Example: `seal "static" { current_key_id = "…"  current_key = "file:///…/unseal.key" }` with a 32-byte key; after a restart, and after re-creating the container on the same volume, it came back unsealed. Not: self-initialization with a manual unseal, which it does not support; a static key on the same volume does not protect data at rest.
 5. **Expect no recovery keys with auto-unseal.** A warning appears at every start; it is not a fault.
 6. **Declare the database connection with `verify_connection = false`,** so the database need not be up at first start.
 7. **Create dynamic database users that never block a drop.** Example: creation `CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' IN ROLE <group>;` then `ALTER ROLE "{{name}}" SET role TO '<group>';` so objects belong to the group; revocation `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = '{{name}}';` then `DROP ROLE IF EXISTS "{{name}}";`. The management role needs `CREATEROLE`, ADMIN OPTION on the group role, `CONNECT` and `pg_signal_backend`. Not: dynamic users for a service that cannot reload its password (GAP-017); use a static role. After `rotate-root` only the secret store knows the management password.
 8. **Restrict a PKI role to subdomains of one domain.** Example: `allowed_domains = ["…"]`, `allow_subdomains = true`, `allow_bare_domains = false`, `allow_localhost = false`; it refused the bare domain, other domains and `localhost`.
-9. **Take a snapshot with `read` on `sys/storage/raft/snapshot`; restore with `sudo` and the same seal key.** Not: expecting a restored snapshot to open with any key.
+9. **A snapshot of `sys/storage/raft/snapshot` applies only to the integrated storage, which the product does not use.** Its storage is the database server and its backup is the database server's (`anima-secrets-design`). Observed in a spike on 2026-11-27 with the integrated storage: restoring a snapshot needed `sudo` and the same seal key. Not: a snapshot of the secret store as the backup.
 10. **Run the container unprivileged with all capabilities dropped.** It did so in the spike.
-11. **Treat issuing a certificate and rotating the management password as API calls after start.** Not: expecting everything to be declarative; audit devices use the `audit` stanza, not self-initialization.
-12. Unverified: a cloud key-management seal. Cloud seals are external plugins fetched as images (read in the documentation, GAP-016). Also unverified: its PostgreSQL storage backend, and the agent sidecar's behaviour with consumers (read only).
+11. **Treat issuing a certificate and rotating a management password (as in the spike, with a password role) as API calls after start.** Not: expecting everything to be declarative; audit devices use the `audit` stanza, not self-initialization.
+12. **Give the configurator its own machine authentication in a stanza file beside the main configuration.** Example: `engine/configure/secret-store-bootstrap.hcl`, mounted in the secret store's configuration directory, on its own mount, with the credential given as an environment variable. Without it the configurator cannot log in. Observed on 2026-11-27 in the proof of `engine/configure/` (a pod of throwaway containers, not the engine image).
+13. Unverified: a cloud key-management seal. Cloud seals are external plugins fetched as images (read in the documentation, GAP-016). Also unverified: its PostgreSQL storage backend, and the agent sidecar's behaviour with consumers (read only).
 
 ## Questions to answer before proposing
 

@@ -4,6 +4,7 @@ title: Write the tests of secrets
 status: To Do
 assignee: []
 created_date: '2026-11-27T18:18:44Z'
+updated_date: '2026-11-27T18:56:06Z'
 labels:
   - pending-tests
 dependencies: []
@@ -19,13 +20,13 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The verifications about secrets generated at first start and about a storage connection that uses no secret. Each test is written with its `_detects_violation` companion where it is a check of the repository.
+The verifications about secrets generated at first start and about a secret that the adopter supplies arriving as a file. The test of a storage connection that uses no secret is written already (R62).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 test_R7_secrets_generated
-- [ ] #2 test_R62_storage_connection_uses_no_secret
+- [ ] #2 test_R103_adopter_secrets_arrive_as_files
 <!-- AC:END -->
 
 ## Brief
@@ -38,7 +39,7 @@ Task: TASK-46, Write the tests of secrets. Role: implementer.
 
 ### Load these skills
 
-- anima-secrets-design, anima-tech-openbao
+- anima-secrets-design, anima-tech-openbao, anima-specifying-requirements
 
 ### Own these paths
 
@@ -52,7 +53,7 @@ Task: TASK-46, Write the tests of secrets. Role: implementer.
 ### Acceptance
 
 - test_R7_secrets_generated
-- test_R62_storage_connection_uses_no_secret
+- test_R103_adopter_secrets_arrive_as_files
 
 ### Done when
 

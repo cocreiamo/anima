@@ -30,7 +30,7 @@ in a file?
 - An adopter writes only what differs from the default.
 - The configuration is a public interface and names no adapter's native format
   (R49).
-- No secret value in a configuration file (R7).
+- No secret value in a configuration file (R7, R103).
 - A wrong setting is refused before the engine becomes ready (R48).
 
 ## Considered Options
@@ -71,7 +71,7 @@ special case of production, and a copy would drift.
    and before the engine becomes ready, and the message names it (R48).
 8. No secret value is written in a configuration file. A setting that needs a
    secret names it, and the value arrives as a file from the host's secret
-   mechanism (R7).
+   mechanism (R103).
 
 The style resembles the configuration of application frameworks: a file per
 concern, defaults shipped, values from the environment. That is inspiration,
@@ -95,21 +95,17 @@ not an adopted tool.
 
 ### Confirmation
 
-Not built. Pending, not written: R65 (`test_R65_every_setting_has_production_default`),
-R66 (`test_R66_profile_differs_only_in_selection_and_data`, marked as a fitness
-function), R48, R49, R59 and R7 (see `tests/pending.toml`).
+Observed on 2026-11-27 by the system tests: the configuration is read in layers (the engine's defaults, the base, the profile), an unknown, forbidden or secret setting is refused naming it with nothing written, an absent setting takes its default, and a secret named by a `_file` setting arrives as a file and never as a value (R48, R95, R103, written). Pending, not written: R65 (`test_R65_every_setting_has_production_default`), R66 (`test_R66_profile_differs_only_in_selection_and_data`, marked as a fitness function), R59 and R7 (see `tests/pending.toml`). Written in the configurator's tests: R49. The configuration of the engine is the example one in `config/`; an adopter's own was not tried.
 
 ## Pros and Cons of the Options
 
 ### Environment variables only
 
-- Bad, because it was rejected; the original decision records no further
-  reason.
+- No reason was recorded.
 
 ### One flat file
 
-- Bad, because it was rejected; the original decision records no further
-  reason.
+- No reason was recorded.
 
 ### An adapter's native formats
 

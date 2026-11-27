@@ -29,7 +29,9 @@ the command line and the REST API. The repository rules are in
 5. **Fetch the release tag explicitly in a shallow submodule clone.** Not: expecting the tag to be there; it fetches only the default branch.
 6. **Move a branch with a commit made through the API.** A commit made through the API by a workflow is signed by GitHub, which satisfies a signed-commits rule; Example: `promote.yml` moves a branch with `gh api --method PATCH` on `git/refs/heads/<branch>`.
 7. **Let the organization allow "create and approve pull requests" before the repository does.** Not: enabling it on the repository alone; the call fails with 409 (GAP-046).
-8. Unverified: which credential a chained workflow should use. A push made with the workflow token does not start other workflows, and no replacement has been tried.
+8. **Name a required check after the caller when the job calls a reusable workflow.** The check of a job called through `uses:` is `<caller job> / <called job>`, with the spaces, where each part is the job's `name` or, without one, its id. Example: the caller job `check` of `ci.yml` calling the job `check` of the shared workflow gives `check / check`, and `.github/rulesets/main.json` lists that. Not: the name of the called job alone.
+9. Unverified: **the names of the checks of called workflows and their behaviour in the merge queue.** The rule above comes from a third party's documentation (Otterdog), not from GitHub's own pages, and no run has shown it; that a called job whose steps are all skipped reports success in the merge queue is not documented either. Read the names on the first pull request before applying the ruleset.
+10. Unverified: which credential a chained workflow should use. A push made with the workflow token does not start other workflows, and no replacement has been tried.
 
 ## Questions to answer before proposing
 
