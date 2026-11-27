@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#MISE description="Fetch the SysML v2 pilot implementation into the cache (idempotent, safe to run in parallel) and print its directory"
+#
+# The one place that downloads and unpacks the OMG SysML v2 Pilot
+# Implementation (PM-007). model:check and model:export call it; no other
+# script contains the download or the unzip.
+#
+# Safe under parallel runs and cold caches: callers take a lock, the archive is
+# downloaded to a file of its own and checked against its SHA-256 before it is
+# used, and it is unpacked into a directory of its own that is renamed into
+# place in one step, so a reader never sees a half-unpacked tree.
+#
+# Usage: mise-tasks/model/fetch   (prints .cache/sysml-pilot/<version>/sysml)
+set -euo pipefail
+
+: "${SYSML_PILOT_RELEASE:?set in mise.toml}"
+: "${SYSML_PILOT_VERSION:?set in mise.toml}"
+: "${SYSML_PILOT_SHA256:?set in mise.toml}"
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+dir="$root/.cache/sysml-pilot/$SYSML_PILOT_VERSION"
+name="jupyter-sysml-kernel-$SYSML_PILOT_VERSION"
+target="$dir/sysml"
+ready="$target/$name-all.jar"
+
+if [ ! -f "$ready" ]; then
+    mkdir -p "$dir"
+    (
+        flock 9
+        # Another caller may have finished while this one waited for the lock.
+        if [ ! -f "$ready" ]; then
+            work="$(mktemp -d "$dir/fetch.XXXXXX")"
+            trap 'rm -rf "$work"' EXIT
+            zip="$work/$name.zip"
+            curl -fsSL -o "$zip" \
+                "https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/download/$SYSML_PILOT_RELEASE/$name.zip"
+            echo "$SYSML_PILOT_SHA256  $zip" | sha256sum --check --quiet
+            unzip -q "$zip" -d "$work/unpacked"
+            # GAP-002: the exporter looks some library files up by URL-encoded
+            # path, and the directories of the pilot's own library have spaces
+            # in their names. Give each such directory an alias with the
+            # encoded name, before the tree is in place.
+            find "$work/unpacked/sysml/sysml.library" -type d -name '* *' | while read -r directory; do
+                alias_name="$(basename "$directory")"
+                ln -sfn "$alias_name" "$(dirname "$directory")/${alias_name// /%20}"
+            done
+            # A tree left by an interrupted run of an older script has no jar.
+            rm -rf "$target"
+            mv -T "$work/unpacked/sysml" "$target"
+        fi
+    ) 9>"$dir/.lock"
+fi
+echo "$target"

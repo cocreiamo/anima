@@ -478,6 +478,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R108'> checksPassFromEmptyCache {
+            doc /* Every check shall pass from an empty cache whatever the order in which its tasks run, and the tool that a check downloads shall be fetched in one place that is safe when several callers fetch at once. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R107'> bareInterpreterRefused {
             doc /* The agent settings shall refuse a command that starts a bare Python interpreter, and shall not refuse one that starts through the task runner. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -920,6 +925,7 @@ package Anima {
     satisfy Day0::imageRebuiltWhenAnyInputChanges by toolchain;
     satisfy Day0::declarationsFollowProviderGuards by anima.engine;
     satisfy Day0::bareInterpreterRefused by toolchain;
+    satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::noReferenceToMissingRecord by toolchain;
 
@@ -1449,9 +1455,17 @@ package Anima {
             subject configurator : Configurator;
             objective { verify Day2::planGuardRefusesUndeclaredContraction; }
         }
+        verification def test_R108_pilot_fetched_in_one_guarded_place {
+            subject tools : Toolchain;
+            objective { verify Day0::checksPassFromEmptyCache; }
+        }
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;
             objective { verify Day0::bareInterpreterRefused; }
+        }
+        verification def test_R63_fault_messages_name_no_credential_value {
+            subject sys : System;
+            objective { verify Day1::declaredIdentityCredentialNeverInFile; }
         }
         verification def test_R103_adopter_secrets_arrive_as_files {
             subject engine : Engine;

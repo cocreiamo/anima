@@ -151,6 +151,43 @@ def test_R63_declared_identity_credential_never_in_file():
     assert checks.secret_attribute_faults(text, "identities.tf") == []
 
 
+def echoed(faults, values):
+    """The fault messages that carry any of the values."""
+    return [f for f in faults if any(v in f for v in values)]
+
+
+def test_R63_fault_messages_name_no_credential_value():
+    """A message names the identity and the position of a field, never a field's
+    name or value, nor a line of the access rules: the checks print them. Proves
+    it for a file that holds a credential, an unknown field and a rule with
+    trust; it does not prove it for a message added later."""
+    document = {
+        "people": [
+            {
+                "name": "eve",
+                "email": "e@example.org",
+                "roles": ["admin"],
+                "password": "hunter2-value",
+                "api_token_x": "tok-value",
+            }
+        ]
+    }
+    faults = checks.identities_faults(document, allowed_roles(), "admin")
+    assert faults
+    secrets = ["hunter2-value", "tok-value", "password", "api_token_x"]
+    assert echoed(faults, secrets) == []
+    rules = [["host", "all", "svc_x", "0.0.0.0/0", "trust", "pw-in-option"]]
+    faults = checks.service_rule_faults(rules, ["svc_x"])
+    assert faults
+    assert echoed(faults, ["pw-in-option"]) == []
+
+
+def test_R63_fault_messages_name_no_credential_value_detects_violation():
+    assert echoed(["identity 'eve': 'password' looks like a credential"], ["password"])
+    assert echoed(["rule uses trust: host all x trust s3cret"], ["s3cret"])
+    assert echoed(["field 3 looks like a credential"], ["password"]) == []
+
+
 def test_R63_declared_identity_credential_never_in_file_detects_violation():
     bad = 'resource "keycloak_user" "u" {\n  initial_password {\n  }\n  password = "x"\n}\n'
     assert checks.secret_attribute_faults(bad)

@@ -1,9 +1,12 @@
 """What the repository's tools must not leave behind: a dirty fork, a file outside
-the cache, bytecode beside the source. R89 to R91; each carries the postmortem
+the cache, bytecode beside the source. R89 to R91 and R108; each carries the postmortem
 that records the event it guards (PM-002, PM-003, PM-004).
 """
 
+import hashlib
+import os
 import subprocess
+import zipfile
 
 from repo_facts import outside_snapshot, repository_files, submodule_commits
 from sysml_model import ROOT
@@ -98,3 +101,112 @@ def test_R91_no_bytecode_outside_cache_detects_violation():
     assert bytecode_files(["a.py", "tests/x.md"]) == []
     assert bytecode_files(["tests/repository/__pycache__/m.cpython-312.pyc"])
     assert bytecode_files(["m.pyc"])
+
+
+# ---- R108: the pilot is fetched in one guarded place (PM-007) -------------------------------
+
+FETCH = ROOT / "mise-tasks" / "model" / "fetch"
+FETCH_GUARDS = ("flock", "mktemp -d", "sha256sum --check", "mv -T")
+
+
+def fetch_sites(scripts):
+    """The scripts (name -> text) that download or unpack the pilot. Exactly one
+    may, and it must hold the guards that make parallel callers safe."""
+    return sorted(
+        name
+        for name, text in scripts.items()
+        if "SysML-v2-Pilot-Implementation" in text
+        and ("curl" in text or "unzip" in text)
+    )
+
+
+def fetch_faults(scripts, fetch_name="model/fetch"):
+    faults = []
+    if fetch_sites(scripts) != [fetch_name]:
+        faults.append(f"the pilot is fetched in {fetch_sites(scripts)}")
+    text = scripts.get(fetch_name, "")
+    faults += [f"{fetch_name} lacks {g}" for g in FETCH_GUARDS if g not in text]
+    if text.find("sha256sum --check") > text.find("unzip -q"):
+        faults.append("the checksum is verified after the unpacking")
+    return faults
+
+
+def pilot_scripts():
+    return {
+        str(p.relative_to(ROOT / "mise-tasks")): p.read_text()
+        for p in (ROOT / "mise-tasks").rglob("*")
+        if p.is_file() and p.suffix in ("", ".sh")
+    }
+
+
+def fake_pilot(tmp_path):
+    """A stand-in for the download: a `curl` that waits and copies a small archive
+    with the layout of the pilot's, and the environment that names its checksum.
+    No network."""
+    version = "9.9.9"
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr(f"sysml/jupyter-sysml-kernel-{version}-all.jar", "jar")
+        z.writestr("sysml/sysml.library/Kernel Libraries/a.sysml", "x")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    curl = bin_dir / "curl"
+    curl.write_text(
+        '#!/usr/bin/env bash\nsleep 0.3\nwhile [ "$1" != "-o" ]; do shift; done\n'
+        f'cp "{archive}" "$2"\n'
+    )
+    curl.chmod(0o755)
+    return {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "MISE_PROJECT_ROOT": str(tmp_path / "root"),
+        "SYSML_PILOT_RELEASE": "r",
+        "SYSML_PILOT_VERSION": version,
+        "SYSML_PILOT_SHA256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+    }
+
+
+def run_fetches(env, count):
+    procs = [
+        subprocess.Popen(
+            [str(FETCH)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        for _ in range(count)
+    ]
+    return [(p.wait(), *p.communicate()) for p in procs]
+
+
+def test_R108_pilot_fetched_in_one_guarded_place(tmp_path):
+    """Proves, without the network: the download and unpack logic is in one
+    script only and that script holds the guards (a reading of its text, which
+    does not prove they work); and eight callers started together on an empty
+    cache, with the download replaced by a stand-in, all succeed and leave one
+    complete tree. It does not prove the real archive unpacks."""
+    assert fetch_faults(pilot_scripts()) == []
+    env = fake_pilot(tmp_path)
+    results = run_fetches(env, 8)
+    assert [code for code, _o, _e in results] == [0] * 8, results
+    target = tmp_path / "root/.cache/sysml-pilot/9.9.9/sysml"
+    assert (target / "jupyter-sysml-kernel-9.9.9-all.jar").is_file()
+    assert (target / "sysml.library/Kernel%20Libraries").is_symlink()
+    assert {o.decode().strip() for _c, o, _e in results} == {str(target)}
+    left = [p.name for p in target.parent.iterdir() if p.name.startswith("fetch.")]
+    assert left == []
+    assert run_fetches(env, 1)[0][0] == 0  # idempotent
+
+
+def test_R108_pilot_fetched_in_one_guarded_place_detects_violation(tmp_path):
+    good = {"model/fetch": FETCH.read_text(), "model/check": "model/fetch\n"}
+    assert fetch_faults(good) == []
+    # A second copy of the download, and an unguarded fetch.
+    assert fetch_faults(
+        {**good, "model/check": "curl -o x SysML-v2-Pilot-Implementation\n"}
+    )
+    unguarded = good["model/fetch"].replace("flock", "true")
+    assert fetch_faults({**good, "model/fetch": unguarded})
+    # A wrong checksum leaves nothing in place.
+    env = fake_pilot(tmp_path)
+    env["SYSML_PILOT_SHA256"] = "0" * 64
+    code, _out, _err = run_fetches(env, 1)[0]
+    assert code != 0
+    assert not (tmp_path / "root/.cache/sysml-pilot/9.9.9/sysml").exists()

@@ -10,27 +10,15 @@
 # Usage: mise run model:check [file.sysml...]   (default: model/anima.sysml)
 set -euo pipefail
 
-: "${SYSML_PILOT_RELEASE:?set in mise.toml}"
 : "${SYSML_PILOT_VERSION:?set in mise.toml}"
-: "${SYSML_PILOT_SHA256:?set in mise.toml}"
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 if [ "$#" -eq 0 ]; then
     set -- "$root/model/anima.sysml"
 fi
-dir="$root/.cache/sysml-pilot/$SYSML_PILOT_VERSION"
-zip="$dir/jupyter-sysml-kernel-$SYSML_PILOT_VERSION.zip"
-jar="$dir/sysml/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
-
-if [ ! -f "$jar" ]; then
-    mkdir -p "$dir"
-    if [ ! -f "$zip" ]; then
-        curl -fsSL -o "$zip" \
-            "https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/download/$SYSML_PILOT_RELEASE/$(basename "$zip")"
-    fi
-    echo "$SYSML_PILOT_SHA256  $zip" | sha256sum --check --quiet
-    unzip -q -o "$zip" -d "$dir"
-fi
+# The one place that fetches the pilot, safe in parallel (PM-007).
+pilot="$("$root/mise-tasks/model/fetch")"
+jar="$pilot/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
 
 input="$(mktemp)"
 trap 'rm -f "$input"' EXIT
@@ -41,7 +29,7 @@ done
 echo "%exit" >> "$input"
 
 if ! raw="$(timeout 300 java -cp "$jar" org.omg.sysml.interactive.SysMLInteractive \
-        "$dir/sysml/sysml.library" < "$input" 2>&1)"; then
+        "$pilot/sysml.library" < "$input" 2>&1)"; then
     printf '%s\n' "$raw"
     echo "model:check: the pilot implementation failed or timed out" >&2
     exit 1

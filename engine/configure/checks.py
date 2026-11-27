@@ -123,7 +123,7 @@ def blocks(text):
 
 # Attributes that persist a secret in the state when written in a resource. The
 # write-only forms (`password_wo`, `client_secret_wo`) are the allowed ones.
-SECRET_ATTRIBUTES = (
+PERSISTED_ATTRIBUTES = (
     "password",
     "initial_password",
     "client_secret",
@@ -140,7 +140,7 @@ def secret_attribute_faults(text, source="<text>"):
     for kind, rtype, name, body in blocks(text):
         if kind != "resource":
             continue
-        for attr in SECRET_ATTRIBUTES:
+        for attr in PERSISTED_ATTRIBUTES:
             if re.search(rf"^\s*{attr}\s*=", body, re.MULTILINE):
                 faults.append(
                     f"{source}: resource {rtype}.{name} sets `{attr}`, which is persisted "
@@ -312,12 +312,15 @@ def identities_faults(document, allowed_roles, administrator):
     for kind, fields in kinds.items():
         for entry in document.get(kind) or []:
             name = entry.get("name", "?")
-            for key in entry:
+            # A message names the identity and the position of the field, never
+            # the field's name or value: what a file holds is not echoed.
+            for position, key in enumerate(entry, start=1):
                 if key not in fields:
-                    faults.append(f"identity '{name}': unknown field '{key}'")
+                    faults.append(f"identity '{name}': field {position} is unknown")
                 if any(word in key.lower() for word in CREDENTIAL_KEYS):
                     faults.append(
-                        f"identity '{name}': '{key}' looks like a credential; none is written in a file"
+                        f"identity '{name}': field {position} looks like a credential; "
+                        "none is written in a file"
                     )
             unknown = sorted(set(entry.get("roles") or []) - set(allowed_roles))
             if unknown:
@@ -385,7 +388,7 @@ def token_rule_faults(rules, roles):
 def service_rule_faults(rules, roles):
     """Service roles never by token; passwords only on the loopback; closed databases rejected in order."""
     faults = []
-    for rule in rules:
+    for number, rule in enumerate(rules, start=1):
         role = rule[2] if len(rule) > 2 else ""
         if role.startswith("svc_") and "oauth" in rule:
             faults.append(f"a token rule admits the service role {role}")
@@ -397,7 +400,7 @@ def service_rule_faults(rules, roles):
                     f"{role} is admitted by password from {rule[3]}, not the loopback"
                 )
         if "trust" in rule:
-            faults.append(f"a rule uses trust: {' '.join(rule)}")
+            faults.append(f"rule {number} uses trust")
     return faults
 
 

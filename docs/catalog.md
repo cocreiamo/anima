@@ -134,6 +134,7 @@ Look here before building something. Each section is derived from its source; th
 | R105 | declarations follow provider guards | written |
 | R106 | plan guard refuses undeclared contraction | written |
 | R107 | bare interpreter refused | written |
+| R108 | checks pass from empty cache | written |
 
 ## Components
 
@@ -191,6 +192,7 @@ Look here before building something. Each section is derived from its source; th
 | `lint` | Lint and check the formatting of Anima's own files |
 | `model:check` | Validate the SysML v2 requirements model |
 | `model:export` | Export a SysML v2 file to JSON (cached by hash) and print the path of the JSON file |
+| `model:fetch` | Fetch the SysML v2 pilot implementation into the cache (idempotent, safe to run in parallel) and print its directory |
 | `pre-commit` | Git pre-commit hook: the fast checks |
 | `pre-push` | Git pre-push hook: every check |
 | `promote:verify` | Everything a commit of main must pass to be promoted to main-green |
@@ -280,6 +282,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
 - R105, declarations follow provider guards, at every commit: `test_R105_declarations_follow_the_guards` (written).
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
+- R108, checks pass from empty cache, at every commit: `test_R108_pilot_fetched_in_one_guarded_place` (written).
 
 ## Skills
 
