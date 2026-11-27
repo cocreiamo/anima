@@ -1,7 +1,8 @@
 [Unit]
 Description=Anima database server
 Requires=database-init.service
-After=database-init.service
+After=database-init.service anima-listen-container.service anima-listen-host.service
+Requires=anima-listen-container.service anima-listen-host.service
 
 [Container]
 ContainerName=database
@@ -11,6 +12,8 @@ Volume=/var/lib/anima/database:/var/lib/postgresql/data:U
 ReadOnly=true
 # The socket directory is shared with the secret store (peer authentication).
 Volume=/run/anima/pgsocket:/run/postgresql
+Volume=/run/anima/pgtls:/run/anima/pgtls:ro
+Volume=/run/anima/listen:/run/anima/listen:ro
 Tmpfs=/tmp:rw,mode=1777
 # Startup: the server accepts local connections.
 HealthStartupCmd=pg_isready --host=/run/postgresql

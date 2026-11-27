@@ -1,0 +1,59 @@
+#!/usr/bin/bash
+# Gets the database server's certificate from the secret store and turns TLS on
+# by a reload. The database server never needs this to start (R61): it starts
+# without TLS, and `ssl.conf` is included once it exists.
+#
+# The private key is made here, in memory (a tmpfs), and never leaves this
+# container: only a signing request goes to the secret store. The secret store is
+# reached on the pod's loopback (plain HTTP, never published) and authenticates
+# this unit by a role of its machine authentication that holds no secret.
+set -euo pipefail
+
+dir=/run/anima/pgtls
+api_host=127.0.0.1
+api_port=8200
+role=database-server
+
+umask 0077
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout "$dir/server.key.new" -out "$dir/server.csr" 2>/dev/null
+
+# post <path> <json> [token]: the response body, for a request without a client library.
+post() {
+    local path=$1 body=$2 token=${3:-}
+    exec 3<>"/dev/tcp/$api_host/$api_port"
+    printf 'POST /v1/%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\n%sContent-Length: %d\r\n\r\n%s' \
+        "$path" "$api_host" "${token:+X-Vault-Token: $token$'\r\n'}" "${#body}" "$body" >&3
+    local response
+    response=$(cat <&3)
+    exec 3<&-
+    case "$response" in
+        "HTTP/1.0 200"* | "HTTP/1.1 200"*) printf '%s' "${response#*$'\r\n\r\n'}" ;;
+        *)
+            echo "secret store refused /v1/$path: ${response%%$'\r\n'*}" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# field <name> <json>: the string value of a top-level-unique field, still escaped.
+field() { sed -n "s/.*\"$1\":\"\\([^\"]*\\)\".*/\\1/p" <<<"$2"; }
+unescape() { printf '%b' "$1"; }
+
+login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
+token=$(field client_token "$login")
+[ -n "$token" ] || { echo "no token from the secret store" >&2; exit 1; }
+
+csr=$(awk '{ printf "%s\\n", $0 }' "$dir/server.csr")
+signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"localhost\",\"alt_names\":\"localhost\",\"ip_sans\":\"127.0.0.1\"}" "$token")
+unescape "$(field certificate "$signed")" >"$dir/server.crt.new"
+unescape "$(field issuing_ca "$signed")" >"$dir/ca.crt"
+[ -s "$dir/server.crt.new" ] || { echo "no certificate in the answer" >&2; exit 1; }
+
+mv "$dir/server.key.new" "$dir/server.key"
+mv "$dir/server.crt.new" "$dir/server.crt"
+chmod 0644 "$dir/ca.crt"
+printf "ssl = on\nssl_cert_file = '%s/server.crt'\nssl_key_file = '%s/server.key'\n" "$dir" "$dir" >"$dir/ssl.conf.new"
+mv "$dir/ssl.conf.new" "$dir/ssl.conf"
+psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --tuples-only \
+    --command="select pg_reload_conf()"

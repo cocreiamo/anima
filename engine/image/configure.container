@@ -1,0 +1,36 @@
+[Unit]
+Description=Anima configurator: brings the installation to its declared state, then ends
+# Runs to completion at every start, after the parts it configures are healthy;
+# the readiness target waits for it, so a failed run leaves the engine not ready.
+# It is the configurator of ADR 0006 (image built from engine/configure/).
+Requires=database.service database-prepare.service database-tls.service secrets.service access.service anima-credentials.service
+After=database.service database-prepare.service database-tls.service secrets.service access.service anima-credentials.service
+
+[Container]
+ContainerName=configure
+Image=configure.image
+Pod=anima.pod
+# The superuser of the database server is reached on the local socket by the peer
+# credentials of the operating-system user of that name (uid 999).
+User=999:999
+ReadOnly=true
+Tmpfs=/work:rw,mode=1777
+Tmpfs=/tmp:rw,mode=1777
+Mount=type=tmpfs,destination=/run/secrets,tmpfs-mode=755
+Volume=/run/anima/pgsocket:/run/anima/pgsocket
+# The adopter's declaration of identities (no credential in it).
+Volume=/etc/anima/config/access/identities.yaml:/etc/anima/access/identities.yaml:ro
+# Credentials, as files in memory (see anima-credentials).
+Volume=/run/anima/configurator/root_of_trust:/run/secrets/root_of_trust:ro
+Volume=/run/anima/configurator/secret_store_secret_id:/run/secrets/secret_store_secret_id:ro
+Volume=/run/anima/configurator/identity_provider_admin_password:/run/secrets/identity_provider_admin_password:ro
+# The installation parameter: the identity provider's public URL.
+Environment=ANIMA_IDENTITY_PROVIDER_URL=http://localhost:8080
+Exec=converge
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=900
+Restart=on-failure
+RestartSec=10

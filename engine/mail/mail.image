@@ -1,0 +1,9 @@
+[Unit]
+Description=Anima mail stand-in image, loaded from the archive in the engine image
+
+[Image]
+Image=oci-archive:/usr/lib/anima/images/mail.tar
+ImageTag=localhost/anima/mail:engine
+
+[Service]
+TimeoutStartSec=300

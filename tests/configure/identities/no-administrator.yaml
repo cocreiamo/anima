@@ -1,0 +1,9 @@
+# Fixture of the configurator's proof: no identity holds the administrator role.
+people:
+  - name: carol
+    email: carol@example.org
+    roles: [readwrite]
+
+applications:
+  - name: reporting
+    roles: [readonly]

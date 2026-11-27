@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#MISE description="Prove the configurator standalone: a pod of throwaway containers, a first run from empty, a second run that changes nothing, identity changes, refusals, drift repair, no secret in the state, a target that is down; results in .cache/configure/proof/"
+#MISE depends=["engine:configure-build"]
+#
+# Usage: mise run engine:configure-prove [scenario ...]
+# Without arguments: start the pod, run every scenario in order, remove the pod.
+# With scenario names: run only those, in the pod that `engine:configure-pod up`
+# started (and leave it). CFG_KEEP=1 keeps the pod after a full run.
+#
+# Needs the images of `mise run engine:build` (.cache/engine/*.ref): the database
+# server, the secret store and the identity provider.
+set -euo pipefail
+
+ROOT="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$ROOT"
+export ROOT
+# shellcheck source=../../engine/configure/proof/pod.sh
+. engine/configure/proof/pod.sh
+# shellcheck source=../../engine/configure/proof/scenarios.sh
+. engine/configure/proof/scenarios.sh
+
+for ref in database secrets access configure; do
+    [ -s ".cache/engine/$ref.ref" ] || {
+        echo "no image reference .cache/engine/$ref.ref: run mise run engine:build, then engine:configure-build" >&2
+        exit 1
+    }
+done
+
+all=(first_run second_run declared_state secret_store_declared identities_changes refusals hand_changes_reverted state_holds_no_secret scopes target_down)
+mkdir -p "$PROOF_DIR"
+
+if (($#)); then
+    scenarios=("$@")
+else
+    scenarios=("${all[@]}")
+    : >"$PROOF_DIR/results.txt"
+    rm -f "$PROOF_DIR"/*.log
+    cfg_down
+    ANIMA_IDENTITY_PROVIDER_URL="$CFG_PUBLIC_URL" mise-tasks/engine/configure-render
+    cfg_up
+fi
+
+status=0
+for scenario in "${scenarios[@]}"; do
+    cfg_log "scenario $scenario"
+    "scenario_$scenario" || status=1
+done
+
+if ! (($#)) && [ -z "${CFG_KEEP:-}" ]; then cfg_down; fi
+if grep -q ' FAIL ' "$PROOF_DIR/results.txt"; then status=1; fi
+echo "proof: $(grep -c ' PASS ' "$PROOF_DIR/results.txt") passed, $(grep -c ' FAIL ' "$PROOF_DIR/results.txt") failed (details: .cache/configure/proof/)"
+exit $status

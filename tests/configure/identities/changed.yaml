@@ -1,0 +1,16 @@
+# Fixture of the configurator's proof: one person added, one changed, one
+# application added and one removed.
+people:
+  - name: alice
+    email: alice@example.org
+    roles: [admin, monitor]
+  - name: carol
+    email: carol@example.org
+    roles: [readonly]
+  - name: dave
+    email: dave@example.org
+    roles: [readwrite]
+
+applications:
+  - name: etl
+    roles: [readwrite]

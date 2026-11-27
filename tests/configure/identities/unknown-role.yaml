@@ -1,0 +1,8 @@
+# Fixture of the configurator's proof: an identity with a role that is not a fixed role.
+people:
+  - name: alice
+    email: alice@example.org
+    roles: [admin]
+  - name: frank
+    email: frank@example.org
+    roles: [readonly, superuser]

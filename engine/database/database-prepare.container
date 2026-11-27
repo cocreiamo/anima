@@ -15,3 +15,6 @@ Exec=psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psql
 Type=oneshot
 RemainAfterExit=yes
 TimeoutStartSec=60
+# Same retry as the cluster creation: the statements are idempotent.
+Restart=on-failure
+RestartSec=2

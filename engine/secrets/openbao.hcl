@@ -58,3 +58,51 @@ initialize "mounts" {
     }
   }
 }
+
+# The database server's certificate: a role of the authority that signs a request
+# (the key is made by the database server and never leaves it), and the machine
+# authentication of the one unit that asks for it. The role id is a name, not a
+# secret; the login is accepted only from the pod's loopback and gives a token
+# that can sign for this one role and nothing else.
+initialize "database-server-certificate" {
+  request "policy" {
+    operation = "update"
+    path      = "sys/policies/acl/database-server"
+    data = {
+      policy = "path \"pki/sign/database-server\" { capabilities = [\"update\"] }"
+    }
+  }
+  request "role" {
+    operation = "update"
+    path      = "pki/roles/database-server"
+    data = {
+      allowed_domains   = "localhost"
+      allow_localhost   = true
+      allow_ip_sans     = true
+      enforce_hostnames = true
+      key_type          = "ec"
+      key_bits          = 256
+      ttl               = "720h"
+      max_ttl           = "720h"
+    }
+  }
+  request "auth" {
+    operation = "update"
+    path      = "sys/auth/approle"
+    data = {
+      type = "approle"
+    }
+  }
+  request "login" {
+    operation = "update"
+    path      = "auth/approle/role/database-server"
+    data = {
+      role_id               = "database-server"
+      bind_secret_id        = false
+      secret_id_bound_cidrs = ["127.0.0.1/32"]
+      token_bound_cidrs     = ["127.0.0.1/32"]
+      token_policies        = ["database-server"]
+      token_ttl             = "5m"
+    }
+  }
+}

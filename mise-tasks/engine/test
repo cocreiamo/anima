@@ -8,4 +8,5 @@ set -euo pipefail
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$root"
 mkdir -p .cache/engine/logs
+mise run engine:build database-test-client
 ANIMA_SYSTEM_TESTS=1 exec uv run --locked pytest tests/system "$@"

@@ -27,7 +27,7 @@ echo "== generate and verify"
 mkdir -p /tmp/gen
 "$gen" /tmp/gen /tmp/gen /tmp/gen || exit 1
 status=0
-for unit in /tmp/gen/*.service /usr/lib/systemd/system/anima-ready.target /usr/lib/systemd/system/secrets-root-of-trust.service; do
+for unit in /tmp/gen/*.service /usr/lib/systemd/system/anima-ready.target /usr/lib/systemd/system/secrets-root-of-trust.service /usr/lib/systemd/system/anima-config.service /usr/lib/systemd/system/anima-listen-container.service /usr/lib/systemd/system/anima-listen-host.service; do
     out=$(SYSTEMD_UNIT_PATH=/tmp/gen:/usr/lib/systemd/system systemd-analyze verify "$unit" 2>&1)
     if [ -n "$out" ]; then
         echo "FAIL $(basename "$unit"):"; echo "$out"; status=1

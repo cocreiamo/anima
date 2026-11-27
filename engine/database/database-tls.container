@@ -1,0 +1,24 @@
+[Unit]
+Description=Anima database server: certificate from the secret store, TLS turned on by a reload
+# The database server starts without this (R61); the secret store must be up to
+# issue the certificate. Once done the unit stays active, and the certificate
+# stays in place across a restart of the database server.
+Requires=database.service secrets.service
+After=database.service secrets.service
+
+[Container]
+ContainerName=database-tls
+Image=database.image
+Pod=anima.pod
+Volume=/run/anima/pgsocket:/run/postgresql
+Volume=/run/anima/pgtls:/run/anima/pgtls
+ReadOnly=true
+Exec=/usr/local/bin/tls-enable
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=60
+# Same retry as the cluster creation: the statements are idempotent.
+Restart=on-failure
+RestartSec=2

@@ -1,0 +1,28 @@
+# The production defaults of the mail capability. The engine ships them; the
+# adopter writes only what differs. This file is also the list of settings that
+# exist: any other key is refused.
+
+# The adapters of the port. Exactly one is active.
+drivers = ["smtp", "catcher"]
+
+# Settings that are the engine's, not the adopter's (dotted names).
+forbidden = ["catcher.address"]
+
+# The active adapter: the organisation's own mail service, reached by SMTP.
+driver = "smtp"
+
+# The sender of every message.
+from = "anima@localhost"
+
+[smtp]
+host = "localhost"
+port = 587
+starttls = true
+username = ""
+# The password is never in a file of the configuration: this names the file that
+# holds it, which the host provides as a mounted secret.
+password_file = ""
+
+# The stand-in: a mail catcher in the engine's pod, for local development and CI.
+[catcher]
+address = "127.0.0.1:1025"

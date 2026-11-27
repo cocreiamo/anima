@@ -1,0 +1,107 @@
+# The fixed roles of an installation, declared once, as data (ADR 0004).
+#
+# Everything about them derives from this file and nothing else repeats it:
+# the database server's roles, memberships and privileges, the access rules of
+# the database server, the scopes and realm roles of the token issuer, the
+# secret store's database role. The adopter never edits it; what the adopter
+# owns is the identities file, which names the token roles each identity holds.
+#
+# kind            token: reached only by a bearer token, over TLS, from outside.
+#                 service: reached only by the pod's own services, never by token.
+# authentication  token | password (from the pod's loopback) | peer (local socket).
+# databases       the databases the access rules admit the role into; "*" is every
+#                 database that no rule closes.
+# member_of       memberships; the role is exactly a member of these, no more.
+# admin_option_on roles this role may alter (a membership WITH ADMIN OPTION).
+# manages_credentials  the secret store reaches the database server as this role
+#                 to set and rotate the credentials of the rotated roles.
+# bootstrap       created by the engine before the configurator can run (the
+#                 secret store needs it first); the configurator adopts it.
+# peer_user, peer_map  the operating-system user that a peer role is mapped
+#                 from, and the name of that mapping in the identity map.
+# rotated_credential  the secret store sets and rotates the password of this
+#                 role (a static name, because its consumer cannot reload a
+#                 changing one) and hands it to the service that needs it.
+
+# The role that reaches the database server on the local socket, no password.
+superuser: postgres
+
+# The database the superuser enters to administer the server.
+maintenance_database: postgres
+
+# The token role that at least one declared identity must hold.
+administrator: admin
+
+roles:
+  admin:
+    kind: token
+    authentication: token
+    databases: ["*"]
+    create_database: true
+    create_role: true
+  readwrite:
+    kind: token
+    authentication: token
+    databases: ["*"]
+    member_of: [pg_write_all_data, pg_read_all_data]
+  readonly:
+    kind: token
+    authentication: token
+    databases: ["*"]
+    member_of: [pg_read_all_data]
+  monitor:
+    kind: token
+    authentication: token
+    databases: ["*"]
+    member_of: [pg_monitor]
+  svc_idp:
+    kind: service
+    authentication: password
+    databases: [idp]
+    rotated_credential: true
+  svc_backup:
+    kind: service
+    authentication: password
+    databases: [postgres]
+    replication: true
+    member_of: [pg_read_all_data]
+  # Sets and rotates the credentials of the other service roles; stores nothing.
+  svc_secrets_manage:
+    kind: service
+    authentication: peer
+    peer_user: secrets
+    peer_map: secrets_manage
+    databases: [postgres]
+    create_role: true
+    member_of: [pg_signal_backend]
+    admin_option_on: [svc_idp]
+    manages_credentials: true
+    bootstrap: true
+  # Keeps the sealed data of the secret store, in its own database only.
+  svc_secrets_store:
+    kind: service
+    authentication: peer
+    peer_user: secrets
+    peer_map: secrets_store
+    databases: [secrets_store]
+    bootstrap: true
+
+# A closed database admits only the roles that list it; every other role is
+# rejected by the access rules, so a database created later is not left open by
+# a default of the database server. A database with an `owner` is created and
+# owned by that role through the configurator; `extensions` are installed in it;
+# a `bootstrap` database is created by the engine before the configurator.
+databases:
+  postgres:
+    extensions: [vector]
+  idp:
+    closed: true
+    owner: svc_idp
+    extensions: [vector]
+  secrets_store:
+    closed: true
+    bootstrap: true
+
+# Installed in the template database too, so that every database created later
+# has them (R19).
+template_extensions: [vector]

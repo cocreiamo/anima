@@ -2,11 +2,11 @@
 
 import json
 import re
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
 
-import pytest
 from conftest import READY_LIMIT_SECONDS, ROOT
 
 UNITS = {
@@ -105,6 +105,20 @@ def test_R12_superuser_local_only(engine):
     )
     assert code == 0, out
     assert out.strip() == "t"
+    # The only way in is the local socket, by the operating-system user's peer
+    # credentials.
+    code, out = engine.inner(
+        "database",
+        "psql",
+        "--host=/run/postgresql",
+        "--username=postgres",
+        "--no-psqlrc",
+        "--tuples-only",
+        "--command=select type || ':' || auth_method from pg_hba_file_rules "
+        "where user_name = '{postgres}'",
+    )
+    assert code == 0, out
+    assert out.split() == ["local:peer"], out
     code, out = engine.exec(
         "podman",
         "run",
@@ -270,20 +284,20 @@ def test_R97_failing_health_check_restarts_container(own_engine):
     assert before
     code, out = engine.exec("podman", "kill", "--signal", "STOP", "database")
     assert code == 0, out
-    seen_not_ready = False
 
     def restarted_and_ready() -> bool:
-        nonlocal seen_not_ready
-        if not engine.active("anima-ready.target"):
-            seen_not_ready = True
-            return False
+        started = engine.inner_container_started_at("database")
         return (
-            seen_not_ready and engine.inner_container_started_at("database") != before
+            bool(started) and started != before and engine.active("anima-ready.target")
         )
 
     engine.wait_for(
         "restart of the database server container", restarted_and_ready, 120, 0.5
     )
+    # The readiness answer was negative while the part was down (it left the
+    # active state) and became positive again by itself.
+    journal = engine.exec("journalctl", "--no-pager", "--unit=anima-ready.target")[1]
+    assert "Stopped target anima-ready.target" in journal, journal
     assert database_answers(engine)
     engine.wait_for("outer health", lambda: engine.health() == "healthy", 60)
 
@@ -300,11 +314,13 @@ def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
     engine.wait_for(
         "cluster creation started",
         lambda: (
-            "database-init"
-            in engine.exec("podman", "ps", "-a", "--format", "{{.Names}}")[1]
+            engine.exec("test", "-e", "/var/lib/anima/database/cluster.tmp/PG_VERSION")[
+                0
+            ]
+            == 0
         ),
         120,
-        0.2,
+        0.02,
     )
     engine.kill()
     engine.start_again()
@@ -340,3 +356,28 @@ def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
     assert sql("select n from survivor") == "42"
     logs = engine.exec("podman", "logs", "database")[1]
     assert "was not properly shut down" not in logs, logs
+
+
+# ---- R98 ---------------------------------------------------------------------
+
+
+def test_R98_readiness_negative_when_configurator_fails(own_engine, tmp_path):
+    """A configuration the configurator refuses (no identity holds `admin`): the
+    run fails with a message that names the fault, nothing changes, the readiness
+    answer stays negative, and the parts that need no configuration keep serving."""
+    shutil.copytree(ROOT / "config", tmp_path / "config")
+    (tmp_path / "config/access/identities.yaml").write_text(
+        "people:\n  - name: nobody\n    email: nobody@example.org\n    roles: [monitor]\n"
+        "applications: []\n"
+    )
+    engine = own_engine("r98", binds={str(tmp_path / "config"): "/etc/anima/config"})
+    engine.wait_for("database server answers", lambda: database_answers(engine), 150)
+
+    def refused() -> bool:
+        journal = engine.exec("journalctl", "--no-pager", "--unit=configure.service")[1]
+        return "admin" in journal and "Error" in journal
+
+    engine.wait_for("the configurator's refusal", refused, 240, 2)
+    assert not engine.active("configure.service")
+    assert not engine.active("anima-ready.target")
+    assert engine.health() != "healthy"

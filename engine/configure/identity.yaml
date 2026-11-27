@@ -1,0 +1,8 @@
+# What the engine declares of its token issuer, once. The issuer URL an adopter
+# gives is an installation parameter and is not here; the realm below is part
+# of it (issuer = public URL + /realms/ + realm).
+realm: anima
+
+# The engine's own public client. Role scopes are granted only to it, because the
+# validator does not check the audience of a token: the scope acts as audience.
+client_id: anima-engine

@@ -26,12 +26,18 @@ CACHE = ROOT / ".cache" / "engine"
 READY_LIMIT_SECONDS = 180
 
 
+OFFLINE_MODULES = {"test_inputs.py"}
+
+
 def pytest_collection_modifyitems(config, items):
     """System tests start the engine: run them only through `mise run engine:test`."""
     if os.environ.get("ANIMA_SYSTEM_TESTS") == "1":
         return
     skip = pytest.mark.skip(reason="system test: run `mise run engine:test`")
     for item in items:
+        # Modules listed here start no container and run in every `pytest` run.
+        if Path(str(item.fspath)).name in OFFLINE_MODULES:
+            continue
         if "tests/system" in str(item.fspath).replace("\\", "/"):
             item.add_marker(skip)
 
@@ -163,6 +169,7 @@ def start_engine(
     name_suffix: str,
     publish_address: str = "127.0.0.1",
     binds: dict[str, str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> Engine:
     """Start the engine image as the documented `podman run` line does.
 
@@ -179,7 +186,15 @@ def start_engine(
     # Testcontainers types a published port as `int`; the API takes (address, port).
     container.ports["5432"] = (publish_address, None)  # type: ignore[assignment]
     container.ports["8080"] = (publish_address, None)  # type: ignore[assignment]
-    for host, inside in (binds or {}).items():
+    # The example configuration of the repository with its local profile: the
+    # configurator needs the adopter's identities, and the local profile selects
+    # the stand-ins.
+    binds = dict(binds or {})
+    if "/etc/anima/config" not in binds.values():
+        binds[str(ROOT / "config")] = "/etc/anima/config"
+    env = {"ANIMA_PROFILE": "local", **(env or {})}
+    container.with_envs(**env)
+    for host, inside in binds.items():
         container.with_volume_mapping(host, inside, "ro")
     started = time.monotonic()
     container.start()
@@ -205,8 +220,12 @@ def own_engine(podman_service, request):
     its volumes at the end of the test."""
     started: list[Engine] = []
 
-    def make(suffix: str, binds: dict[str, str] | None = None) -> Engine:
-        running = start_engine(f"{suffix}", binds=binds)
+    def make(
+        suffix: str,
+        binds: dict[str, str] | None = None,
+        env: dict[str, str] | None = None,
+    ) -> Engine:
+        running = start_engine(f"{suffix}", binds=binds, env=env)
         started.append(running)
         return running
 

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#MISE description="Guard of expand-only: apply the declarations of a previous state to throwaway containers, plan the current ones, and fail unless planned deletions and replacements equal contractions.toml"
+#MISE depends=["engine:configure-build"]
+#
+# Usage: CONFIGURE_PREVIOUS_REF=<git ref> mise run engine:configure-guard
+#    or: CONFIGURE_PREVIOUS_DIR=<directory holding engine/configure> mise run engine:configure-guard
+#
+# The previous state is the declarations of a git ref (the last release). When no
+# ref is given there is no release to compare with, and the task compares the
+# current declarations with themselves: it proves the mechanism (a plan of an
+# installation made by the same declarations is empty) and nothing about an
+# upgrade. The comparison itself is plan_guard.py, which is also tested on
+# plans that delete or narrow something.
+set -euo pipefail
+
+ROOT="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$ROOT"
+export ROOT
+# shellcheck source=../../engine/configure/proof/pod.sh
+. engine/configure/proof/pod.sh
+
+for ref in database secrets access configure; do
+    [ -s ".cache/engine/$ref.ref" ] || {
+        echo "no image reference .cache/engine/$ref.ref: run mise run engine:build, then engine:configure-build" >&2
+        exit 1
+    }
+done
+
+mkdir -p .cache/configure
+base=tests/configure/identities/base.yaml
+current=$(cat .cache/engine/configure.ref)
+previous=$current
+previous_dir=
+
+if [ -n "${CONFIGURE_PREVIOUS_REF:-}${CONFIGURE_PREVIOUS_DIR:-}" ]; then
+    if [ -n "${CONFIGURE_PREVIOUS_DIR:-}" ]; then
+        previous_dir=$CONFIGURE_PREVIOUS_DIR
+        source_name=$CONFIGURE_PREVIOUS_DIR
+    else
+        previous_dir=$(mktemp -d)
+        git archive "$CONFIGURE_PREVIOUS_REF" engine/configure | tar -x -C "$previous_dir"
+        source_name=$CONFIGURE_PREVIOUS_REF
+        remove_previous=1
+    fi
+    tag=$(find "$previous_dir/engine/configure" -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-12)
+    previous="localhost/anima/configure:previous-$tag"
+    podman build --format docker --file "$previous_dir/engine/configure/Containerfile" --tag "$previous" \
+        ${ANIMA_BUILD_DNS:+--dns="$ANIMA_BUILD_DNS"} "$previous_dir" >.cache/engine/logs/build-configure-previous.log 2>&1
+    echo "guard: previous declarations from $source_name ($previous)"
+else
+    echo "guard: no previous release (CONFIGURE_PREVIOUS_REF unset): comparing the current declarations with themselves"
+fi
+
+cleanup() {
+    cfg_down
+    [ -z "${remove_previous:-}" ] || rm -rf "$previous_dir"
+}
+trap cleanup EXIT
+
+cfg_down
+ANIMA_IDENTITY_PROVIDER_URL="$CFG_PUBLIC_URL" mise-tasks/engine/configure-render
+cfg_up
+
+cfg_log "applying the previous declarations"
+
+CFG_IMAGE=$previous cfg_run "$ROOT/$base" -- converge
+
+cfg_log "planning the current declarations"
+set +e
+cfg_run "$ROOT/$base" -- plan-json >.cache/configure/guard-plan.json
+code=$?
+set -e
+[ "$code" -eq 0 ] || {
+    echo "guard: the plan failed (exit $code)" >&2
+    exit 1
+}
+mise exec -- python -I -B engine/configure/plan_guard.py .cache/configure/guard-plan.json contractions.toml

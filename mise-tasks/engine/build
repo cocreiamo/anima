@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build the inner images (database, access, secrets) from the pinned forks, or the ones named; skips an image whose inputs did not change"
+#MISE description="Build the inner images (database, access, secrets, mail) from the pinned forks, or the ones named; skips an image whose inputs did not change"
 #
 # Each image is built from third_party/ at the commit the submodule is pinned
 # to. The tag of an image is a hash of those commits and of its container file,
@@ -7,7 +7,7 @@
 # is recorded in .cache/engine/<name>.id and its reference in <name>.ref. A log
 # of each build is kept in .cache/engine/logs/build-<name>.log.
 #
-# Usage: mise run engine:build [database|database-test-client|access|secrets]...
+# Usage: mise run engine:build [database|database-test-client|access|secrets|mail]...
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -24,11 +24,8 @@ build() {
     shift 3
     local tag
     # The tag covers the commits (standard input), the container file and every
-    # file of the repository that the container file copies (a COPY without
-    # --from): changing a configuration file in engine/ must change the tag.
-    local copied
-    copied=$(awk '/^COPY / && !/--from=/ { for (i = 2; i < NF; i++) if ($i !~ /^--/) print $i }' "$file")
-    tag=$( { cat; cat "$file"; for f in $copied; do echo "$f"; cat "$f"; done; } | sha256sum | cut -c1-12)
+    # file of the repository that the container file copies (see `tag`).
+    tag=$("$(dirname "$0")/tag" "$file")
     local image="localhost/anima/$name:$tag"
     if podman image exists "$image"; then
         echo "$name: up to date ($image)"
@@ -51,7 +48,16 @@ build_database() {
     local target=$1 name=$2
     local pg vec oidc bkr
     pg=$(commit postgres) vec=$(commit pgvector) oidc=$(commit pg_oidc_validator) bkr=$(commit pgbackrest)
-    printf '%s\n' "$pg" "$vec" "$oidc" "$bkr" | build "$name" engine/database/Containerfile "$target" \
+    # The access rules and the identity map are generated from the one declaration
+    # of the roles by the configurator's own templating; they are inputs of the tag.
+    # The identity provider's public URL is an installation parameter: the default
+    # is the local engine's own address.
+    ANIMA_IDENTITY_PROVIDER_URL=${ANIMA_IDENTITY_PROVIDER_URL:-http://localhost:8080} \
+        mise run engine:configure-render >/dev/null
+    mkdir -p "$out/rules"
+    cp .cache/configure/pg_hba.conf .cache/configure/pg_ident.conf "$out/rules/"
+    printf '%s\n' "$pg" "$vec" "$oidc" "$bkr" | ANIMA_TAG_EXTRA="$out/rules/pg_hba.conf $out/rules/pg_ident.conf" build "$name" engine/database/Containerfile "$target" \
+        --build-context "rules=$out/rules" \
         --build-context "postgres=third_party/postgres" \
         --build-context "pgvector=third_party/pgvector" \
         --build-context "pg_oidc_validator=third_party/pg_oidc_validator" \
@@ -83,12 +89,17 @@ build_secrets() {
         --build-arg "SOURCE_COMMIT_OPENBAO=$bao"
 }
 
-for what in ${*:-database access secrets}; do
+build_mail() {
+    : | build mail engine/mail/Containerfile server
+}
+
+for what in ${*:-database access secrets mail}; do
     case "$what" in
         database) build_database server database ;;
         database-test-client) build_database oauth-test-client database-test-client ;;
         access) build_access ;;
         secrets) build_secrets ;;
+        mail) build_mail ;;
         *)
             echo "unknown image: $what" >&2
             exit 2

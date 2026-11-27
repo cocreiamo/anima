@@ -18,7 +18,13 @@ image=$(cat .cache/engine/engine.ref)
 address=${ANIMA_ADDRESS:-127.0.0.1}
 name=${ANIMA_NAME:-anima-engine}
 
-exec podman run --detach --name "$name" --cap-add SYS_ADMIN --cap-add SYS_PTRACE \
+extra=()
+if [ -n "${ANIMA_PROFILE:-}" ]; then
+    # A profile overlays the production-shaped base in config/ (selection and data only).
+    extra+=(--env "ANIMA_PROFILE=$ANIMA_PROFILE" --volume "$root/config:/etc/anima/config:ro")
+fi
+
+exec podman run --detach --name "$name" --cap-add SYS_ADMIN --cap-add SYS_PTRACE "${extra[@]}" \
     --publish "$address:${ANIMA_DATABASE_PORT:-5432}:5432" \
     --publish "$address:${ANIMA_ACCESS_PORT:-8080}:8080" \
     "$image"

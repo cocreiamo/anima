@@ -1,0 +1,9 @@
+[Unit]
+Description=Anima configurator image, loaded from the archive in the engine image
+
+[Image]
+Image=oci-archive:/usr/lib/anima/images/configure.tar
+ImageTag=localhost/anima/configure:engine
+
+[Service]
+TimeoutStartSec=300

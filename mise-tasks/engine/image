@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Build the engine image (operating system, units and the inner images as archives)"
-#MISE depends=["engine:build"]
+#MISE depends=["engine:build", "engine:configure-build"]
 #
 # Exports each inner image to an OCI archive, then builds engine/image/Containerfile
 # with the archives as the named build context `images`. The tag is a hash of
@@ -13,7 +13,8 @@ cd "$root"
 out=.cache/engine
 mkdir -p "$out/oci" "$out/logs"
 
-for name in database access secrets; do
+podman image inspect --format "{{.Id}}" "$(cat "$out/configure.ref")" >"$out/configure.id"
+for name in database access secrets mail configure; do
     ref=$(cat "$out/$name.ref")
     if [ ! -f "$out/oci/$name.ref" ] || [ "$(cat "$out/oci/$name.ref")" != "$ref" ]; then
         rm -f "$out/oci/$name.tar"
@@ -25,8 +26,8 @@ done
 
 tag=$(
     {
-        cat "$out"/database.id "$out"/access.id "$out"/secrets.id
-        find engine/image engine/database engine/access engine/secrets -type f ! -name Containerfile.* | sort | xargs cat
+        cat "$out"/database.id "$out"/access.id "$out"/secrets.id "$out"/mail.id "$out"/configure.id
+        find engine/image engine/database engine/access engine/secrets engine/mail engine/configure/secret-store-bootstrap.hcl -type f ! -name Containerfile.* | sort | xargs cat
     } | sha256sum | cut -c1-12
 )
 image="localhost/anima/engine:$tag"

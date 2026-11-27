@@ -1,0 +1,26 @@
+# Who may connect, and as what: the identities of this installation, declared by
+# whoever installs it. The product ships no identity; this file is the example
+# that tests and local development use, and an adopter mounts their own.
+#
+# Two kinds of identity, each holding some of the fixed roles:
+#   admin, readwrite, readonly, monitor
+# At least one identity must hold `admin`. A role that is not one of these
+# fails the configuration before anything changes.
+#
+# No credential is written here. A person receives the action to set a password
+# at the first login. An application authenticates as itself and its credential
+# is generated for it, never written in a file.
+
+# People: a name, an e-mail address and the roles each holds.
+people:
+  - name: alice
+    email: alice@example.org
+    roles: [admin, monitor]
+  - name: carol
+    email: carol@example.org
+    roles: [readwrite]
+
+# Applications: a name and the roles each holds.
+applications:
+  - name: reporting
+    roles: [readonly]

@@ -15,11 +15,20 @@ COPY engine/image/anima.pod /usr/share/containers/systemd/
 COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
 COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
 COPY engine/secrets/secrets.image engine/secrets/secrets.container /usr/share/containers/systemd/
-COPY engine/database/database-prepare.container /usr/share/containers/systemd/
+COPY engine/database/database-prepare.container engine/database/database-tls.container /usr/share/containers/systemd/
 COPY engine/secrets/secrets-root-of-trust.service engine/image/anima-ready.target /usr/lib/systemd/system/
 COPY engine/image/anima-state.conf /usr/lib/tmpfiles.d/anima-state.conf
+COPY --chmod=555 engine/image/anima-listen /usr/libexec/anima/listen
+COPY engine/image/anima-listen-container.service engine/image/anima-listen-host.service engine/image/anima-config.service /usr/lib/systemd/system/
+COPY --chmod=555 engine/image/anima-config /usr/libexec/anima/config
+COPY engine/mail/defaults.toml /usr/share/anima/defaults/mail.toml
+COPY engine/mail/mail.image engine/mail/mail.container /usr/share/containers/systemd/
+COPY --chmod=555 engine/image/anima-credentials /usr/libexec/anima/credentials
+COPY engine/image/anima-credentials.service /usr/lib/systemd/system/
+COPY engine/image/configure.image engine/image/configure.container /usr/share/containers/systemd/
 COPY engine/image/anima-ready-upheld.conf /usr/lib/systemd/system/multi-user.target.d/50-anima-ready-upheld.conf
 COPY engine/secrets/openbao.hcl /etc/anima/secrets/openbao.hcl
+COPY engine/configure/secret-store-bootstrap.hcl /etc/anima/secrets/secret-store-bootstrap.hcl
 
 RUN systemctl enable anima-ready.target secrets-root-of-trust.service \
  && bootc container lint

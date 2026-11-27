@@ -1,0 +1,51 @@
+# The configurator: the binary, its three providers vendored through a filesystem
+# mirror, the declarations and the run. Nothing is downloaded at run time.
+#
+# Build context: this repository's root (mise run engine:configure-build). The
+# official image refuses to be a base image, so its binary is copied into a small
+# pinned base. The binary and the providers come from the upstream releases named
+# in components.toml; their forks are not yet submodules.
+#
+# The mirror is made for the architecture being built, and `tofu init` with the
+# committed dependency lock file read-only checks each provider against the
+# hashes of the lock file for that architecture: a provider that is not the
+# locked one fails the build.
+
+ARG CONFIGURATOR=ghcr.io/opentofu/opentofu:1.13.10-minimal@sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c
+ARG BASE=docker.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+
+FROM ${CONFIGURATOR} AS configurator
+
+FROM ${BASE} AS providers
+ARG TARGETARCH
+COPY --from=configurator /usr/local/bin/tofu /usr/local/bin/tofu
+COPY engine/configure/tofurc /opt/configure/tofurc
+COPY engine/configure/roles.yaml engine/configure/identity.yaml /opt/configure/
+COPY engine/configure/declarations /opt/configure/declarations
+RUN tofu -chdir=/opt/configure/declarations providers mirror -platform="linux_${TARGETARCH}" /opt/configure/mirror
+# The mirror is the only source; the lock file is read-only and must agree.
+RUN TF_DATA_DIR=/tmp/data TF_CLI_CONFIG_FILE=/opt/configure/tofurc \
+    tofu -chdir=/opt/configure/declarations init -backend=false -input=false -lockfile=readonly
+
+FROM ${BASE} AS runtime
+COPY --from=configurator /usr/local/bin/tofu /usr/local/bin/tofu
+COPY --from=providers /opt/configure/mirror /opt/configure/mirror
+COPY engine/configure/tofurc /opt/configure/tofurc
+COPY engine/configure/roles.yaml engine/configure/identity.yaml /opt/configure/
+COPY engine/configure/declarations /opt/configure/declarations
+COPY engine/configure/rendering /opt/configure/rendering
+COPY engine/configure/converge.sh /opt/configure/converge.sh
+RUN mkdir -p /work && chmod 1777 /work
+ENV TF_CLI_CONFIG_FILE=/opt/configure/tofurc \
+    TF_IN_AUTOMATION=1 \
+    CHECKPOINT_DISABLE=1 \
+    HOME=/work
+WORKDIR /work
+LABEL org.opencontainers.image.title="anima configurator" \
+      org.opencontainers.image.licenses="AGPL-3.0-only AND MPL-2.0 AND Apache-2.0"
+# The database server's superuser is reached on the local socket by the peer
+# credentials of the operating-system user of that name (uid 999 in the database
+# server's image).
+USER 999:999
+ENTRYPOINT ["/bin/sh", "/opt/configure/converge.sh"]
+CMD ["converge"]
