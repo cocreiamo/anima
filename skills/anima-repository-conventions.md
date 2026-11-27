@@ -26,7 +26,7 @@ are `anima-maintaining-a-fork`; what an agent loads and how it works is
 
 - Adding or moving files, or choosing where something lives.
 - Changing mise tasks, hooks, formatting, linting or caches.
-- Preparing a commit, or writing or amending a decision record.
+- Preparing a commit.
 
 ## Rules
 
@@ -45,11 +45,9 @@ are `anima-maintaining-a-fork`; what an agent loads and how it works is
 13. **A workaround names its `GAP-nnn` in a comment,** and `tests/repository/test_repository.py` checks that every id used is registered (R25).
 14. **No Docker.** Container work in development, tests, CI and documentation uses podman, daemonless and rootless; `test_R11_every_dependency_pinned` fails if `mise.toml`, `mise-tasks/`, `.github/workflows/` or `tests/` invoke a `docker` command. Docker is named only in `third_party/`, in records and skills where it is a rejected tool, and in the names of third-party actions and upstream files (`docker/metadata-action`, `docker-library/postgres`). The development container is the one `mise generate devcontainer` produces: the official base image plus the mise feature, both pinned by digest, and `mise install` installs every tool. It is Debian-family and is to be replaced by one in the family of the engine (GAP-021).
 15. **CI caches:** `mise-action` caches the tools and the Pilot Implementation is kept with `actions/cache` keyed on its checksum; both are in use. A release build restores no cache (`anima-branching-and-releasing`).
-16. **A decision record is for architecture only,** in `docs/adr/`: what the product is made of and how its parts relate (ports and adapters, secrets, roles and access, the engine image, the configurator, the configuration, the plugin boundary). How we work, legal and brand, tooling and principles are matters of skills. Every record has the front matter key `category: architecture` (R93).
-17. **A record is MADR 4.0.0, made with `adrs`.** Create it with `adrs new "Title"`, which gives the next number and the file name `NNNN-slug.md`; the front matter is `number`, `title`, `status`, `date`, `category`, `decision-makers: [founder]` (a role, never a person's name); the sections are "Context and Problem Statement", "Decision Drivers", "Considered Options" (only options that were really considered), "Decision Outcome" with "Consequences" (each prefixed Good, Bad or Neutral) and "Confirmation" (how it is verified, naming requirement ids and tests, saying "not built" where true), "Pros and Cons of the Options" (one subsection for each rejected option with the reason) and "More Information". A reference to another record is a Markdown link, so that `mise run adr:check` verifies it, and no record, skill, test, model comment or gap may name a record number that does not exist (R94). Not: a bare "ADR 0004" inside `docs/adr/`; adr-tools (no release since 2018, an index without status, no format check, a lost four-digit number); a format and generator of our own (tooling invented where a tool does the job); log4brains and adr-log (considered, not chosen, no reason recorded).
-18. **Once a record is on `main` its number never changes,** and a withdrawn record is marked superseded or deprecated, never deleted. Nothing had been published when the records were last renumbered from 0001.
-19. Unverified: **that the founder's approval and the `Co-Authored-By` trailer are applied.** Neither is checked automatically, and that the rulesets are applied on GitHub is a setting no test of this repository verifies.
-20. Unverified: **the caches that are adopted and not in use.** The image layer cache (the registry as layer cache for `buildah`) and the Bazel cache (`bazel-contrib/setup-bazel`, a remote cache later) wait for the first image and the first Bazel target.
+16. **A decision record is for the architecture of the product only,** and is written as `anima-writing-a-decision-record` says. The format is MADR 4.0.0 and the tool is `adrs` (`anima-tech-adrs-madr`). Not: adr-tools (no release since 2018, an index without status, no format check, a lost four-digit number); a format and generator of our own (tooling invented where a tool does the job); log4brains and adr-log (considered, not chosen, no reason recorded).
+17. Unverified: **that the founder's approval and the `Co-Authored-By` trailer are applied.** Neither is checked automatically, and that the rulesets are applied on GitHub is a setting no test of this repository verifies.
+18. Unverified: **the caches that are adopted and not in use.** The image layer cache (the registry as layer cache for `buildah`) and the Bazel cache (`bazel-contrib/setup-bazel`, a remote cache later) wait for the first image and the first Bazel target.
 
 ## Questions to answer before proposing
 
@@ -57,9 +55,9 @@ are `anima-maintaining-a-fork`; what an agent loads and how it works is
 - Does the change add an ignored directory, a script or a tool outside mise?
 - Can the new file be derived from another? Then generate it.
 - Does every new file carry copyright and licence information (`mise run licenses:check`)?
-- Is this decision about the architecture of the product? If not, it is a rule of a skill.
+- Is this decision about the architecture of the product? If not, it is a rule of a skill (`anima-writing-a-decision-record`).
 - Does the change need a repository setting? Then ask the founder; do not apply it.
 
 ## Where the result goes
 
-Layout and toolchain rules stay here; tools to `mise.toml`; tasks to `mise.toml` or `mise-tasks/`; the adopted tools and the ones dropped to `anima-adopting-a-component`; user-facing rules for contributors to `CONTRIBUTING.md`; records to `docs/adr/` with `adrs new`. Related skills: `anima-tech-mise`, `anima-tech-adrs-madr`, `anima-working-as-an-agent`.
+Layout and toolchain rules stay here; tools to `mise.toml`; tasks to `mise.toml` or `mise-tasks/`; the adopted tools and the ones dropped to `anima-adopting-a-component`; user-facing rules for contributors to `CONTRIBUTING.md`; records to `docs/adr/` (`anima-writing-a-decision-record`). Related skills: `anima-tech-mise`, `anima-tech-adrs-madr`, `anima-working-as-an-agent`.

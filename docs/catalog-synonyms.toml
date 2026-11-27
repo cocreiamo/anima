@@ -3,7 +3,16 @@
 # task. An entry whose key no longer exists is an error (tests/repository);
 # a key of the catalog with no entry here is not.
 
-access = ["login", "log in", "sign in", "authentication", "users", "identities", "roles", "tokens"]
+access = [
+  "login",
+  "log in",
+  "sign in",
+  "authentication",
+  "users",
+  "identities",
+  "roles",
+  "tokens",
+]
 secrets = ["password", "credential", "certificate", "key", "unseal", "vault"]
 database = ["postgres", "sql", "server", "pg_hba"]
 backup = ["restore", "recovery", "archive"]

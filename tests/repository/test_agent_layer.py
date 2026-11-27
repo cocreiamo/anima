@@ -27,7 +27,9 @@ def untied_tests(test_names, verification_names):
     """The tests that are neither a verification of the model nor the negative
     case of one."""
     return sorted(
-        n for n in test_names if n.removesuffix(NEGATIVE_SUFFIX) not in verification_names
+        n
+        for n in test_names
+        if n.removesuffix(NEGATIVE_SUFFIX) not in verification_names
     )
 
 
@@ -98,7 +100,9 @@ def test_R72_skills_have_one_schema_detects_violation():
 
     assert faults(SAMPLE) == []
     assert faults(SAMPLE.replace("## Rules", "## Rule"))
-    assert faults(SAMPLE.replace("## Use this when", "## Rules\n\n1. x\n\n## Use this when", 1))
+    assert faults(
+        SAMPLE.replace("## Use this when", "## Rules\n\n1. x\n\n## Use this when", 1)
+    )
     assert faults(SAMPLE + "\n## Extra\n")
     assert faults(SAMPLE.replace("family: technology\n", ""))
     assert faults(SAMPLE.replace("family: technology", "family: product"))
@@ -127,7 +131,8 @@ def index_faults(index, texts):
         elif f"({expected} unverified)" not in line:
             faults.append(f"{name}: the index does not state {expected}")
     total = sum(
-        len(re.findall(r"^\d+\.\s+Unverified:", t, re.MULTILINE)) for t in texts.values()
+        len(re.findall(r"^\d+\.\s+Unverified:", t, re.MULTILINE))
+        for t in texts.values()
     )
     if f"Unverified rules in all skills: {total}." not in index:
         faults.append(f"the total {total} is not stated")
@@ -196,7 +201,9 @@ def test_R74_skill_paths_match_something_detects_violation():
     skills = {"s": ["engine/access/**", "engine/*/a.conf"]}
     assert path_faults(skills, existing, []) == []
     assert path_faults({"s": ["engine/nothing/**"]}, existing, [])
-    assert path_faults({"s": ["engine/nothing/**"]}, existing, ["engine/nothing/**"]) == []
+    assert (
+        path_faults({"s": ["engine/nothing/**"]}, existing, ["engine/nothing/**"]) == []
+    )
     assert path_faults(skills, existing, ["engine/access/**"])  # listed, matches
     assert path_faults(skills, existing, ["other/**"])  # listed, belongs to no skill
     assert al.glob_matches("**/*.tf", "a/b/c.tf")
@@ -269,9 +276,7 @@ def routing_faults(agents_text, all_skills, rule_texts):
 
 
 def rule_texts():
-    return {
-        p.stem: p.read_text() for p in (ROOT / ".claude" / "rules").glob("*.md")
-    }
+    return {p.stem: p.read_text() for p in (ROOT / ".claude" / "rules").glob("*.md")}
 
 
 def test_R76_routing_reaches_every_skill():
@@ -362,9 +367,11 @@ def test_R77_role_files_well_formed_detects_violation():
     assert faults(ROLE.replace("  - read", "  - fly"))
     assert faults(ROLE.replace("may_not:\n  - commit\n", ""))
     assert faults(ROLE.replace("## What it produces", "## Output"))
-    assert faults(ROLE.replace("  - read", "  - read\n  - edit").replace(
-        "tier: implementer", "tier: explorer"
-    ).replace("model_tier: standard", "model_tier: standard"))
+    assert faults(
+        ROLE.replace("  - read", "  - read\n  - edit")
+        .replace("tier: implementer", "tier: explorer")
+        .replace("model_tier: standard", "model_tier: standard")
+    )
     only = {"sample": ROLE.replace("it refuses and reports it", "it complies")}
     assert "sample" in roles_faults(only)
     assert "tier coordinator" in roles_faults({"sample": ROLE})
@@ -379,7 +386,9 @@ def vendor_faults(role, vendor_text):
     fields = al.parse_yaml(block)
     allowed = set(al.tools_for(role.may))
     granted = {t.strip() for t in fields.get("tools", "").split(",") if t.strip()}
-    faults = [f"{role.name}: tool {t} is not allowed" for t in sorted(granted - allowed)]
+    faults = [
+        f"{role.name}: tool {t} is not allowed" for t in sorted(granted - allowed)
+    ]
     if fields.get("model") != al.MODELS[role.model_tier]:
         faults.append(f"{role.name}: model {fields.get('model')} is not the tier's")
     if fields.get("name") != role.name:

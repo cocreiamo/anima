@@ -42,4 +42,4 @@ conventions are in `anima-specifying-requirements`.
 
 ## Where the result goes
 
-Conventions to `anima-specifying-requirements`; the toolchain decision is `anima-repository-conventions` and the fitness functions `anima-product-principles`. Limits go to `gaps.toml` (GAP-001 to GAP-003, GAP-035 to GAP-037). Related skills: `anima-specifying-requirements`, `anima-repository-conventions`, `anima-tech-mise`.
+Conventions to `anima-specifying-requirements`; the toolchain rules are in `anima-repository-conventions` and the fitness functions in `anima-specifying-requirements`. Limits go to `gaps.toml` (GAP-001 to GAP-003, GAP-035 to GAP-037). Related skills: `anima-specifying-requirements`, `anima-repository-conventions`, `anima-tech-mise`.

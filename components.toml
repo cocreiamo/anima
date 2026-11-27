@@ -15,6 +15,12 @@ allowed_licenses = [
   "PostgreSQL",
   # A distribution image whose packages carry their own licences; see its entry.
   "LicenseRef-Fedora-Distribution",
+  # The same kind of reference for the base images of the inner images (see
+  # their entries). Unverified: the founder confirmed only the first one; the
+  # three below are listed because the engine's container files use these bases.
+  "LicenseRef-Debian-Distribution",
+  "LicenseRef-UBI-Distribution",
+  "LicenseRef-Alpine-Distribution",
 ]
 
 [[component]]
@@ -128,22 +134,85 @@ upstream = "https://gitlab.com/fedora/bootc/base-images"
 image = "quay.io/fedora/fedora-bootc"
 digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7"
 
-# ---- Images used only by tools and tests: not shipped ------------------------
+# The base images of the inner images of the engine: each is the first line of a
+# container file under engine/. Each is a distribution image, a collection of
+# packages with their own licences, so each is declared with a LicenseRef like
+# the base of the engine image, and the licence of each package is the one the
+# package declares. Tags move, so the digest is the pin.
+[[component]]
+name = "debian"
+role = "base of the database server's image: operating system of the inner container"
+version = "trixie-slim"
+license = "LicenseRef-Debian-Distribution"
+upstream = "https://github.com/debuerreotype/docker-debian-artifacts"
+image = "docker.io/library/debian"
+digest = "sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+
+[[component]]
+name = "ubi9"
+role = "base of the identity provider's image: the stage that installs its packages (the upstream container file's own base)"
+version = "9.9"
+license = "LicenseRef-UBI-Distribution"
+upstream = "https://registry.access.redhat.com/ubi9"
+image = "registry.access.redhat.com/ubi9"
+digest = "sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd"
+
+[[component]]
+name = "ubi9-micro"
+role = "base of the identity provider's image: the final stage (the upstream container file's own base)"
+version = "9.9"
+license = "LicenseRef-UBI-Distribution"
+upstream = "https://registry.access.redhat.com/ubi9-micro"
+image = "registry.access.redhat.com/ubi9-micro"
+digest = "sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db"
+
+[[component]]
+name = "alpine"
+role = "base of the secret store's image: the final stage (the upstream container file's own base)"
+version = "3.24.4"
+license = "LicenseRef-Alpine-Distribution"
+upstream = "https://github.com/alpinelinux/docker-alpine"
+image = "docker.io/library/alpine"
+digest = "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
+
+# The mail catcher: the stand-in of the outgoing mail port, for local
+# development and CI. Our fork is cocreiamo/anima-mailpit, not yet a submodule,
+# so it is pinned by the commit of the upstream release tag, looked up with
+# `gh api repos/axllent/mailpit/commits/<tag> --jq .sha`. Unverified: the
+# release was chosen as the latest at the time of writing, not by the engine's
+# builder, and nothing builds it yet.
+[[component]]
+name = "mailpit"
+role = "adapter: outgoing mail (stand-in, local development and CI only)"
+version = "1.34.0"
+license = "MIT"
+upstream = "https://github.com/axllent/mailpit"
+commit = "55a301791fed4c757850bf7afb9672a1dace30bb"
+
+# ---- Images used only by tools, tests and builds: not shipped ----------------
 #
-# An image that a tool or a test starts, and that is not part of what Anima
-# ships (for example the helper image of a test library), is declared here,
-# apart from the components above, with the same fields and as an array
+# An image that a tool, a test or a build stage starts, and that is not part of
+# what Anima ships (for example the helper image of a test library, or the
+# stage that compiles a program and is then discarded), is declared here, apart
+# from the components above, with the same fields and as an array
 # `[[tool_image]]`. It is pinned by digest like every image (`anima-repository-conventions`, R11), and
 # the Renovate manager of .github/renovate.json updates it like the others.
 # Its licence is not checked against `policy.allowed_licenses`: nothing of it
-# ships. No image of this kind is referenced yet, so there is no entry; an entry
-# is added with the first reference.
-#
-# [[tool_image]]
-# name = "..."
-# role = "..."
-# version = "..."
-# license = "..."
-# upstream = "https://..."
-# image = "registry/path/name"
-# digest = "sha256:..."
+# ships. The licence stated is that of the program the image exists for.
+[[tool_image]]
+name = "eclipse-temurin"
+role = "build stage of the identity provider's image: the Java toolchain that compiles it"
+version = "21-jdk"
+license = "GPL-2.0-only WITH Classpath-exception-2.0"
+upstream = "https://github.com/adoptium/containers"
+image = "docker.io/library/eclipse-temurin"
+digest = "sha256:8ad118b146aa92da815b576441acd6b42b38236797ad0b6edc8c200b85bb0734"
+
+[[tool_image]]
+name = "golang"
+role = "build stage of the secret store's image: the Go toolchain that compiles it"
+version = "1.27"
+license = "BSD-3-Clause"
+upstream = "https://github.com/docker-library/golang"
+image = "docker.io/library/golang"
+digest = "sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666"

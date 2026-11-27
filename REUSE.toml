@@ -34,6 +34,16 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "Apache-2.0"
 
+# Postmortem template adapted from the one of PagerDuty, Inc. (Apache-2.0).
+[[annotations]]
+path = "docs/postmortems/TEMPLATE.md"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2019 PagerDuty, Inc.",
+  "2026 Cocreiamo di Bilotta Francesco",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
 # Contributor Covenant 3.0, adapted only in its contact address.
 [[annotations]]
 path = "CODE_OF_CONDUCT.md"

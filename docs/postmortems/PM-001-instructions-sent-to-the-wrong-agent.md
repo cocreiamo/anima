@@ -43,9 +43,9 @@ No file was damaged. The intended agent worked for a while without its correctio
 
 ## Timeline
 
-| When       | What                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------- |
-| 2026-11-27 | Two identifiers swapped; corrections reached the spike agent, which refused them.     |
+| When       | What                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------- |
+| 2026-11-27 | Two identifiers swapped; corrections reached the spike agent, which refused them.       |
 | 2026-11-27 | The same swap happened again; the spike agent refused again and the coordinator resent. |
 
 ## How did we do

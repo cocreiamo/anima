@@ -7,16 +7,15 @@ One place declares which file is derived from which source (R38):
   the routing table of AGENTS.md, from skills/<name>.md (agent_layer.py);
 - .claude/agents/<role>.md, from agents/<role>.md;
 - .claude/settings.json, from the list of generated files;
-- docs/catalog.md, from the model, the registers, the tasks, the skills, the roles;
-- tests/pending.toml, from the model's JSON export and the written tests;
-- the list of fitness functions in `anima-product-principles`, from the markers of the model.
+- docs/catalog.md, from the model, the registers, the tasks, the tools of
+  mise.toml, the workflows, the skills, the roles and the fitness markers of the model;
+- tests/pending.toml, from the model's JSON export and the written tests.
 
 `mise run generate` writes them; `mise run generate:check` fails when one is
 out of date. Nothing here reads the text of the model: the verifications come
 from the Pilot Implementation's export (tests/repository/sysml_model.py).
 """
 
-import json
 import os
 import re
 import subprocess
@@ -27,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "repository"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import agent_layer as al  # noqa: E402
+import agent_layer as al
 
 TASK = "mise run generate"
 
@@ -109,11 +108,8 @@ def pending_toml(model=None):
     )
 
 
-# ---- The list of fitness functions in `anima-product-principles` -------------------------------
+# ---- The list of fitness functions in the catalog ------------------------------------------
 
-FITNESS_ADR = "docs/adr/0012-declared-once-converged-generated.md"
-FITNESS_BEGIN = "<!-- fitness-functions:begin -->"
-FITNESS_END = "<!-- fitness-functions:end -->"
 TRIGGER_TEXT = {
     "commit": "at every commit",
     "promotion": "when an image is promoted",
@@ -148,23 +144,11 @@ def fitness_list(model, tests):
     return "\n".join(lines)
 
 
-def adr_fitness_functions(model=None):
-    """`anima-product-principles` with the list between its markers generated from the model."""
-    import sysml_model
-
-    model = model or sysml_model.export_model()
-    text = (ROOT / FITNESS_ADR).read_text()
-    begin = text.index(FITNESS_BEGIN) + len(FITNESS_BEGIN)
-    end = text.index(FITNESS_END)
-    listing = fitness_list(model, sysml_model.names_of_tests())
-    return text[:begin] + "\n\n" + listing + "\n\n" + text[end:]
-
-
 # ---- All of them --------------------------------------------------------
 
 AGENTS_MD = "AGENTS.md"
 # Written whole by the generator: an agent may not edit them (R86). AGENTS.md
-# and `anima-product-principles` are only partly generated, so they stay editable.
+# is only partly generated (its routing table), so it stays editable.
 WHOLLY_GENERATED = [
     "docs/adr/README.md",
     "skills/README.md",
@@ -172,7 +156,6 @@ WHOLLY_GENERATED = [
     "docs/catalog.md",
     ".claude/settings.json",
 ]
-PARTLY_GENERATED = [AGENTS_MD, FITNESS_ADR]
 
 
 def wholly_generated():
@@ -200,9 +183,15 @@ def outputs():
         "skills/README.md": al.skills_index(all_skills, al.not_yet_present()),
         "tests/pending.toml": pending_toml(model),
         "docs/catalog.md": al.catalog(
-            model, tests, all_skills, all_roles, components, tasks, al.synonyms()
+            model,
+            tests,
+            all_skills,
+            all_roles,
+            components,
+            tasks,
+            al.synonyms(),
+            fitness_list(model, tests),
         ),
-        FITNESS_ADR: adr_fitness_functions(model),
         AGENTS_MD: al.agents_md((ROOT / AGENTS_MD).read_text(), all_skills),
     }
     for skill in all_skills:

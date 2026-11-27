@@ -79,7 +79,9 @@ def test_R90_export_writes_nothing_outside_cache_detects_violation(tmp_path):
 
 def bytecode_files(names):
     return sorted(
-        n for n in names if "__pycache__" in n.split("/") or n.endswith((".pyc", ".pyo"))
+        n
+        for n in names
+        if "__pycache__" in n.split("/") or n.endswith((".pyc", ".pyo"))
     )
 
 

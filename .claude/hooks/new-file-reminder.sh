@@ -10,7 +10,7 @@ file="$(printf '%s' "$input" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"
 message=""
 case "$file" in
 */docs/adr/README.md) message="docs/adr/README.md is generated: run 'mise run generate'." ;;
-*/docs/adr/*.md) message="A decision record is made with 'adrs new', not by writing the file: use 'adrs new <title>', then 'mise run adr:check' (`anima-repository-conventions`)." ;;
+*/docs/adr/*.md) message="A decision record is made with 'adrs new', not by writing the file: use 'adrs new <title>', then 'mise run adr:check' (skill anima-writing-a-decision-record)." ;;
 */skills/README.md | */.claude/skills/* | */.claude/rules/* | */.claude/agents/* | */docs/catalog.md) message="This file is generated from its neutral source: run 'mise run generate' instead of writing it." ;;
 */docs/postmortems/TEMPLATE.md) ;;
 */docs/postmortems/*.md) message="Start a postmortem from docs/postmortems/TEMPLATE.md and close it with a guard that exists (PM ids are not reused)." ;;

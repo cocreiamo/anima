@@ -9,5 +9,8 @@ Requires=database.service access.service secrets.service
 BindsTo=database.service access.service secrets.service
 After=database.service access.service secrets.service
 
+# No start limit: the target is started again every time a part returns.
+StartLimitIntervalSec=0
+
 [Install]
 WantedBy=multi-user.target

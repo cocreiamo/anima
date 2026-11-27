@@ -79,7 +79,7 @@ How Anima takes in a tool, library, service, action, image or test suite.
 
 ## Where the result goes
 
-The decision goes to an ADR (or an amendment to `anima-repository-conventions`'s adopted-tools
-table). The component goes to `components.toml` (plus the submodule and
+A decision about what to adopt is a rule of this skill (a decision about the architecture is a record, `anima-writing-a-decision-record`).
+The component goes to `components.toml` (plus the submodule and
 sync workflow if built from source); a tool to `mise.toml` and `mise.lock`;
 every limit to `gaps.toml`.

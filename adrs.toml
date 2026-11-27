@@ -1,5 +1,5 @@
 # Configuration of `adrs`, the tool that creates and checks the decision
-# records (`anima-repository-conventions`). Every key the tool reads is written here, so that a
+# records (`anima-writing-a-decision-record`). Every key the tool reads is written here, so that a
 # user-level configuration (~/.config/adrs/config.toml) cannot change a result:
 # a key set here wins over the global one, and a key left out could be filled
 # from it. mise.toml also points ADRS_CONFIG at this file.

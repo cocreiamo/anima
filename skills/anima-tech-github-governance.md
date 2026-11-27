@@ -40,4 +40,4 @@ the command line and the REST API. The repository rules are in
 
 ## Where the result goes
 
-Settings go to `.github/` as files (rulesets, workflows); a setting that cannot be a file is the founder's to-do in the backlog. Decisions amend `anima-repository-conventions` and `anima-maintaining-a-fork` or `anima-branching-and-releasing`. Limits go to `gaps.toml` (GAP-008, GAP-046). Related skills: `anima-repository-conventions`, `anima-adopting-a-component`.
+Settings go to `.github/` as files (rulesets, workflows); a setting that cannot be a file is the founder's to-do in the backlog. A change of rule goes to `anima-repository-conventions`, `anima-maintaining-a-fork` or `anima-branching-and-releasing`. Limits go to `gaps.toml` (GAP-008, GAP-046). Related skills: `anima-repository-conventions`, `anima-adopting-a-component`.

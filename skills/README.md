@@ -18,13 +18,14 @@ Three families, one schema: `## Use this when`, `## Rules`, `## Questions to ans
 - [`anima-repository-conventions`](anima-repository-conventions.md) (2 unverified): Use when adding or moving files in the anima repository, or changing mise tasks, git hooks, formatting, linting, REUSE annotations, caches, commit authorship, or when writing a decision record: layout, toolchain, generated files, the record format and tool.
 - [`anima-specifying-requirements`](anima-specifying-requirements.md) (1 unverified): Use when adding or changing Anima behaviour, writing a requirement, verification or test, or touching model/anima.sysml, tests/ or tests/pending.toml: SysML v2 conventions, test naming, traceability.
 - [`anima-working-as-an-agent`](anima-working-as-an-agent.md) (2 unverified): Use when planning, delegating, doing or reviewing work in the repository as an agent: the pipeline from task to promotion, the roles, the backlog, briefs and reports, postmortems, the catalog, the skill schema, the agent settings and the size limits.
+- [`anima-writing-a-decision-record`](anima-writing-a-decision-record.md) (1 unverified): Use when a decision seems to need a record, or when creating, amending, superseding or checking one in docs/adr/: what a decision record is here (the architecture of the product only), where every other kind of decision goes, and how a record is written.
 
 ## Capability skills
 
 - [`anima-access-design`](anima-access-design.md) (1 unverified): Use when changing who can connect to the Anima database server and as what: roles, pg_hba.conf, scopes, tokens, access rules, the identity provider's wiring, the identities file, or anything under engine/access/ or config/access/.
 - [`anima-configuration-design`](anima-configuration-design.md) (0 unverified): Use when touching anything under config/ or any setting the engine reads: what an adopter configures, defaults, profiles, the driver that selects an adapter, and where secrets are named.
 - [`anima-database-design`](anima-database-design.md) (2 unverified): Use when changing the database server of Anima, the adapters that run inside its process (token validation, vector search, backup and restore) or anything under engine/database/, engine/backup/ or engine/vectors/.
-- [`anima-image-design`](anima-image-design.md) (2 unverified): Use when changing the engine image: its container file, its Quadlet units, its start order and readiness target, how it is booted or run as a container, or anything under engine/image/.
+- [`anima-image-design`](anima-image-design.md) (3 unverified): Use when changing the engine image: its container file, its Quadlet units, its start order and readiness target, how it is booted or run as a container, or anything under engine/image/.
 - [`anima-secrets-design`](anima-secrets-design.md) (2 unverified): Use when changing anything about secrets, certificates, keys or unsealing: where a secret comes from, how it reaches its consumers, the secret store, the root of trust, or anything under engine/secrets/.
 
 ## Technology skills
@@ -41,8 +42,8 @@ Three families, one schema: `## Use this when`, `## Rules`, `## Questions to ans
 - [`anima-tech-sysml-pilot`](anima-tech-sysml-pilot.md) (1 unverified): Use when writing, validating or reading SysML v2 textual notation in Anima with the OMG Pilot Implementation: satisfy and verify references, thresholds with units, marking requirements with metadata, running the pilot as a checker, reading its JSON export.
 - [`anima-tech-testcontainers-podman`](anima-tech-testcontainers-podman.md) (1 unverified): Use when writing or debugging a system test in Anima that starts containers with Testcontainers for Python on rootless podman: the API service, DOCKER_HOST, the reaper image, the socket path limit, cleanup.
 
-Unverified rules in all skills: 36.
+Unverified rules in all skills: 38.
 
-Globs of `paths` that match nothing yet, listed in `not-yet-present.toml` and in no other place: `engine/backup/**`, `engine/vectors/**`, `**/*.tf`, `third_party/opentofu/**`, `third_party/terraform-provider-postgresql/**`, `third_party/terraform-provider-vault/**`, `third_party/terraform-provider-keycloak/**`.
+Globs of `paths` that match nothing yet, listed in `not-yet-present.toml` and in no other place: `**/*.tf`, `third_party/opentofu/**`, `third_party/terraform-provider-postgresql/**`, `third_party/terraform-provider-vault/**`, `third_party/terraform-provider-keycloak/**`.
 
 The content lives here, in plain Markdown with no vendor syntax. For Claude Code, `.claude/skills/<name>/SKILL.md` is a thin pointer and `.claude/rules/<name>.md` names the skill to load for its paths; both are generated. Another agent vendor wires its own pointers the same way: create its native skill or rules entry, put the trigger description in it, and make it import or tell the agent to read `skills/<name>.md`, never copy the content.

@@ -23,7 +23,12 @@ build() {
     local name=$1 file=$2 target=$3
     shift 3
     local tag
-    tag=$( { cat; cat "$file"; } | sha256sum | cut -c1-12)
+    # The tag covers the commits (standard input), the container file and every
+    # file of the repository that the container file copies (a COPY without
+    # --from): changing a configuration file in engine/ must change the tag.
+    local copied
+    copied=$(awk '/^COPY / && !/--from=/ { for (i = 2; i < NF; i++) if ($i !~ /^--/) print $i }' "$file")
+    tag=$( { cat; cat "$file"; for f in $copied; do echo "$f"; cat "$f"; done; } | sha256sum | cut -c1-12)
     local image="localhost/anima/$name:$tag"
     if podman image exists "$image"; then
         echo "$name: up to date ($image)"

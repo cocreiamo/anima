@@ -1,7 +1,7 @@
 [Unit]
 Description=Anima database cluster creation (only when the volume is empty)
 # A mechanism that runs on an empty cluster only creates it. What is declared is
-# applied at every start by the configurator, not here (ADR 0012).
+# applied at every start by the configurator, not here (skill anima-product-principles).
 ConditionPathExists=!/var/lib/anima/database/PG_VERSION
 
 [Container]

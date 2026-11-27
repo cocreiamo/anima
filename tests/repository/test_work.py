@@ -120,6 +120,11 @@ def test_R80_task_acceptance_names_verifications_detects_violation():
     assert task_faults([{**task, "acceptance": ["test_R9_gone"]}], known)
     assert task_faults([{**task, "acceptance": ["It works"]}], known)
     assert task_faults([{**task, "sections": sections[:3]}], known)
+    # A long title is written by the tool as a folded block scalar with a colon in it.
+    folded = al.parse_yaml(
+        "id: TASK-1\ntitle: >-\n  GAP-1: a long\n  title\nstatus: To Do"
+    )
+    assert folded["title"] == "GAP-1: a long title" and folded["status"] == "To Do"
 
 
 # ---- Postmortems --------------------------------------------------------------------------
@@ -128,7 +133,13 @@ PM_KEYS = {"id", "date", "title", "class", "status", "guards", "recurrences"}
 STATUSES = ("closed-by-design", "guarded", "mitigated", "open")
 # Strongest first: design, then test, then the mitigations.
 STRENGTH = {"design": 5, "test": 4, "scenario": 3, "detection": 2, "rule": 1}
-STATUS_OF = {5: "closed-by-design", 4: "guarded", 3: "mitigated", 2: "mitigated", 1: "mitigated"}
+STATUS_OF = {
+    5: "closed-by-design",
+    4: "guarded",
+    3: "mitigated",
+    2: "mitigated",
+    1: "mitigated",
+}
 
 
 def read_postmortems(directory=ROOT / "docs" / "postmortems"):
@@ -150,7 +161,9 @@ def shape_faults(pms):
         if set(pm) - {"file", "body"} != PM_KEYS:
             faults.append(f"{name}: keys are not {sorted(PM_KEYS)}")
             continue
-        if not re.fullmatch(r"PM-\d{3}", pm["id"]) or not name.startswith(pm["id"] + "-"):
+        if not re.fullmatch(r"PM-\d{3}", pm["id"]) or not name.startswith(
+            pm["id"] + "-"
+        ):
             faults.append(f"{name}: the id does not match the file name")
         if pm["status"] not in STATUSES:
             faults.append(f"{name}: status {pm['status']} is not one of {STATUSES}")
@@ -175,7 +188,11 @@ def guard_faults(pm, read, tests):
         label = f"{pid} {kind} {ref}"
         if kind == "design":
             adr = next(
-                (t for p in sorted((ROOT / "docs" / "adr").glob(f"{ref}-*.md")) if (t := p.read_text())),
+                (
+                    t
+                    for p in sorted((ROOT / "docs" / "adr").glob(f"{ref}-*.md"))
+                    if (t := p.read_text())
+                ),
                 None,
             )
             if adr is None:
@@ -191,7 +208,9 @@ def guard_faults(pm, read, tests):
         elif kind == "scenario":
             text = read("docs/evaluation/scenarios.md") or ""
             section = re.search(
-                rf"^## {re.escape(ref)}\b(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
+                rf"^## {re.escape(ref)}\b(.*?)(?=^## |\Z)",
+                text,
+                re.MULTILINE | re.DOTALL,
             )
             if section is None:
                 faults.append(f"{label}: no such scenario")
@@ -211,7 +230,7 @@ def repository_read(path):
     return full.read_text() if full.is_file() else None
 
 
-def test_functions():
+def written_test_functions():
     found = {}
     for path in sorted((ROOT / "tests" / "repository").glob("test_*.py")):
         for name in defined_function_names_of(path):
@@ -220,7 +239,11 @@ def test_functions():
 
 
 def defined_function_names_of(path):
-    return {n.name for n in ast.walk(ast.parse(path.read_text())) if isinstance(n, ast.FunctionDef)}
+    return {
+        n.name
+        for n in ast.walk(ast.parse(path.read_text()))
+        if isinstance(n, ast.FunctionDef)
+    }
 
 
 def test_R82_postmortem_guards_exist():
@@ -228,12 +251,15 @@ def test_R82_postmortem_guards_exist():
     assert pms, "no postmortem"
     faults = shape_faults(pms)
     for pm in pms:
-        faults += guard_faults(pm, repository_read, test_functions())
+        faults += guard_faults(pm, repository_read, written_test_functions())
     assert not faults, faults
 
 
 def test_R82_postmortem_guards_exist_detects_violation():
-    files = {"agents/x.md": "a rule (PM-001)", "docs/evaluation/scenarios.md": "## S-1 x\n\nPM-001\n"}
+    files = {
+        "agents/x.md": "a rule (PM-001)",
+        "docs/evaluation/scenarios.md": "## S-1 x\n\nPM-001\n",
+    }
     tests = {"test_R1_a": "t.py", "test_R1_a" + NEGATIVE_SUFFIX: "t.py"}
     files["t.py"] = "# PM-001\n"
 
@@ -285,8 +311,13 @@ def status_faults(pm):
     expected = STATUS_OF.get(top, "open")
     faults = []
     if pm["status"] != expected:
-        faults.append(f"{pm['id']}: status is {pm['status']}, its guards say {expected}")
-    if "judgement" in pm["class"].lower() and pm["status"] in ("closed-by-design", "guarded"):
+        faults.append(
+            f"{pm['id']}: status is {pm['status']}, its guards say {expected}"
+        )
+    if "judgement" in pm["class"].lower() and pm["status"] in (
+        "closed-by-design",
+        "guarded",
+    ):
         faults.append(f"{pm['id']}: an error of judgement is at most mitigated")
     return faults
 
@@ -310,7 +341,9 @@ def test_R83_postmortem_status_agrees_with_guards_detects_violation():
     judged = _pm(**{"class": "error of judgement"})
     assert status_faults(judged) == []
     assert status_faults({**judged, "status": "guarded", "guards": [guard("test")]})
-    assert status_faults({**judged, "status": "closed-by-design", "guards": [guard("design")]})
+    assert status_faults(
+        {**judged, "status": "closed-by-design", "guards": [guard("design")]}
+    )
 
 
 # ---- R84: a recurrence needs a stronger guard -----------------------------------------------
@@ -325,7 +358,9 @@ def recurrence_faults(pm):
         before = max(
             (STRENGTH[g["kind"]] for g in pm["guards"] if g["added"] < when), default=0
         )
-        if not any(g["added"] >= when and STRENGTH[g["kind"]] > before for g in pm["guards"]):
+        if not any(
+            g["added"] >= when and STRENGTH[g["kind"]] > before for g in pm["guards"]
+        ):
             faults.append(f"{pm['id']}: the recurrence of {when} has no stronger guard")
     return faults
 

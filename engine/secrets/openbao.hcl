@@ -8,7 +8,7 @@ log_level     = "info"
 api_addr     = "http://127.0.0.1:8200"
 cluster_addr = "http://127.0.0.1:8201"
 
-# Only the pod's loopback; no TLS, never published (ADR 0011).
+# Only the pod's loopback; no TLS, never published (ADR 0005).
 listener "tcp" {
   address     = "127.0.0.1:8200"
   tls_disable = true

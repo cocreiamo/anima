@@ -41,7 +41,7 @@ One file was created in the main checkout, outside the worktree, and removed. No
 | When       | What                                                                 |
 | ---------- | -------------------------------------------------------------------- |
 | 2026-11-27 | The file was found in the main checkout and removed.                 |
-| 2026-11-27 | The export task already ran from a bare file name; a test was added.    |
+| 2026-11-27 | The export task already ran from a bare file name; a test was added. |
 
 ## How did we do
 

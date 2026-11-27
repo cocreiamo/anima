@@ -10,7 +10,7 @@ paths:
 # Decision records: MADR and adrs
 
 How the `adrs` tool treats MADR records when run. Where a decision is recorded
-and by whom is in `anima-repository-conventions`.
+and by whom is in `anima-writing-a-decision-record`.
 
 ## Use this when
 
@@ -40,4 +40,4 @@ and by whom is in `anima-repository-conventions`.
 
 ## Where the result goes
 
-The record is a file in `docs/adr/` made with `adrs new`; the index is generated (`mise run generate`). The format and the toolchain are in `anima-repository-conventions`. Limits go to `gaps.toml` (GAP-023, GAP-024, GAP-044, GAP-045). Related skills: `anima-repository-conventions`, `anima-tech-mise`.
+The record is a file in `docs/adr/` made with `adrs new`; the index is generated (`mise run generate`). How to write one is `anima-writing-a-decision-record`; the toolchain is in `anima-repository-conventions`. Limits go to `gaps.toml` (GAP-023, GAP-024, GAP-044, GAP-045). Related skills: `anima-writing-a-decision-record`, `anima-repository-conventions`, `anima-tech-mise`.

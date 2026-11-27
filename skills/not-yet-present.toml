@@ -5,9 +5,6 @@
 # something and so no longer belongs here.
 
 paths = [
-  # Directories of the engine that exist and hold no file yet.
-  "engine/backup/**",
-  "engine/vectors/**",
   # The configurator and its providers: forks that are not yet submodules.
   "**/*.tf",
   "third_party/opentofu/**",

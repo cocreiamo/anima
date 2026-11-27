@@ -68,7 +68,7 @@ Look here before building something. Each section is derived from its source; th
 | R39 | each fact declared once | pending |
 | R40 | serves only when converged | pending |
 | R41 | probes and single readiness | written |
-| R42 | one start path after crash | pending |
+| R42 | one start path after crash | written |
 | R43 | upgrade only expands | pending |
 | R44 | upgrade never destroys data | pending |
 | R45 | contractions register well formed | written |
@@ -87,7 +87,7 @@ Look here before building something. Each section is derived from its source; th
 | R58 | every adapter passes its contract suite | pending |
 | R59 | one adapter active per port | pending |
 | R60 | all state in one store | pending |
-| R61 | server serves without secret store | pending |
+| R61 | server serves without secret store | written |
 | R62 | storage connection uses no secret | pending |
 | R63 | declared identity can set its credential | pending |
 | R64 | mail delivered through configured service | pending |
@@ -119,6 +119,12 @@ Look here before building something. Each section is derived from its source; th
 | R90 | export writes nothing outside cache | written |
 | R91 | no bytecode outside cache | written |
 | R92 | advisory hook never blocks | written |
+| R93 | only architecture records exist | written |
+| R94 | no reference to missing record | written |
+| R95 | absent setting takes production default | pending |
+| R96 | declared identity receives credential link | pending |
+| R97 | failing health check restarts container | written |
+| R98 | readiness negative when configurator fails | pending |
 
 ## Components
 
@@ -135,6 +141,11 @@ Look here before building something. Each section is derived from its source; th
 | terraform-provider-vault | provider of the configurator: the secret store, used against the secret store's compatible API |
 | terraform-provider-keycloak | provider of the configurator: the token issuer's realm, roles, scopes, clients and users |
 | fedora-bootc | base of the engine image: operating system, systemd, container runtime |
+| debian | base of the database server's image: operating system of the inner container |
+| ubi9 | base of the identity provider's image: the stage that installs its packages (the upstream container file's own base) |
+| ubi9-micro | base of the identity provider's image: the final stage (the upstream container file's own base) |
+| alpine | base of the secret store's image: the final stage (the upstream container file's own base) |
+| mailpit | adapter: outgoing mail (stand-in, local development and CI only) |
 
 ## Tasks (`mise run <task>`)
 
@@ -167,6 +178,84 @@ Look here before building something. Each section is derived from its source; th
 | `test` | Run the automated verifications |
 | `workflows:check` | Analyse the GitHub Actions workflows (syntax, permissions, injection, unpinned actions) |
 
+## Tools (`mise.toml`)
+
+`actionlint`, `bazelisk`, `buildifier`, `committed`, `github:MrLesk/Backlog.md`, `github:joshrotenberg/adrs`, `gitleaks`, `java`, `jq`, `node`, `npm:prettier`, `pipx:reuse`, `python`, `ruff`, `shellcheck`, `taplo`, `typos`, `uv`, `zizmor`
+
+## Workflows (`.github/workflows/`)
+
+| Workflow file | Name | Triggers |
+| --- | --- | --- |
+| `ci.yml` | CI | pull_request, merge_group, push |
+| `codeql.yml` | CodeQL | pull_request, push, schedule |
+| `prepare-release.yml` | Prepare release | push |
+| `promote.yml` | Promote | schedule, workflow_dispatch |
+| `pull-request.yml` | Pull request | pull_request, merge_group |
+| `scorecard.yml` | Scorecard | push, schedule |
+| `sync-forks.yml` | Sync forks | schedule, workflow_dispatch |
+
+## Fitness functions
+
+Requirements marked as fitness functions in the model, when each runs and its test.
+
+- R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
+- R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
+- R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
+- R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
+- R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
+- R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
+- R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
+- R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
+- R30, nothing reachable by default, against the running system: `test_R30_nothing_reachable_by_default` (written).
+- R37, upgrade converges, when an image is promoted: `test_R37_upgrade_converges_to_new_installation` (pending).
+- R38, derived files generated, at every commit: `test_R38_derived_files_generated` (written).
+- R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (pending).
+- R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
+- R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
+- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_recovers_with_same_start` (written).
+- R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
+- R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
+- R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
+- R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
+- R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (pending).
+- R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
+- R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
+- R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
+- R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
+- R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
+- R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
+- R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
+- R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
+- R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
+- R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
+- R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
+- R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
+- R70, renovate finds every image, at every commit: `test_R70_renovate_finds_every_image` (written).
+- R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
+- R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
+- R73, unverified rules counted, at every commit: `test_R73_unverified_rules_counted` (written).
+- R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
+- R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
+- R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
+- R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
+- R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
+- R79, every open gap has task, at every commit: `test_R79_every_open_gap_has_a_task` (written).
+- R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
+- R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
+- R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
+- R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
+- R84, postmortem recurrence needs stronger guard, at every commit: `test_R84_postmortem_recurrence_needs_stronger_guard` (written).
+- R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
+- R86, agent settings refuse generated files, at every commit: `test_R86_agent_settings_refuse_generated_files` (written).
+- R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
+- R88, agent layer evaluated at promotion, when an image is promoted: `test_R88_agent_layer_evaluated_at_promotion` (pending).
+- R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
+- R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
+- R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
+- R92, advisory hook never blocks, at every commit: `test_R92_advisory_hook_never_blocks` (written).
+- R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
+- R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
+
 ## Skills
 
 - `anima-access-design` (capability)
@@ -195,6 +284,7 @@ Look here before building something. Each section is derived from its source; th
 - `anima-tech-sysml-pilot` (technology)
 - `anima-tech-testcontainers-podman` (technology)
 - `anima-working-as-an-agent` (product)
+- `anima-writing-a-decision-record` (product)
 
 ## Roles
 

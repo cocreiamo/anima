@@ -12,6 +12,9 @@ TRADEMARKS.md
 # Generated. The ADR index is a table written by `mise run generate`, which does
 # not pad the columns the way Prettier does.
 docs/adr/README.md
+docs/catalog.md
+.claude/settings.json
+backlog/
 .mise/
 uv.lock
 mise.lock

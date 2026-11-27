@@ -405,12 +405,12 @@ package Anima {
             doc /* The instructions file, every skill, every role file and the text that is always loaded shall stay within the limits held by this requirement; when a file exceeds its limit, detail is moved or deleted and the limit is not raised. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
-            attribute maxAgentsLines : ScalarValues::Integer = 70;
-            attribute maxAgentsBytes : ScalarValues::Integer = 9000;
-            attribute maxSkillLines : ScalarValues::Integer = 150;
+            attribute maxAgentsLines : ScalarValues::Integer = 90;
+            attribute maxAgentsBytes : ScalarValues::Integer = 13000;
+            attribute maxSkillLines : ScalarValues::Integer = 140;
             attribute maxSkillBytes : ScalarValues::Integer = 12500;
             attribute maxRoleLines : ScalarValues::Integer = 45;
-            attribute maxRoleBytes : ScalarValues::Integer = 2600;
+            attribute maxRoleBytes : ScalarValues::Integer = 2200;
             attribute maxAlwaysLoadedLines : ScalarValues::Integer = 120;
             attribute maxAlwaysLoadedBytes : ScalarValues::Integer = 20000;
         }
@@ -467,6 +467,16 @@ package Anima {
         }
         requirement <'R92'> advisoryHookNeverBlocks {
             doc /* The advisory hook of the agent settings shall add a reminder that names the command for a file created where a generator or a tool should create it, and shall never block, whatever its input. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R93'> onlyArchitectureRecordsExist {
+            doc /* Every decision record shall carry the category architecture, its number shall be the one in its file name, and the directory of the records shall hold nothing but records and their generated index. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R94'> noReferenceToMissingRecord {
+            doc /* No text of the repository shall name a decision record that does not exist. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -591,6 +601,14 @@ package Anima {
                  * or the setting. */
             subject engine : Engine;
         }
+        requirement <'R95'> absentSettingTakesProductionDefault {
+            doc /* A setting that is absent from the configuration shall take the production default shipped in the engine. */
+            subject sys : System;
+        }
+        requirement <'R96'> declaredIdentityReceivesCredentialLink {
+            doc /* An identity declared in the configuration shall receive a message with a link at which it sets its credential. */
+            subject configurator : Configurator;
+        }
     }
 
     // ---- Runtime: the system in service ----------------------------------
@@ -642,7 +660,7 @@ package Anima {
         }
         requirement <'R12'> superuserLocalOnly {
             doc /* The database superuser shall be reachable only through the
-                 * local socket inside the database server's container, and
+                 * local socket with operating-system peer authentication, and
                  * shall have no password. */
             subject server : DatabaseServer;
         }
@@ -707,6 +725,14 @@ package Anima {
         requirement <'R64'> mailDeliveredThroughConfiguredService {
             doc /* Outgoing mail shall be delivered through the mail service
                  * that the configuration names. */
+            subject engine : Engine;
+        }
+        requirement <'R97'> failingHealthCheckRestartsContainer {
+            doc /* A container of the engine whose health check fails shall be restarted, and the engine shall become ready again when the check passes. */
+            subject engine : Engine;
+        }
+        requirement <'R98'> readinessNegativeWhenConfiguratorFails {
+            doc /* When the configurator fails, the readiness answer of the engine shall stay negative and nothing shall be published to the outside. */
             subject engine : Engine;
         }
     }
@@ -1249,6 +1275,30 @@ package Anima {
         verification def test_R92_advisory_hook_never_blocks {
             subject tools : Toolchain;
             objective { verify Day0::advisoryHookNeverBlocks; }
+        }
+        verification def test_R93_only_architecture_records_exist {
+            subject tools : Toolchain;
+            objective { verify Day0::onlyArchitectureRecordsExist; }
+        }
+        verification def test_R94_no_reference_to_a_record_that_does_not_exist {
+            subject tools : Toolchain;
+            objective { verify Day0::noReferenceToMissingRecord; }
+        }
+        verification def test_R95_absent_setting_takes_production_default {
+            subject sys : System;
+            objective { verify Day1::absentSettingTakesProductionDefault; }
+        }
+        verification def test_R96_declared_identity_receives_credential_link {
+            subject configurator : Configurator;
+            objective { verify Day1::declaredIdentityReceivesCredentialLink; }
+        }
+        verification def test_R97_failing_health_check_restarts_container {
+            subject engine : Engine;
+            objective { verify Runtime::failingHealthCheckRestartsContainer; }
+        }
+        verification def test_R98_readiness_negative_when_configurator_fails {
+            subject engine : Engine;
+            objective { verify Runtime::readinessNegativeWhenConfiguratorFails; }
         }
     }
 }

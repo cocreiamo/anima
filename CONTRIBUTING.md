@@ -45,11 +45,15 @@ the one in `.devcontainer/`.
 - A change in behaviour starts in the requirements model
   (`model/anima.sysml`): each requirement has a verification, and each
   verification is an automated test with the same name.
-- A decision that shapes the architecture is recorded as an ADR in
-  `docs/adr/`, in the MADR 4.0.0 format, created with `adrs new "Title"` and
-  checked by `mise run adr:check` ([`anima-repository-conventions`](docs/adr/0013-decision-records-in-madr-managed-with-adrs.md)).
-  The decision makers are written as a role (`founder`), and a reference to
-  another ADR is a Markdown link, not a bare number.
+- A decision about the architecture of the product is recorded as an ADR in
+  `docs/adr/`, made with `adrs new "Title"` and checked by
+  `mise run adr:check`; how to write one is
+  [`anima-writing-a-decision-record`](skills/anima-writing-a-decision-record.md).
+  Anything else that is decided (how we work, licence and brand, tooling) is a
+  rule of a skill, not a record.
+- Work to do is a task of the backlog (`backlog/tasks/`), and something that
+  went wrong is a postmortem (`docs/postmortems/`); how both work is
+  [`anima-working-as-an-agent`](skills/anima-working-as-an-agent.md).
 - Every dependency is pinned to an exact version and listed in
   `components.toml` if it ships with Anima.
 - A known gap or defect of an adopted component is an entry in `gaps.toml`,
@@ -59,7 +63,12 @@ the one in `.devcontainer/`.
 ## Layout
 
 - `model/`: the requirements model.
-- `docs/adr/`: the architecture decision records.
+- `docs/adr/`: the architecture decision records. Elsewhere in `docs/`:
+  `work/` (the templates of a brief, a report and a task, and the review
+  checklist), `postmortems/`, `evaluation/` (the scenarios that evaluate the
+  agent layer) and the generated `catalog.md`.
+- `backlog/`: the tasks, one file each, made with the backlog tool.
+- `agents/`: the roles of the agents that work here, as neutral files.
 - `engine/`: the runtime, everything Anima ships, owned by the product. One
   directory per capability, never named after a product: `database/` (the
   database server), `access/` (identity provider, token validation, fixed
@@ -70,7 +79,8 @@ the one in `.devcontainer/`.
   capability names: `access/` holds identities and the roles they hold. Here it
   is the example configuration, used by tests and local development; an
   adopter mounts their own.
-- `skills/`: design criteria, as agent-neutral skill documents.
+- `skills/`: design criteria, as agent-neutral skill documents (`AGENTS.md`
+  says which one for which paths).
 - `tests/`: `repository/` holds the verifications that need only the repository, `system/` those that start the engine image with Testcontainers.
 - `third_party/`: the forked components, as git submodules.
 - `mise-tasks/`: the tasks that are scripts.
@@ -83,4 +93,4 @@ The registers `components.toml` and `gaps.toml` sit at the root beside
 ## Changes to PostgreSQL, Keycloak or another forked component
 
 These live in their own repositories and keep their upstream licence. See
-[`anima-maintaining-a-fork`](docs/adr/0007-fork-maintenance.md).
+[`anima-maintaining-a-fork`](skills/anima-maintaining-a-fork.md).

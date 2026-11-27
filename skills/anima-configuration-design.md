@@ -10,8 +10,9 @@ paths:
 
 What an adopter declares about their own instance, and how the engine reads it:
 the capability `configuration` (directory `config/`, mirroring `engine/`). The
-decisions are taken; their home is ADR 0007 (the configuration), ADR 0001 (the
-two layers, drivers) and `anima-configuration-design`.
+decisions are taken; their home is ADR 0007
+(the configuration), ADR 0001 (the
+two layers, drivers) and this skill.
 
 ## Use this when
 
@@ -57,6 +58,27 @@ two layers, drivers) and `anima-configuration-design`.
 11. **The style is inspired by the configuration of application frameworks**
     (a file per concern, defaults shipped, values from the environment). It is
     inspiration, not an adopted tool.
+12. **Facts of an installation are declared once, in these homes.** The fixed
+    roles: one declaration of the roles, their kinds, memberships and scope;
+    the database server's roles and privileges, the access rules, the scopes
+    and realm roles of the identity provider's presets and the secret store's
+    database roles derive from it. The identity provider's public URL: one
+    installation parameter; its hostname, the issuer in the access rules, the
+    name on the certificate and the host alias of the units derive from it.
+    Secrets: the secret store only; consumers receive rendered copies in
+    memory, none is in a repository, an image or a file on a volume (R7).
+    Component versions: `components.toml`; tool versions: `mise.toml`.
+    Unverified: none of the first three declarations is built, so their
+    repetition is prevented only by the files not existing; the test that
+    checks it is pending (R39).
+13. **One configurator serves every state store.** The identity provider
+    (realm, identities, roles, scopes), the secret store (policies, engines,
+    roles) and the database server (roles, memberships, privileges, access
+    rules, installed extensions) each have one declared file and are converged
+    by the same configurator (ADR 0006). It sees only what is declared: something granted by
+    hand on an object that no declaration tracks stays. The secret store's own
+    self-initialization runs once only and is not converged (GAP-020). Not
+    built: the configurator.
 
 ## Questions to answer before proposing
 

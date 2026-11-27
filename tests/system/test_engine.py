@@ -125,9 +125,41 @@ def test_R12_superuser_local_only(engine):
 # ---- R13 ---------------------------------------------------------------------
 
 
-def test_R13_database_server_starts_without_identity_provider():
-    """A fresh engine with the identity provider masked: the database server serves."""
-    pytest.skip("needs a second engine with `access` masked; see the report")
+def failing_unit_dropin(tmp_path: Path, unit: str) -> dict[str, str]:
+    """A systemd drop-in that makes `unit` fail at every start, as bind mounts."""
+    dropin = tmp_path / f"{unit}-fails.conf"
+    dropin.write_text("[Service]\nExecStartPre=/bin/false\n")
+    return {str(dropin): f"/etc/systemd/system/{unit}.service.d/50-test-fails.conf"}
+
+
+def database_answers(engine) -> bool:
+    code, out = engine.inner(
+        "database",
+        "psql",
+        "--host=/run/postgresql",
+        "--username=postgres",
+        "--no-psqlrc",
+        "--tuples-only",
+        "--command=select 1",
+    )
+    return code == 0 and out.strip() == "1"
+
+
+def test_R13_database_server_starts_without_identity_provider(own_engine, tmp_path):
+    """The identity provider's unit fails at every start: the database server still
+    starts and accepts local connections (the engine as a whole is not ready)."""
+    engine = own_engine("r13", failing_unit_dropin(tmp_path, "access"))
+    engine.wait_for("database server answers", lambda: database_answers(engine), 150)
+    assert not engine.active("access.service")
+    assert not engine.active("anima-ready.target")
+
+
+def test_R61_database_server_serves_without_secret_store(own_engine, tmp_path):
+    """The secret store's unit fails at every start: the database server serves."""
+    engine = own_engine("r61", failing_unit_dropin(tmp_path, "secrets"))
+    engine.wait_for("database server answers", lambda: database_answers(engine), 150)
+    assert not engine.active("secrets.service")
+    assert not engine.active("anima-ready.target")
 
 
 # ---- R29 ---------------------------------------------------------------------
@@ -223,3 +255,88 @@ def test_R41_probes_and_single_readiness(engine):
     assert (
         engine.exec("systemctl", "is-active", "--quiet", "anima-ready.target")[0] == 0
     )
+
+
+# ---- R97 ---------------------------------------------------------------------
+
+
+def test_R97_failing_health_check_restarts_container(own_engine):
+    """The database server's process is stopped (it stays alive but answers
+    nothing), so its liveness check fails: the container is killed, started
+    again, the readiness target leaves and then returns to active."""
+    engine = own_engine("r97")
+    engine.wait_ready()
+    before = engine.inner_container_started_at("database")
+    assert before
+    code, out = engine.exec("podman", "kill", "--signal", "STOP", "database")
+    assert code == 0, out
+    seen_not_ready = False
+
+    def restarted_and_ready() -> bool:
+        nonlocal seen_not_ready
+        if not engine.active("anima-ready.target"):
+            seen_not_ready = True
+            return False
+        return (
+            seen_not_ready and engine.inner_container_started_at("database") != before
+        )
+
+    engine.wait_for(
+        "restart of the database server container", restarted_and_ready, 120, 0.5
+    )
+    assert database_answers(engine)
+    engine.wait_for("outer health", lambda: engine.health() == "healthy", 60)
+
+
+# ---- R42 ---------------------------------------------------------------------
+
+
+def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
+    """Killed in the middle of the first start, then after a complete start, the
+    same container is started again and reaches readiness; data written before
+    the kill is still there. A clean stop is the contrast: no crash recovery."""
+    engine = own_engine("r42")
+    # In the middle of the first start: as soon as the cluster creation has begun.
+    engine.wait_for(
+        "cluster creation started",
+        lambda: (
+            "database-init"
+            in engine.exec("podman", "ps", "-a", "--format", "{{.Names}}")[1]
+        ),
+        120,
+        0.2,
+    )
+    engine.kill()
+    engine.start_again()
+    engine.wait_ready()
+
+    def sql(command: str) -> str:
+        code, out = engine.inner(
+            "database",
+            "psql",
+            "--host=/run/postgresql",
+            "--username=postgres",
+            "--no-psqlrc",
+            "--tuples-only",
+            f"--command={command}",
+        )
+        assert code == 0, out
+        return out.strip()
+
+    sql("create table if not exists survivor (n int)")
+    sql("insert into survivor values (42)")
+    # Abrupt stop of a running engine, same start command.
+    engine.kill()
+    engine.start_again()
+    engine.wait_ready()
+    assert sql("select n from survivor") == "42"
+    logs = engine.exec("podman", "logs", "database")[1]
+    assert "was not properly shut down" in logs, logs
+    # Clean stop, then the same start: the server needs no crash recovery.
+    code, out = engine.exec_host("podman", "stop", "--time", "60", engine.name)
+    assert code == 0, out
+    engine.start_again()
+    engine.wait_ready()
+    assert sql("select n from survivor") == "42"
+    logs = engine.exec("podman", "logs", "database")[1]
+    assert "was not properly shut down" not in logs, logs

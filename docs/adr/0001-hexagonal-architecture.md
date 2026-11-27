@@ -3,6 +3,7 @@ number: 1
 title: Hexagonal architecture — engine, ports and adapters
 status: proposed
 date: 2026-11-27
+category: architecture
 decision-makers: [founder]
 ---
 
@@ -75,12 +76,11 @@ Anima follows a hexagonal (ports and adapters) architecture.
 5. **Production is the default.** The stand-in exists only because local
    development cannot have the production dependency. It is marked in the model
    by the definition `StandIn`, so a test tells it from the default adapter.
-   An ADR never describes a stand-in as the normal path ([ADR-0011](0011-engine-image-and-runtime.md)).
+   An ADR never describes a stand-in as the normal path ([ADR-0005](0005-engine-image-and-runtime.md)).
 6. **Every port has a contract suite.** The suite is a set of tests written
    against the port, never against a product, and every adapter of the port
    must pass it (R58, pending). This is what makes substitution true, the
-   Liskov point of [ADR-0012](0012-declared-once-converged-generated.md),
-   section 6.
+   Liskov point of `anima-designing-a-port`.
 
 ### Terms
 
@@ -100,7 +100,7 @@ Anima follows a hexagonal (ports and adapters) architecture.
   image-based operating system that carries its own init (`systemd`), the
   container runtime of its base image and the Quadlet units of the engine. It starts
   in two ways: booted as the operating system of a machine, or run as a
-  container by a daemonless, rootless container engine ([ADR-0011](0011-engine-image-and-runtime.md)). Decided,
+  container by a daemonless, rootless container engine ([ADR-0005](0005-engine-image-and-runtime.md)). Decided,
   not built.
 - **Configuration** is what an adopter declares about their own instance:
   the identities and the installation parameters. It is owned by the
@@ -123,11 +123,11 @@ Anima follows a hexagonal (ports and adapters) architecture.
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
 | Token issuer          | An OpenID Connect issuer (discovery document, signing keys) whose bearer tokens the database server accepts through its `oauth` authentication method. Always inside the engine, because the database server accepts only such tokens | Keycloak                                                                        | none built                                                                                                                               | none                                                             | its own container                                         |
 | Identity source       | Where the people of an installation come from                                                                                                                                                                                         | The identities declared in the configuration, applied to the token issuer       | An organization's own directory (SAML, OpenID Connect or LDAP) reached by federation through the token issuer as intermediary; not built | none                                                             | the token issuer                                          |
-| Configurator          | Applies the product's declarations and the adopter's configuration to every store, at every start ([ADR-0014](0014-one-configurator-for-all-state.md))                                                                                | OpenTofu with its three providers                                               | none built                                                                                                                               | none                                                             | a unit that runs to completion                            |
-| Secret keeping        | Keeps secrets and gives a consumer the one it needs; keeps its state in the database server ([ADR-0009](0009-secret-management.md))                                                                                                   | OpenBao                                                                         | none built                                                                                                                               | none                                                             | its own container                                         |
+| Configurator          | Applies the product's declarations and the adopter's configuration to every store, at every start ([ADR-0006](0006-one-configurator-for-all-state.md))                                                                                | OpenTofu with its three providers                                               | none built                                                                                                                               | none                                                             | a unit that runs to completion                            |
+| Secret keeping        | Keeps secrets and gives a consumer the one it needs; keeps its state in the database server ([ADR-0003](0003-secret-management.md))                                                                                                   | OpenBao                                                                         | none built                                                                                                                               | none                                                             | its own container                                         |
 | Certificate authority | Issues certificates                                                                                                                                                                                                                   | OpenBao                                                                         | none built                                                                                                                               | none                                                             | its own container                                         |
 | Service credentials   | Sets and rotates the credentials of the service roles                                                                                                                                                                                 | OpenBao                                                                         | none built                                                                                                                               | none                                                             | its own container                                         |
-| Root of trust         | Gives the secret store the key that unseals it ([ADR-0009](0009-secret-management.md))                                                                                                                                                | An external key management service, not built in 0.0.1 (Google Cloud KMS first) | none built                                                                                                                               | A local key                                                      | beside the secret store                                   |
+| Root of trust         | Gives the secret store the key that unseals it ([ADR-0003](0003-secret-management.md))                                                                                                                                                | An external key management service, not built in 0.0.1 (Google Cloud KMS first) | none built                                                                                                                               | A local key                                                      | beside the secret store                                   |
 | Token validation      | Validates a bearer token against an OpenID Connect issuer, through the database server's OAuth validator interface                                                                                                                    | `pg_oidc_validator`                                                             | none built                                                                                                                               | none                                                             | the database server's process                             |
 | Vector search         | Vector similarity search in SQL                                                                                                                                                                                                       | `pgvector`                                                                      | none built                                                                                                                               | none                                                             | the database server's process                             |
 | Backup                | Backup and restore of the database server's data                                                                                                                                                                                      | `pgBackRest`                                                                    | none built                                                                                                                               | none                                                             | the database server's process                             |
@@ -158,12 +158,12 @@ their own instance.
 | Lives      | inside the engine image, versioned with Anima                                        | outside the image, in a directory mounted into the engine                                          |
 | Changed by | us, with a release                                                                   | the adopter, without touching the engine                                                           |
 
-The rules that follow from the two layers are in [ADR-0012](0012-declared-once-converged-generated.md), section 11. The
+The rules that follow from the two layers are in `anima-configuration-design`. The
 boundary coincides with the licence boundary already set by the plugin
-exception ([ADR-0003](0003-plugin-boundary.md)): configuration and data are not covered by the AGPL.
+exception ([ADR-0002](0002-plugin-boundary.md)): configuration and data are not covered by the AGPL.
 In the repository the two layers are the directories `engine/` and `config/`,
 whose capability names mirror each other; `config/` holds the example
-configuration, which tests and local development use ([ADR-0006](0006-repository-and-toolchain.md)).
+configuration, which tests and local development use (`anima-repository-conventions`).
 
 ### Consequences
 
@@ -173,17 +173,17 @@ configuration, which tests and local development use ([ADR-0006](0006-repository
 - Bad, because Keycloak stores its state in the database server, in a
   database named `idp`. The database server must therefore start, and accept
   that one service connection, without the identity provider being
-  available. That connection uses a password issued by the secret store ([ADR-0009](0009-secret-management.md)), comes from the pod's loopback and is one of the service roles ([ADR-0010](0010-roles-and-access.md)); no connection from outside is authenticated by password.
+  available. That connection uses a password issued by the secret store ([ADR-0003](0003-secret-management.md)), comes from the pod's loopback and is one of the service roles ([ADR-0004](0004-roles-and-access.md)); no connection from outside is authenticated by password.
 - Good, because the `postgres` superuser is reachable only through the local
   socket inside the database server's container, with peer authentication
   and no password.
 - Neutral, because libpq accepts only an HTTPS issuer, so the identity
-  provider serves TLS with a certificate issued by the secret store ([ADR-0009](0009-secret-management.md)).
-- Neutral, because roles, and who may reach them, are [ADR-0010](0010-roles-and-access.md); how the
-  engine image is run is [ADR-0011](0011-engine-image-and-runtime.md).
+  provider serves TLS with a certificate issued by the secret store ([ADR-0003](0003-secret-management.md)).
+- Neutral, because roles, and who may reach them, are [ADR-0004](0004-roles-and-access.md); how the
+  engine image is run is [ADR-0005](0005-engine-image-and-runtime.md).
 - Neutral, because how the facts of an installation are declared once,
   converged and generated, how the two layers are kept apart, and how the
-  architecture is read as SOLID, is [ADR-0012](0012-declared-once-converged-generated.md).
+  architecture is read as SOLID, is `anima-product-principles`.
 
 ### Confirmation
 

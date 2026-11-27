@@ -110,7 +110,7 @@ class Engine:
 
     def wait_ready(self, limit: float = READY_LIMIT_SECONDS) -> float:
         """Wait for the engine's own health check (the readiness answer)."""
-        deadline = self.started_at + limit
+        deadline = time.monotonic() + limit
         while time.monotonic() < deadline:
             if self.health() == "healthy":
                 self.ready_after = time.monotonic() - self.started_at
@@ -120,17 +120,67 @@ class Engine:
             f"engine not ready within {limit} s (health: {self.health()})"
         )
 
+    def wait_for(self, what: str, check, limit: float = 90.0, every: float = 1.0):
+        """Poll `check()` (returns a truthy value) until it holds or `limit` passes."""
+        deadline = time.monotonic() + limit
+        while time.monotonic() < deadline:
+            value = check()
+            if value:
+                return value
+            time.sleep(every)
+        raise TimeoutError(f"{what}: not true within {limit} s")
 
-def start_engine(name_suffix: str, publish_address: str = "127.0.0.1") -> Engine:
+    def active(self, unit: str) -> bool:
+        return self.exec("systemctl", "is-active", "--quiet", unit)[0] == 0
+
+    def unit_property(self, unit: str, prop: str) -> str:
+        out = self.exec("systemctl", "show", unit, f"--property={prop}", "--value")[1]
+        return out.strip()
+
+    def inner_container_started_at(self, name: str) -> str:
+        code, out = self.exec(
+            "podman", "inspect", "--format", "{{.State.StartedAt}}", name
+        )
+        return out.strip() if code == 0 else ""
+
+    def kill(self) -> None:
+        """An abrupt stop: SIGKILL to the engine's first process and everything in it."""
+        code, out = self.exec_host("podman", "kill", self.name)
+        assert code == 0, out
+
+    def start_again(self) -> None:
+        """The same start command after an abrupt stop: start the same container."""
+        code, out = self.exec_host("podman", "start", self.name)
+        assert code == 0, out
+        self.started_at = time.monotonic()
+        self.ready_after = None
+
+    def logs(self) -> str:
+        return self.exec_host("podman", "logs", "--tail", "40", self.name)[1]
+
+
+def start_engine(
+    name_suffix: str,
+    publish_address: str = "127.0.0.1",
+    binds: dict[str, str] | None = None,
+) -> Engine:
+    """Start the engine image as the documented `podman run` line does.
+
+    `binds` maps a host path to a path in the engine container (read only): the
+    tests use it to put a systemd drop-in over one unit of a second engine.
+    """
     from testcontainers.core.container import DockerContainer
 
     container = (
         DockerContainer(engine_image())
         .with_name(f"anima-system-test-{name_suffix}-{os.getpid()}")
         .with_kwargs(cap_add=["SYS_ADMIN", "SYS_PTRACE"])
-        .with_bind_ports(5432, (publish_address, None))
-        .with_bind_ports(8080, (publish_address, None))
     )
+    # Testcontainers types a published port as `int`; the API takes (address, port).
+    container.ports["5432"] = (publish_address, None)  # type: ignore[assignment]
+    container.ports["8080"] = (publish_address, None)  # type: ignore[assignment]
+    for host, inside in (binds or {}).items():
+        container.with_volume_mapping(host, inside, "ro")
     started = time.monotonic()
     container.start()
     return Engine(container, started)
@@ -146,4 +196,20 @@ def engine(podman_service):
         running.wait_ready()
         yield running
     finally:
+        running.container.stop()
+
+
+@pytest.fixture
+def own_engine(podman_service, request):
+    """A factory of engines that one test breaks on purpose; each is removed with
+    its volumes at the end of the test."""
+    started: list[Engine] = []
+
+    def make(suffix: str, binds: dict[str, str] | None = None) -> Engine:
+        running = start_engine(f"{suffix}", binds=binds)
+        started.append(running)
+        return running
+
+    yield make
+    for running in started:
         running.container.stop()

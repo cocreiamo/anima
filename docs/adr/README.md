@@ -10,17 +10,9 @@ lists the verifications whose test is not written yet; an ADR in the status
 | ADR | Title | Status |
 | --- | ----- | ------ |
 | [0001](0001-hexagonal-architecture.md) | Hexagonal architecture — engine, ports and adapters | proposed |
-| [0002](0002-licensing-and-cla.md) | AGPL-3.0-only with dual licensing and a contributor agreement | proposed |
-| [0003](0003-plugin-boundary.md) | Boundary between the core and plugins | proposed |
-| [0004](0004-trademarks-and-names.md) | Trademarks and names | proposed |
-| [0005](0005-authorship-and-signed-commits.md) | Authorship, AI assistance and signed commits | proposed |
-| [0006](0006-repository-and-toolchain.md) | One repository, its toolchain and pinned dependencies | proposed |
-| [0007](0007-fork-maintenance.md) | How forks follow upstream and carry our changes | proposed |
-| [0008](0008-trunk-main-green-and-releases.md) | Trunk-based development, `main-green` and releases | proposed |
-| [0009](0009-secret-management.md) | Secret management — the secret store and the root of trust | proposed |
-| [0010](0010-roles-and-access.md) | Roles and access — who may connect, and how | proposed |
-| [0011](0011-engine-image-and-runtime.md) | The engine image, its units and how the system starts | proposed |
-| [0012](0012-declared-once-converged-generated.md) | Declared once, converged, generated — how the facts of an installation are kept | proposed |
-| [0013](0013-decision-records-in-madr-managed-with-adrs.md) | Decision records in MADR, managed with adrs | proposed |
-| [0014](0014-one-configurator-for-all-state.md) | One configurator for all state | proposed |
-| [0015](0015-the-configuration-of-an-installation.md) | The configuration of an installation | proposed |
+| [0002](0002-plugin-boundary.md) | Boundary between the core and plugins | proposed |
+| [0003](0003-secret-management.md) | Secret management — the secret store and the root of trust | proposed |
+| [0004](0004-roles-and-access.md) | Roles and access — who may connect, and how | proposed |
+| [0005](0005-engine-image-and-runtime.md) | The engine image, its units and how the system starts | proposed |
+| [0006](0006-one-configurator-for-all-state.md) | One configurator for all state | proposed |
+| [0007](0007-the-configuration-of-an-installation.md) | The configuration of an installation | proposed |

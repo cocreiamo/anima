@@ -38,10 +38,10 @@ One stray file, untracked. It could have been committed.
 
 ## Timeline
 
-| When       | What                                                |
-| ---------- | --------------------------------------------------- |
-| 2026-11-27 | The directory was found, listed and removed.        |
-| 2026-11-27 | A check that fails on bytecode outside `.cache/`.   |
+| When       | What                                              |
+| ---------- | ------------------------------------------------- |
+| 2026-11-27 | The directory was found, listed and removed.      |
+| 2026-11-27 | A check that fails on bytecode outside `.cache/`. |
 
 ## How did we do
 

@@ -38,10 +38,10 @@ One file of one fork was changed in a working tree; nothing was committed or pus
 
 ## Timeline
 
-| When       | What                                                                 |
-| ---------- | -------------------------------------------------------------------- |
-| 2026-11-27 | The formatter rewrote a file in a fork; the change was set aside.    |
-| 2026-11-27 | The include list is limited; a check of the forks' trees was added.  |
+| When       | What                                                                |
+| ---------- | ------------------------------------------------------------------- |
+| 2026-11-27 | The formatter rewrote a file in a fork; the change was set aside.   |
+| 2026-11-27 | The include list is limited; a check of the forks' trees was added. |
 
 ## How did we do
 
