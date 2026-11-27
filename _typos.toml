@@ -1,2 +1,9 @@
 [files]
-extend-exclude = ["third_party", ".cache/", "LICENSE", "LICENSES/", "*.lock"]
+extend-exclude = [
+  "third_party",
+  "shared/",
+  ".cache/",
+  "LICENSE",
+  "LICENSES/",
+  "*.lock",
+]

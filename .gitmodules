@@ -22,3 +22,6 @@
 	path = third_party/openbao
 	url = ../anima-openbao.git
 	shallow = true
+[submodule "shared"]
+	path = shared
+	url = ../.github.git

@@ -1,10 +1,6 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": [
-        "config:recommended",
-        "helpers:pinGitHubActionDigests",
-        "docker:pinDigests"
-    ],
+    "extends": ["github>cocreiamo/.github"],
     "git-submodules": {
         "enabled": false
     },

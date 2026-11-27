@@ -1,47 +1,28 @@
 # Contributing to Anima
 
-Thank you for considering a contribution. This page lists the rules; each one
-is checked automatically on your pull request.
-
-## Before you start
-
-- Read the [Code of Conduct](CODE_OF_CONDUCT.md).
-- Contributions are accepted only under the
-  [Contributor License Agreement](CLA.md). CLA Assistant asks you to sign it
-  on your first pull request.
-- Report security problems privately, as described in
-  [SECURITY.md](SECURITY.md), not in an issue or a pull request.
+The rules every repository of the organization shares are in the
+[contributing guide of the organization](https://github.com/cocreiamo/.github/blob/main/CONTRIBUTING.md):
+the contributor license agreement, Conventional Commits, signed commits, a pull
+request for every change, and how to set up with mise. The code of conduct and
+the security policy are in the same repository. This page lists what is
+specific to Anima.
 
 ## Setting up
 
-Clone the repository, then either open it in the development container or
-install [mise](https://mise.jdx.dev) yourself:
+Besides the steps of the guide, fetch the forks first and install the hooks:
 
 ```sh
 git submodule update --init --depth 1
-mise trust && mise install
 mise run hooks:install
-mise run check
 ```
 
-`mise run check` runs everything CI runs, and `mise run format` formats your
-changes. The git hooks run the fast checks before each commit, check the
-commit message, and run every check before a push.
-
-Container work uses podman, which needs no daemon and no root. Docker is not
-used in this repository, and a check forbids a `docker` command in the tasks,
-the workflows and the tests. The development container is to be replaced by
-one in the same family as the engine (Fedora with its own container runtime); until then it is
-the one in `.devcontainer/`.
+The development container in `.devcontainer/` is the other way to start. A
+check forbids a `docker` command in the tasks, the workflows and the tests. The
+development container is to be replaced by one in the same family as the engine
+(Fedora with its own container runtime).
 
 ## Making a change
 
-- Every change reaches `main` through a pull request.
-- The pull request title follows
-  [Conventional Commits](https://www.conventionalcommits.org), for example
-  `feat: accept tokens from a second issuer`. Releases and the changelog are
-  generated from these titles.
-- Every commit is signed.
 - A change in behaviour starts in the requirements model
   (`model/anima.sysml`): each requirement has a verification, and each
   verification is an automated test with the same name.
@@ -54,8 +35,7 @@ the one in `.devcontainer/`.
 - Work to do is a task of the backlog (`backlog/tasks/`), and something that
   went wrong is a postmortem (`docs/postmortems/`); how both work is
   [`anima-working-as-an-agent`](skills/anima-working-as-an-agent.md).
-- Every dependency is pinned to an exact version and listed in
-  `components.toml` if it ships with Anima.
+- Every dependency that ships with Anima is listed in `components.toml`.
 - A known gap or defect of an adopted component is an entry in `gaps.toml`,
   the single register. A workaround in the repository names its entry in a
   comment, for example `# GAP-002`.
@@ -83,6 +63,8 @@ the one in `.devcontainer/`.
   says which one for which paths).
 - `tests/`: `repository/` holds the verifications that need only the repository, `system/` those that start the engine image with Testcontainers.
 - `third_party/`: the forked components, as git submodules.
+- `shared/`: the repository `cocreiamo/.github` as a submodule. The workflows
+  call its reusable workflows by the commit that carries them.
 - `mise-tasks/`: the tasks that are scripts.
 - `.github/` and `.devcontainer/`: continuous integration, repository settings and the development container.
 - `LICENSES/`: the licence texts REUSE needs.

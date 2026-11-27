@@ -1,5 +1,9 @@
 name: CI
 
+# Thin callers of the reusable workflows of the organization, pinned by the
+# commit of cocreiamo/.github that carries them (`anima-tech-github-governance`).
+# The Pilot Implementation is cached on its checksum.
+
 on:
   pull_request:
   merge_group:
@@ -11,28 +15,11 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          submodules: false
-          persist-credentials: false
-      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-        with:
-          version: 2026.11.10
-      - id: pilot
-        run: echo "sha256=$(sed -n 's/^SYSML_PILOT_SHA256 = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/sysml-pilot
-          key: sysml-pilot-${{ steps.pilot.outputs.sha256 }}
-      - run: mise run check
+    uses: cocreiamo/.github/.github/workflows/check.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main
+    with:
+      mise-version: 2026.11.10
+      cache-path: .cache/sysml-pilot
+      cache-key-variable: SYSML_PILOT_SHA256
 
   reuse:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+    uses: cocreiamo/.github/.github/workflows/reuse.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main

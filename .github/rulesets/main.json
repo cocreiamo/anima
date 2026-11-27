@@ -39,10 +39,10 @@
             "parameters": {
                 "strict_required_status_checks_policy": false,
                 "required_status_checks": [
-                    { "context": "check" },
-                    { "context": "reuse" },
-                    { "context": "Conventional Commits title" },
-                    { "context": "Dependency review" }
+                    { "context": "check / check" },
+                    { "context": "reuse / reuse" },
+                    { "context": "pull-request / Conventional Commits title" },
+                    { "context": "pull-request / Dependency review" }
                 ]
             }
         }
