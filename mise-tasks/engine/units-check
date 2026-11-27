@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#MISE description="Validate the engine's units without starting them: Quadlet's dry run and systemd-analyze verify, inside a container of the engine image"
+#MISE depends=["engine:image"]
+#
+# Fails on a non-zero exit of the generator, on any line of its output that
+# reports an error, a warning or an unsupported key, and on any complaint of
+# `systemd-analyze verify` about a generated or engine unit (R52).
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+image=$(cat .cache/engine/engine.ref)
+
+exec podman run --rm --entrypoint /bin/bash "$image" -c '
+set -uo pipefail
+gen=/usr/lib/systemd/system-generators/podman-system-generator
+echo "== quadlet dry run"
+"$gen" --dryrun >/tmp/dryrun.out 2>&1
+rc=$?
+cat /tmp/dryrun.out | grep -v "^$" | grep -E "^---|quadlet-generator" | head -n 40
+if [ "$rc" -ne 0 ] || grep -q -i -E "^(quadlet-generator\[[0-9]+\]: )?(error|warn|unsupported|invalid)|unsupported key|not found" /tmp/dryrun.out; then
+    echo "FAIL: the generator reported a problem (rc=$rc):"
+    grep -i -E "^(quadlet-generator\[[0-9]+\]: )?(error|warn|unsupported|invalid)|unsupported key|not found" /tmp/dryrun.out
+    exit 1
+fi
+echo "== generate and verify"
+mkdir -p /tmp/gen
+"$gen" /tmp/gen /tmp/gen /tmp/gen || exit 1
+status=0
+for unit in /tmp/gen/*.service /usr/lib/systemd/system/anima-ready.target /usr/lib/systemd/system/secrets-root-of-trust.service; do
+    out=$(SYSTEMD_UNIT_PATH=/tmp/gen:/usr/lib/systemd/system systemd-analyze verify "$unit" 2>&1)
+    if [ -n "$out" ]; then
+        echo "FAIL $(basename "$unit"):"; echo "$out"; status=1
+    else
+        echo "ok   $(basename "$unit")"
+    fi
+done
+exit $status
+'

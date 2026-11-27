@@ -1,0 +1,4 @@
+# Fail when MODULE.bazel.lock is out of date instead of updating it silently.
+common --lockfile_mode=error
+# The convenience symlinks go under .cache/, the one ignored directory.
+build --symlink_prefix=.cache/bazel-

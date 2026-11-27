@@ -1,0 +1,22 @@
+# Configuration of `adrs`, the tool that creates and checks the decision
+# records (`anima-repository-conventions`). Every key the tool reads is written here, so that a
+# user-level configuration (~/.config/adrs/config.toml) cannot change a result:
+# a key set here wins over the global one, and a key left out could be filled
+# from it. mise.toml also points ADRS_CONFIG at this file.
+
+adr_dir = "docs/adr"
+# YAML front matter, as MADR 4.0.0 writes it.
+mode = "nextgen"
+default_status = "proposed"
+# `adrs new` never opens an editor: the files are written with the usual tools.
+no_edit = true
+
+[templates]
+format = "madr"
+variant = "full"
+
+[doctor]
+# A warning fails the check as an error does.
+warnings_as_errors = true
+# No rule is switched off.
+ignore = []

@@ -1,0 +1,54 @@
+---
+name: anima-tech-postgresql-oauth
+description: "Use when writing or debugging token logins, pg_hba.conf oauth rules, the pg_oidc_validator module, or a test client that connects with a bearer token, with PostgreSQL's oauth authentication and libpq in Anima: what the validator really checks, what the log says, how to build and configure it."
+family: technology
+paths:
+  - third_party/postgres/**
+  - third_party/pg_oidc_validator/**
+  - engine/database/**
+---
+
+# PostgreSQL oauth, libpq and pg_oidc_validator
+
+How PostgreSQL's `oauth` authentication, libpq and the token validator module
+behave when run. The access design is in `anima-access-design`; this file is
+only about what the technology does.
+
+## Use this when
+
+- Writing or changing an `oauth` line in `pg_hba.conf`, or the validator's settings.
+- Building `pg_oidc_validator` into an image.
+- Writing a test or script that must log in with a token already in hand.
+- Reading the server log to find out why a token login was refused.
+- Alerting on `FATAL` lines of the database server.
+
+## Rules
+
+1. **Build the validator from the pinned source, never from the nightly package.** Example: `engine/database/Containerfile`; essential lines `ADD validator.tar /build/` then `cd /build/pg_oidc_validator && make USE_PGXS=1 && make USE_PGXS=1 install` (spike recipe, may disappear: `spike-scopes/src-build/Dockerfile`). Observed on 2026-11-27 with PostgreSQL 18.7 and pg_oidc_validator 1.1.0: a C++23 compiler built the module inside a PostgreSQL 18 image; 0 errors over 20 sessions. Not: the nightly package; it was an older version and logged "could not find block containing chunk" at the end of the first session (GAP-005, closed).
+2. **Name the module in both settings.** `shared_preload_libraries` and `oauth_validator_libraries` both name `pg_oidc_validator`; `pg_oidc_validator.authn_field` picks the claim used as identity (default `sub`; `email` was used in the spike).
+3. **Write one access rule per role.** Example: `host all <role> all oauth issuer=<url> scope="<scope>" delegate_ident_mapping=1`. A token holding the scope may log in as that role; a token without it is refused; a role with no rule gets "no pg_hba.conf entry"; `session_user` is the shared role and `system_user` is `oauth:<identity>`. Not: expecting the requested role to be checked against the token; the validator never looks at it, the role comes only from the `scope` of the matching rule.
+4. **Never write a rule without a scope.** Not: expecting an empty `scope` to refuse; with no required scope every valid token is authorized (GAP-011).
+5. **Grant role scopes only to the database's own client.** Not: expecting the audience to be checked; it is not, and a token issued to another client of the same issuer opened a session (GAP-006).
+6. Unverified: **a token without `exp` is refused.** Expiry is checked only if the claim is present (GAP-010).
+7. **Log in with a token already in hand through libpq's `PQsetAuthDataHook` and `PQAUTHDATA_OAUTH_BEARER_TOKEN`.** Example: PostgreSQL's own test client `src/test/modules/oauth_validator/oauth_hook_client` in `third_party/postgres`, called as `oauth_hook_client --token TOKEN CONNINFO` (read, not run); the spike's client (`spike-scopes/client/tokenclient.c`, run) did it in a few lines: a hook that for `type == PQAUTHDATA_OAUTH_BEARER_TOKEN` sets `req->token` from an environment variable, else calls `PQdefaultAuthDataHook`, installed with `PQsetAuthDataHook(hook)`. Not: a connection parameter for a token; libpq has only the device flow built in (GAP-007).
+8. **Pass `oauth_issuer=<url> oauth_client_id=<id>` even when a hook supplies the token.** Not: expecting the hook to make them unnecessary; the client fails with "server requires OAuth authentication, but oauth_issuer and oauth_client_id are not both set".
+9. **For a plain-HTTP issuer in a test set `PGOAUTHDEBUG=UNSAFE` in the client's environment only.** Not: expecting libpq to accept it; it refuses ("OAuth discovery URI … must use HTTPS").
+10. **Read the log with `log_connections = 'all'`.** The line `connection authenticated: identity="…" method=oauth` appears for successes and for scope refusals, with "Authorization failed because of scope mismatch. Required scopes: … Received scopes: …". Not: expecting a useful message for the other refusals; a wrong issuer logs "claim value does not match expected value", a token signed by an unpublished key "wrong algorithm", a tampered token "failed to verify signature", none with an identity (GAP-012); diagnose with the issuer's discovery document and a decoded token. The statement log carries only the role, so join it with the `connection authenticated` line of the session (GAP-014).
+11. **Make alerts on `FATAL` ignore the discovery round.** Not: expecting one clean line per login; every token login first logs `FATAL: OAuth bearer authentication failed`, then the client retries ("retrying connection with new bearer token") (GAP-013).
+12. **Do not rely on `pg_ident.conf` to map the identity.** With `delegate_ident_mapping=1` the validator's "authorized" is the only gate and `pg_ident.conf` is skipped (read in `auth-oauth.c`); core records the identity even when the token is not authorized.
+13. **Close a database with access rules, not grants.** Not: expecting a new database to be closed; it grants `CONNECT` to everyone by default.
+14. **Give ADMIN OPTION when `CREATEROLE` must change another role's password.** Observed on 2026-11-27 with PostgreSQL 18.7: `CREATEROLE` alone is not enough; it also needs ADMIN OPTION on that role.
+15. Unverified: how the validator decides, from the pinned source (read): required scopes are the rule's `scope` split on spaces; received scopes are the union of the token's `scp` and `scope` claims; authorized means received includes required; it checks the issuer against the rule's `issuer` and the signature against the issuer's published keys.
+16. Unverified: that `ssl` can be switched on by a reload; that names beginning with `pg_` are reserved and `pg_read_all_data`, `pg_write_all_data`, `pg_monitor` and `pg_signal_backend` are predefined roles that cannot log in themselves (all read in the documentation); `oauth_hook_client` itself was only read, not run.
+
+## Questions to answer before proposing
+
+- Which scope does each rule require, and who may obtain it?
+- Which client may obtain a role scope, given that the audience is not checked?
+- How will a refused login be diagnosed, given the generic messages?
+- Does an alert count the `FATAL` of the discovery round as normal?
+- What did you run, and what did you only read in the source?
+
+## Where the result goes
+
+The access design goes to `anima-access-design` and ADR 0004; the build to `engine/database/`. Limits found go to `gaps.toml` (GAP-005 to GAP-007, GAP-010 to GAP-014); the toolchain side is `anima-repository-conventions`. Related skills: `anima-access-design`, `anima-secrets-design`, `anima-tech-keycloak`.

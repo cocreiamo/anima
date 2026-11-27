@@ -1,0 +1,33 @@
+[Unit]
+Description=Anima database server
+Requires=database-init.service
+After=database-init.service
+
+[Container]
+ContainerName=database
+Image=database.image
+Pod=anima.pod
+Volume=/var/lib/anima/database:/var/lib/postgresql/data:U
+ReadOnly=true
+# The socket directory is shared with the secret store (peer authentication).
+Volume=/run/anima/pgsocket:/run/postgresql
+Tmpfs=/tmp:rw,mode=1777
+# Startup: the server accepts local connections.
+HealthStartupCmd=pg_isready --host=/run/postgresql
+HealthStartupInterval=2s
+HealthStartupRetries=60
+# Liveness: a real query as the superuser on the local socket. Two failures in a
+# row kill the container and systemd restarts it (Restart=always below).
+HealthCmd=psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --tuples-only --command="select 1"
+HealthInterval=5s
+HealthTimeout=4s
+HealthRetries=2
+HealthOnFailure=kill
+# Readiness: the unit is active only once the startup check has passed and the
+# container is healthy; the readiness target waits for that.
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=2
+TimeoutStartSec=180

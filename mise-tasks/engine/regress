@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Run PostgreSQL's own regression suite against the database server build (R21); long"
+#
+# Builds the `regress` target of engine/database/Containerfile, whose last step
+# is `make check` on the same build tree as the shipped server. The build fails
+# when a regression test fails. Log: .cache/engine/logs/regress.log
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+mkdir -p .cache/engine/logs
+podman build --format docker --file engine/database/Containerfile --target regress \
+    --build-context "postgres=third_party/postgres" \
+    --build-context "pgvector=third_party/pgvector" \
+    --build-context "pg_oidc_validator=third_party/pg_oidc_validator" \
+    --build-context "pgbackrest=third_party/pgbackrest" \
+    --tag localhost/anima/database-regress:regress . 2>&1 | tee .cache/engine/logs/regress.log | tail -n 40
+grep -q "All [0-9]* tests passed" .cache/engine/logs/regress.log

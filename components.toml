@@ -1,0 +1,149 @@
+# Components shipped in Anima: the single list of what is adopted, at which
+# exact version, and under which licence. tests/repository/test_repository.py checks it.
+#
+# A component built from source is a git submodule pinned by commit.
+# A component whose fork is not yet a submodule is pinned by the commit of its
+# release. A component consumed as an image is pinned by digest.
+
+[policy]
+# SPDX identifiers a shipped component may declare. Adding one is a decision.
+allowed_licenses = [
+  "AGPL-3.0-only",
+  "Apache-2.0",
+  "MIT",
+  "MPL-2.0",
+  "PostgreSQL",
+  # A distribution image whose packages carry their own licences; see its entry.
+  "LicenseRef-Fedora-Distribution",
+]
+
+[[component]]
+name = "postgresql"
+role = "database server: PostgreSQL fork (part of the engine)"
+version = "18.7"
+license = "PostgreSQL"
+upstream = "https://github.com/postgres/postgres"
+submodule = "third_party/postgres"
+commit = "f5c41f6681c910b3f69951bf6fb97c6d74605d25"
+
+[[component]]
+name = "pg_oidc_validator"
+role = "adapter: token validation (runs in the database server's process)"
+version = "1.1.0"
+license = "Apache-2.0"
+upstream = "https://github.com/percona/pg_oidc_validator"
+submodule = "third_party/pg_oidc_validator"
+commit = "ba9c4cb2dc9bd2e9779c7a33f7a30c9bb8c97862"
+
+[[component]]
+name = "pgvector"
+role = "adapter: vector search (runs in the database server's process)"
+version = "0.8.7"
+license = "PostgreSQL"
+upstream = "https://github.com/pgvector/pgvector"
+submodule = "third_party/pgvector"
+commit = "f37c13f68b57d2c3472b2214fbcff699d6d34876"
+
+[[component]]
+name = "pgbackrest"
+role = "adapter: backup and restore (runs in the database server's process)"
+version = "2.60.1"
+license = "MIT"
+upstream = "https://github.com/pgbackrest/pgbackrest"
+submodule = "third_party/pgbackrest"
+commit = "7aeba299c49abd768ca741506569007a5cab0870"
+
+[[component]]
+name = "openbao"
+role = "adapter: secret store (part of the engine)"
+version = "2.7.3"
+license = "MPL-2.0"
+upstream = "https://github.com/openbao/openbao"
+submodule = "third_party/openbao"
+commit = "0439ef5812538733afb277b4445a54706edc1db7"
+
+[[component]]
+name = "keycloak"
+role = "adapter: identity provider (part of the engine)"
+version = "26.8.2"
+license = "Apache-2.0"
+upstream = "https://github.com/keycloak/keycloak"
+submodule = "third_party/keycloak"
+commit = "e514445f9dcdabc5bdcf67cab56c1e49655de067"
+
+# The configurator and its three providers (ADR 0006). Each is a fork of ours
+# (cocreiamo/anima-opentofu and the three anima-terraform-provider-* forks) that
+# is not yet a submodule. Until it is, the entry is pinned by the commit of the
+# upstream release tag, looked up with `gh api repos/<owner>/<repo>/commits/<tag>
+# --jq .sha`; the `submodule` field is added with the fork. They are fetched
+# and built from this commit, never by a floating reference.
+[[component]]
+name = "opentofu"
+role = "adapter: configurator, the one that applies all declared state (part of the engine)"
+version = "1.13.10"
+license = "MPL-2.0"
+upstream = "https://github.com/opentofu/opentofu"
+commit = "4dcfb2efaaf7d3e95a92d1c10b7fd000e82bc51f"
+
+[[component]]
+name = "terraform-provider-postgresql"
+role = "provider of the configurator: the database server's roles, privileges and extensions"
+version = "1.27.0"
+license = "MPL-2.0"
+upstream = "https://github.com/cyrilgdn/terraform-provider-postgresql"
+commit = "ff936b9548c1076f498523a2bd116915ff977142"
+
+[[component]]
+name = "terraform-provider-vault"
+role = "provider of the configurator: the secret store, used against the secret store's compatible API"
+version = "5.14.0"
+license = "MPL-2.0"
+upstream = "https://github.com/hashicorp/terraform-provider-vault"
+commit = "137fcd197d87b0eed92405b709a3bc13d2b4090f"
+
+[[component]]
+name = "terraform-provider-keycloak"
+role = "provider of the configurator: the token issuer's realm, roles, scopes, clients and users"
+version = "5.11.0"
+license = "Apache-2.0"
+upstream = "https://github.com/keycloak/terraform-provider-keycloak"
+commit = "2ca2e76f85424e6bc68e76b14df56dd99f98b4ac"
+
+# Fedora bootc is a distribution image: a collection of packages, each with its
+# own licence (GPL, LGPL, MIT, Apache-2.0 and others, among them systemd, podman
+# and the kernel). No single SPDX identifier is true of it, and naming one (MIT
+# is the licence of Fedora's own packaging) would claim more than it says. It is
+# therefore declared with a LicenseRef, listed in `policy.allowed_licenses`: the
+# licence of each package is the one the package declares, and it is recorded in
+# the image's software bill of materials (R16). The founder confirmed on
+# 2026-11-27 that this LicenseRef is an allowed licence for the base image of
+# the engine (`anima-licensing-and-brand`, ADR 0005).
+# Tags move: the 45 tag is rebuilt every day, which is why the digest is the pin.
+[[component]]
+name = "fedora-bootc"
+role = "base of the engine image: operating system, systemd, container runtime"
+version = "45"
+license = "LicenseRef-Fedora-Distribution"
+upstream = "https://gitlab.com/fedora/bootc/base-images"
+image = "quay.io/fedora/fedora-bootc"
+digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7"
+
+# ---- Images used only by tools and tests: not shipped ------------------------
+#
+# An image that a tool or a test starts, and that is not part of what Anima
+# ships (for example the helper image of a test library), is declared here,
+# apart from the components above, with the same fields and as an array
+# `[[tool_image]]`. It is pinned by digest like every image (`anima-repository-conventions`, R11), and
+# the Renovate manager of .github/renovate.json updates it like the others.
+# Its licence is not checked against `policy.allowed_licenses`: nothing of it
+# ships. No image of this kind is referenced yet, so there is no entry; an entry
+# is added with the first reference.
+#
+# [[tool_image]]
+# name = "..."
+# role = "..."
+# version = "..."
+# license = "..."
+# upstream = "https://..."
+# image = "registry/path/name"
+# digest = "sha256:..."

@@ -1,0 +1,22 @@
+# Register of deliberate contractions: what a version removes or narrows
+# compared with the last released version (`anima-product-principles`, "Expand only").
+#
+# A new version adds; it does not remove or narrow what an earlier released
+# version provided. A contraction is rare and is declared here, one entry each:
+#
+#   [[contraction]]
+#   what = "what is removed or narrowed"
+#   reason = "why"
+#   deprecated_in = "the released version that marked it as deprecated"
+#   removed_in = "the version that removes it"
+#
+# It is a breaking change in the sense of Semantic Versioning and Conventional
+# Commits, and it is allowed only for something that a previous released
+# version already marked as deprecated. A thing that holds data (a database, a
+# volume, the secret store's mounts) is never removed by an upgrade and has no
+# entry here.
+#
+# Ids and entries are never reused or deleted once released. The comparison of
+# this register with what the new version would remove from an installation of
+# the last released version is not built (`anima-product-principles`).
+contraction = []

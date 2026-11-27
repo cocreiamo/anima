@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Edit(/.claude/agents/coordinator.md)",
+      "Edit(/.claude/agents/explorer.md)",
+      "Edit(/.claude/agents/implementer.md)",
+      "Edit(/.claude/agents/reviewer.md)",
+      "Edit(/.claude/agents/spike.md)",
+      "Edit(/.claude/rules/anima-access-design.md)",
+      "Edit(/.claude/rules/anima-adopting-a-component.md)",
+      "Edit(/.claude/rules/anima-branching-and-releasing.md)",
+      "Edit(/.claude/rules/anima-configuration-design.md)",
+      "Edit(/.claude/rules/anima-database-design.md)",
+      "Edit(/.claude/rules/anima-image-design.md)",
+      "Edit(/.claude/rules/anima-licensing-and-brand.md)",
+      "Edit(/.claude/rules/anima-maintaining-a-fork.md)",
+      "Edit(/.claude/rules/anima-repository-conventions.md)",
+      "Edit(/.claude/rules/anima-secrets-design.md)",
+      "Edit(/.claude/rules/anima-specifying-requirements.md)",
+      "Edit(/.claude/rules/anima-tech-adrs-madr.md)",
+      "Edit(/.claude/rules/anima-tech-backlog-md.md)",
+      "Edit(/.claude/rules/anima-tech-github-governance.md)",
+      "Edit(/.claude/rules/anima-tech-keycloak.md)",
+      "Edit(/.claude/rules/anima-tech-mise.md)",
+      "Edit(/.claude/rules/anima-tech-openbao.md)",
+      "Edit(/.claude/rules/anima-tech-opentofu.md)",
+      "Edit(/.claude/rules/anima-tech-podman-quadlet-bootc.md)",
+      "Edit(/.claude/rules/anima-tech-postgresql-oauth.md)",
+      "Edit(/.claude/rules/anima-tech-sysml-pilot.md)",
+      "Edit(/.claude/rules/anima-tech-testcontainers-podman.md)",
+      "Edit(/.claude/rules/anima-working-as-an-agent.md)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/skills/anima-access-design/SKILL.md)",
+      "Edit(/.claude/skills/anima-adopting-a-component/SKILL.md)",
+      "Edit(/.claude/skills/anima-branching-and-releasing/SKILL.md)",
+      "Edit(/.claude/skills/anima-configuration-design/SKILL.md)",
+      "Edit(/.claude/skills/anima-database-design/SKILL.md)",
+      "Edit(/.claude/skills/anima-designing-a-port/SKILL.md)",
+      "Edit(/.claude/skills/anima-designing-for-production/SKILL.md)",
+      "Edit(/.claude/skills/anima-image-design/SKILL.md)",
+      "Edit(/.claude/skills/anima-licensing-and-brand/SKILL.md)",
+      "Edit(/.claude/skills/anima-maintaining-a-fork/SKILL.md)",
+      "Edit(/.claude/skills/anima-product-principles/SKILL.md)",
+      "Edit(/.claude/skills/anima-repository-conventions/SKILL.md)",
+      "Edit(/.claude/skills/anima-secrets-design/SKILL.md)",
+      "Edit(/.claude/skills/anima-specifying-requirements/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-adrs-madr/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-backlog-md/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-github-governance/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-keycloak/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-mise/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-openbao/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-opentofu/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-podman-quadlet-bootc/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-postgresql-oauth/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-sysml-pilot/SKILL.md)",
+      "Edit(/.claude/skills/anima-tech-testcontainers-podman/SKILL.md)",
+      "Edit(/.claude/skills/anima-working-as-an-agent/SKILL.md)",
+      "Edit(/docs/adr/README.md)",
+      "Edit(/docs/catalog.md)",
+      "Edit(/skills/README.md)",
+      "Edit(/tests/pending.toml)",
+      "Edit(/third_party/**)",
+      "Edit(/mise.lock)",
+      "Edit(/uv.lock)",
+      "Edit(/MODULE.bazel.lock)",
+      "Edit(/.mise/locks/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/new-file-reminder.sh",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

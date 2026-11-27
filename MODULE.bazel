@@ -1,0 +1,7 @@
+"""Anima's own code. The forked components in the submodules keep their
+upstream build systems and are not Bazel packages (`anima-repository-conventions`)."""
+
+module(
+    name = "anima",
+    version = "0.0.1",
+)

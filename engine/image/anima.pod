@@ -1,0 +1,18 @@
+[Unit]
+Description=Anima engine pod
+# Deliberate start limit: a pod that cannot start must not exhaust it in a second
+# and fail every container unit with a dependency error.
+StartLimitIntervalSec=300
+StartLimitBurst=20
+# Containers of the pod share its network namespace, so they reach each other on
+# the loopback. The pod uses the network namespace of whatever hosts it (the
+# machine when booted, the outer container when run as a container): nothing is
+# published from here. The outer `podman run` publishes the two declared ports,
+# bound to the loopback by default.
+
+[Pod]
+PodName=anima
+# A run-to-completion container leaving must not stop the pod (the default
+# policy of a pod made by Quadlet is to stop when its last container exits).
+ExitPolicy=continue
+Network=host

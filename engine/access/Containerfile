@@ -1,0 +1,51 @@
+# The identity provider, built from the fork.
+#
+# Stage `dist` is upstream's documented build of the server distribution
+# (third_party/keycloak/docs/building.md: ./mvnw -pl quarkus/deployment,quarkus/dist
+# -am -DskipTests clean install). The final stage is upstream's own container
+# file (quarkus/container/Dockerfile) with its two base images pinned by digest
+# and its distribution taken from the stage above instead of a download.
+#
+# Build context: the repository root. `keycloak` is a named build context for
+# third_party/keycloak. The Maven repository is kept in a directory that
+# `mise run engine:build` mounts at /root/.m2 (.cache/engine/m2), so that a
+# rebuild does not download everything again.
+
+ARG BUILDER=docker.io/library/eclipse-temurin:21-jdk@sha256:8ad118b146aa92da815b576441acd6b42b38236797ad0b6edc8c200b85bb0734
+ARG UBI=registry.access.redhat.com/ubi9:9.9@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
+ARG UBI_MICRO=registry.access.redhat.com/ubi9-micro:9.9@sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db
+
+FROM ${BUILDER} AS dist
+# The Administration UI build runs a .NET tool (Kiota) that needs ICU.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libicu-dev \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=keycloak / /src/keycloak
+WORKDIR /src/keycloak
+# The submodule's .git is a pointer outside the build context: skip what reads it.
+RUN ./mvnw -B -pl quarkus/deployment,quarkus/dist -am -DskipTests -DskipTestsuite -DskipExamples \
+      -Dmaven.gitcommitid.skip=true clean install \
+ && mkdir -p /out && cp quarkus/dist/target/keycloak-*.tar.gz /out/
+
+FROM ${UBI} AS ubi-micro-build
+ARG KEYCLOAK_VERSION
+RUN dnf install -y tar gzip
+COPY --from=dist /out/keycloak-*.tar.gz /tmp/keycloak/
+RUN cd /tmp/keycloak && tar -xf keycloak-*.tar.gz && rm keycloak-*.tar.gz \
+ && mv /tmp/keycloak/keycloak-* /opt/keycloak && mkdir -p /opt/keycloak/data \
+ && chmod -R g+rwX /opt/keycloak
+COPY --from=keycloak /quarkus/container/ubi-null.sh /tmp/
+RUN bash /tmp/ubi-null.sh java-21-openjdk-headless glibc-langpack-en findutils
+
+FROM ${UBI_MICRO} AS server
+ARG KEYCLOAK_VERSION SOURCE_COMMIT_KEYCLOAK
+ENV LANG=en_US.UTF-8 KC_RUN_IN_CONTAINER=true
+COPY --from=ubi-micro-build /tmp/null/rootfs/ /
+COPY --from=ubi-micro-build --chown=1000:0 /opt/keycloak /opt/keycloak
+RUN echo "keycloak:x:0:root" >> /etc/group \
+ && echo "keycloak:x:1000:0:keycloak user:/opt/keycloak:/sbin/nologin" >> /etc/passwd
+LABEL org.opencontainers.image.title="anima identity provider" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.anima.source.keycloak="${SOURCE_COMMIT_KEYCLOAK}"
+USER 1000
+EXPOSE 8080 8443 9000
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]

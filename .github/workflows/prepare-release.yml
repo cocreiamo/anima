@@ -1,0 +1,25 @@
+name: Prepare release
+
+# Prepares the next version on main: release-please keeps a pull request with
+# the version and the changelog. It releases nothing: the tag and the GitHub
+# release are created by the Promote workflow when that commit reaches
+# main-green (`anima-branching-and-releasing`).
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
+          skip-github-release: true

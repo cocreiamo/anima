@@ -1,0 +1,19 @@
+# Forks: formatted with their upstream tools.
+third_party
+
+# Texts adopted or signed as they are.
+LICENSE
+LICENSES/
+CLA.md
+CODE_OF_CONDUCT.md
+PLUGIN-EXCEPTION.md
+TRADEMARKS.md
+
+# Generated. The ADR index is a table written by `mise run generate`, which does
+# not pad the columns the way Prettier does.
+docs/adr/README.md
+.mise/
+uv.lock
+mise.lock
+MODULE.bazel.lock
+.cache/

@@ -1,0 +1,13 @@
+[Unit]
+Description=Anima engine ready
+Documentation=file:///usr/share/doc/anima/readiness
+# The single readiness answer (R41). Active only while every unit below is
+# active. A container unit is active only when its startup check has passed
+# (Notify=healthy) and it leaves that state when its liveness check fails. The
+# run-to-completion units hold the target back until they have succeeded.
+Requires=database.service access.service secrets.service
+BindsTo=database.service access.service secrets.service
+After=database.service access.service secrets.service
+
+[Install]
+WantedBy=multi-user.target

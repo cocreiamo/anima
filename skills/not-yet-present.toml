@@ -1,0 +1,17 @@
+# The one place that lists the globs of a skill's `paths` that match no file yet,
+# because what they describe is decided and not built (or is a fork that is not
+# yet a submodule). tests/repository/test_skills.py fails when a glob of a
+# skill matches nothing and is not listed here, and when a listed glob matches
+# something and so no longer belongs here.
+
+paths = [
+  # Directories of the engine that exist and hold no file yet.
+  "engine/backup/**",
+  "engine/vectors/**",
+  # The configurator and its providers: forks that are not yet submodules.
+  "**/*.tf",
+  "third_party/opentofu/**",
+  "third_party/terraform-provider-postgresql/**",
+  "third_party/terraform-provider-vault/**",
+  "third_party/terraform-provider-keycloak/**",
+]

@@ -1,0 +1,17 @@
+[Unit]
+Description=Anima database: storage role and database of the secret store (every start)
+Requires=database.service
+After=database.service
+
+[Container]
+ContainerName=database-prepare
+Image=database.image
+Pod=anima.pod
+Volume=/run/anima/pgsocket:/run/postgresql
+ReadOnly=true
+Exec=psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --set=ON_ERROR_STOP=1 --file=/etc/anima/database/prepare.sql
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=60
