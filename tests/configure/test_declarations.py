@@ -148,7 +148,7 @@ def test_R63_declared_identity_credential_never_in_file():
     assert not re.search(
         r"^\s*(password|initial_password|credentials?)\s*=", text, re.MULTILINE
     )
-    assert checks.secret_attribute_faults(text, "identities.tf") == []
+    assert checks.persisted_attribute_faults(text, "identities.tf") == []
 
 
 def echoed(faults, values):
@@ -190,7 +190,7 @@ def test_R63_fault_messages_name_no_credential_value_detects_violation():
 
 def test_R63_declared_identity_credential_never_in_file_detects_violation():
     bad = 'resource "keycloak_user" "u" {\n  initial_password {\n  }\n  password = "x"\n}\n'
-    assert checks.secret_attribute_faults(bad)
+    assert checks.persisted_attribute_faults(bad)
 
 
 def test_R100_configuration_without_administrator_refused(request):
@@ -409,7 +409,7 @@ def test_R105_declarations_follow_the_guards():
 
 
 def test_R105_declarations_follow_the_guards_detects_violation():
-    assert checks.secret_attribute_faults(
+    assert checks.persisted_attribute_faults(
         'resource "postgresql_role" "r" {\n  password = "x"\n}\n'
     )
     assert checks.duration_faults(

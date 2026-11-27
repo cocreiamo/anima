@@ -135,7 +135,7 @@ PERSISTED_ATTRIBUTES = (
 )
 
 
-def secret_attribute_faults(text, source="<text>"):
+def persisted_attribute_faults(text, source="<text>"):
     faults = []
     for kind, rtype, name, body in blocks(text):
         if kind != "resource":
@@ -213,7 +213,7 @@ def declaration_faults(directory=DECLARATIONS):
     for path in sorted(Path(directory).glob("*.tf")):
         text = path.read_text()
         source = str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path)
-        faults += secret_attribute_faults(text, source)
+        faults += persisted_attribute_faults(text, source)
         faults += duration_faults(text, source)
         faults += destroy_protection_faults(text, source)
     return faults
