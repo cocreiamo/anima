@@ -368,3 +368,66 @@ def entry_pin_faults(containerfile: str, components: list[dict]) -> list[str]:
     if "--locked-mode" not in containerfile:
         faults.append("the restore is not locked")
     return faults
+
+
+# ---- One engine shared by the tests that do not disturb it ---------------------
+
+
+def inner_start_times(listing: str) -> dict[str, str]:
+    """The running containers of the engine's pod and when each started, from
+    `podman ps --format '{{.Names}} {{.StartedAt}}'` run inside the engine. A line
+    that is not a name and a time is left out."""
+    found = {}
+    for line in listing.splitlines():
+        fields = line.split()
+        if len(fields) == 2:
+            found[fields[0]] = fields[1]
+    return found
+
+
+def shared_engine_faults(before: dict | None, after: dict | None) -> list[str]:
+    """What a test did to the engine that the session shares (R181), from the
+    snapshots taken before and after it: the outer container and its start, the
+    start of every inner container that ran before, the readiness answer. `None`
+    is a snapshot that could not be taken. A test that restarts, replaces or
+    stops any part, or leaves the engine not ready, has disturbed it."""
+    if before is None or after is None:
+        return ["the state of the shared engine could not be read"]
+    faults = []
+    if before["health"] != "healthy":
+        faults.append(f"the engine was already {before['health']} before the test")
+    if after["container"] != before["container"]:
+        faults.append("the engine container was replaced")
+    elif after["started"] != before["started"]:
+        faults.append("the engine container was started again")
+    for name, started in sorted(before["inner"].items()):
+        now = after["inner"].get(name)
+        if now is None:
+            faults.append(f"{name} no longer runs")
+        elif now != started:
+            faults.append(f"{name} was started again")
+    if after["health"] != "healthy":
+        faults.append(f"the engine answers {after['health']}, not healthy")
+    if not after["ready"]:
+        faults.append("the readiness target is not active")
+    return faults
+
+
+def session_duration_faults(elapsed: float, limits: dict, doc: str) -> list[str]:
+    """What is wrong with the duration of the system tests (R180): the limit is held
+    in the model as `maxSystemTestTime`, in seconds, positive; the text of the
+    requirement states no number; and the session did not take longer."""
+    name = "maxSystemTestTime"
+    if name not in limits:
+        return [f"the requirement has no attribute {name}"]
+    faults = []
+    value, unit = limits[name]
+    if unit != "s":
+        faults.append(f"{name} is in {unit}, not in seconds")
+    if not isinstance(value, int | float) or value <= 0:
+        faults.append(f"{name} is not a positive number")
+    elif elapsed > value:
+        faults.append(f"the system tests took {elapsed:.0f} s; the limit is {value} s")
+    if re.search(r"\d", doc):
+        faults.append("the text of the requirement states a number of its own")
+    return faults
