@@ -17,7 +17,7 @@ jobs:
   check:
     uses: cocreiamo/.github/.github/workflows/check.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main
     with:
-      mise-version: 2026.11.10
+      mise-version: 2026.11.14
       cache-path: .cache/sysml-pilot
       cache-key-variable: SYSML_PILOT_SHA256
 
