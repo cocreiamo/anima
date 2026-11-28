@@ -152,7 +152,7 @@ version = "45"
 license = "LicenseRef-Fedora-Distribution"
 upstream = "https://gitlab.com/fedora/bootc/base-images"
 image = "quay.io/fedora/fedora-bootc"
-digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7"
+digest = "sha256:27650ded85a0319c30d8978a1c10c89084de07fbbb125f85bb054910be081244"
 mirror = "ghcr.io/cocreiamo/anima-mirror/fedora-bootc"
 
 # The base images of the inner images of the engine: each is the first line of a
