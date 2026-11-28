@@ -402,3 +402,49 @@ def test_R163_mirror_has_least_privilege_detects_violation():
         good.replace("$SKOPEO", "quay.io/skopeo/stable@sha256:" + "0" * 64, 1)
     )
     assert privilege_faults(good.replace("needs.plan.outputs.skopeo", "x"))
+
+
+# ---- R165: a signed image is mirrored with its signatures, and the choice is explicit ---------
+
+# The signature attachments of an upstream image are read and written only where the
+# configuration of the copy tool enables them: for the upstream scope, which the
+# tool's policy may require signed, and for the mirror's.
+SCOPES = ("$IMAGE", "$MIRROR")
+
+
+def signature_faults(workflow):
+    """What would make the copy of an image that its upstream signed fail, or drop
+    its signatures without saying so."""
+    faults = []
+    if "--registries.d /rd" not in workflow or ":/rd:ro" not in workflow:
+        faults.append("the copy tool has no registries configuration, read only")
+    for scope in SCOPES:
+        enabled = re.search(
+            rf"^\s*{re.escape(scope)}:\n\s*use-sigstore-attachments: true$",
+            workflow,
+            re.MULTILINE,
+        )
+        if not enabled:
+            faults.append(f"signature attachments are not enabled for {scope}")
+    if "--remove-signatures" in workflow:
+        faults.append("signatures are dropped")
+    return faults
+
+
+def test_R165_mirror_keeps_the_signatures_of_signed_images():
+    """Proves the text of the workflow: the copy tool is given a configuration that
+    enables signature attachments for the upstream scope and the mirror's, and the
+    copy does not strip them. A signed image failed to copy without it on the first
+    run, 2026-11-28; that the registry keeps them is shown by a run."""
+    assert signature_faults(WORKFLOW.read_text()) == []
+
+
+def test_R165_mirror_keeps_the_signatures_of_signed_images_detects_violation():
+    good = WORKFLOW.read_text()
+    assert signature_faults(good) == []
+    assert signature_faults(good.replace("--registries.d /rd", ""))
+    assert signature_faults(good.replace(":/rd:ro", ":/rd"))
+    assert signature_faults(good.replace("$IMAGE:\n", "$OTHER:\n"))
+    assert signature_faults(good.replace("$MIRROR:\n", "$OTHER:\n"))
+    assert signature_faults(good.replace("use-sigstore-attachments: true", "x: 1"))
+    assert signature_faults(good + "  # sk copy --remove-signatures\n")

@@ -559,6 +559,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R165'> mirrorKeepsSignaturesOfSignedImages {
+            doc /* An image that its upstream signed shall be mirrored with its signatures and under the same digest, and the choice about the signatures shall be explicit in the workflow's configuration of the copy tool, so that a signed image does not fail to be copied and its signatures are not dropped without being said. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R164'> everyBuildPullsFromTheMirror {
             doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1135,6 +1140,7 @@ package Anima {
     satisfy Day0::mirrorPreservesDigests by toolchain;
     satisfy Day0::mirrorNeverDeletesOrMovesATag by toolchain;
     satisfy Day0::mirrorHasLeastPrivilege by toolchain;
+    satisfy Day0::mirrorKeepsSignaturesOfSignedImages by toolchain;
     satisfy Day0::everyBuildPullsFromTheMirror by toolchain;
     satisfy Day0::identityProviderBuildDownloadsNoBuildTool by toolchain;
     satisfy Day0::identityProviderBuildRetriesDownloadsBounded by toolchain;
@@ -1787,6 +1793,10 @@ package Anima {
         verification def test_R163_mirror_has_least_privilege {
             subject tools : Toolchain;
             objective { verify Day0::mirrorHasLeastPrivilege; }
+        }
+        verification def test_R165_mirror_keeps_the_signatures_of_signed_images {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorKeepsSignaturesOfSignedImages; }
         }
         verification def test_R164_every_build_pulls_from_the_mirror {
             subject tools : Toolchain;

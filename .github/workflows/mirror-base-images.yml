@@ -107,9 +107,29 @@ jobs:
           auth="$RUNNER_TEMP/auth.json"
           echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin --authfile "$auth"
 
-          # The copy tool is a pinned image; only the credentials file reaches it,
-          # read only, and only the destination is given it.
-          sk() { podman run --rm --volume "$auth:/auth.json:ro" "$SKOPEO" "$@"; }
+          # Some upstream images are signed (Red Hat's carry signatures stored as
+          # attachments next to the image). The copy keeps them: the tool reads and
+          # writes attachments only where its registries configuration enables it,
+          # so it is enabled for the upstream scope and for the mirror's. The tool's
+          # policy may require the signatures of an upstream, so they must be read.
+          # Without this the copy of a signed image fails after its manifest is
+          # written ("writing sigstore attachments is disabled by configuration",
+          # first run, 2026-11-28). Not stripping them in the copy: it drops what
+          # the upstream signed, and the digest is the same either way (observed).
+          rd="$RUNNER_TEMP/registries.d"
+          mkdir "$rd"
+          cat > "$rd/mirror.yaml" <<EOF
+          docker:
+            $IMAGE:
+              use-sigstore-attachments: true
+            $MIRROR:
+              use-sigstore-attachments: true
+          EOF
+
+          # The copy tool is a pinned image; only the credentials file and the
+          # configuration reach it, read only, and only the destination is given
+          # the credentials.
+          sk() { podman run --rm --volume "$auth:/auth.json:ro" --volume "$rd:/rd:ro" "$SKOPEO" --registries.d /rd "$@"; }
 
           die() { echo "::error::$*" >&2; exit 1; }
 
