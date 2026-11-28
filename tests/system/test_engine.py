@@ -7,7 +7,9 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
 from conftest import READY_LIMIT_SECONDS, ROOT
+from engine_logic import secret_store_storage_stage
 
 UNITS = {
     "database": ROOT / "engine/database/database.container",
@@ -356,6 +358,103 @@ def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
     assert sql("select n from survivor") == "42"
     logs = engine.exec("podman", "logs", "database")[1]
     assert "was not properly shut down" not in logs, logs
+
+
+# The secret store initialises itself once, on empty storage, in a window of about
+# a second that polling cannot hit. The test holds the store's start (a drop-in),
+# puts a trigger on its storage table that sleeps before one chosen write, lets
+# the store start, and kills the engine while the write is held. Each moment
+# leaves storage at a stage that the store never repairs by itself.
+HELD = "/run/anima/test-held"
+GO = "/run/anima/test-go"
+SECRET_STORE_KILL_MOMENTS = {
+    # key ring written, seal configuration not yet: the store cannot unseal
+    "barrier": "NEW.key = 'seal-config'",
+    # initialised, self-initialisation not marked as started: the store skips it
+    "initialised": "NEW.key = 'self-init'",
+    # marked as started, a request of it not yet written: the store refuses to unseal
+    "self-initialising": (
+        "NEW.key <> 'self-init' AND EXISTS "
+        "(SELECT FROM openbao_kv_store WHERE key = 'self-init')"
+    ),
+}
+HOLD_WRITE = """
+CREATE TABLE IF NOT EXISTS openbao_kv_store (parent_path TEXT COLLATE "C" NOT NULL,
+  path TEXT COLLATE "C", key TEXT COLLATE "C", value BYTEA,
+  CONSTRAINT openbao_kv_store_pkey PRIMARY KEY (path, key));
+ALTER TABLE openbao_kv_store OWNER TO svc_secrets_store;
+CREATE FUNCTION anima_test_hold() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN IF {condition} THEN PERFORM pg_sleep(600); END IF; RETURN NEW; END $$;
+CREATE TRIGGER anima_test_hold BEFORE INSERT OR UPDATE ON openbao_kv_store
+  FOR EACH ROW EXECUTE FUNCTION anima_test_hold();
+"""
+
+
+def secret_store_hold(tmp_path: Path) -> dict[str, str]:
+    """A drop-in that holds every start of the secret store until GO exists."""
+    dropin = tmp_path / "secrets-hold.conf"
+    dropin.write_text(
+        f"[Service]\nExecStartPre=/bin/sh -c 'touch {HELD}; "
+        f"while [ ! -e {GO} ]; do sleep 0.2; done'\n"
+    )
+    return {str(dropin): "/etc/systemd/system/secrets.service.d/50-test-hold.conf"}
+
+
+def superuser_sql(engine, database: str, command: str) -> tuple[int, str]:
+    return engine.inner(
+        "database",
+        "psql",
+        "--host=/run/postgresql",
+        "--username=postgres",
+        f"--dbname={database}",
+        "--no-psqlrc",
+        "--tuples-only",
+        "--set=ON_ERROR_STOP=1",
+        f"--command={command}",
+    )
+
+
+@pytest.mark.parametrize("stage", list(SECRET_STORE_KILL_MOMENTS))
+def test_R42_abrupt_stop_in_secret_store_first_start_recovers(
+    own_engine, tmp_path, stage
+):
+    """Killed while the secret store initialises itself for the first time, at
+    each stage its storage can be left in, the same container is started again
+    and reaches readiness, with the store's first start recorded as completed
+    (PM-009)."""
+    engine = own_engine(f"r42-{stage}", secret_store_hold(tmp_path))
+
+    def held() -> bool:
+        return engine.exec("test", "-e", HELD)[0] == 0
+
+    engine.wait_for("the secret store's start held", held, 240)
+    hold = HOLD_WRITE.replace("{condition}", SECRET_STORE_KILL_MOMENTS[stage])
+    code, out = superuser_sql(engine, "secrets_store", hold)
+    assert code == 0, out
+    engine.exec("touch", GO)
+    sleeping = "select count(*) from pg_stat_activity where wait_event = 'PgSleep'"
+    engine.wait_for(
+        "the secret store held at the write",
+        lambda: superuser_sql(engine, "postgres", sleeping)[1].strip() == "1",
+        180,
+        0.5,
+    )
+    rows = superuser_sql(
+        engine, "secrets_store", "select path || key from openbao_kv_store"
+    )[1]
+    assert secret_store_storage_stage(rows.split()) == stage, rows
+    engine.kill()
+    engine.start_again()
+    engine.wait_for("the secret store's start held again", held, 240)
+    # The test's own trigger goes, if the storage it was on is still there.
+    code, out = superuser_sql(
+        engine, "secrets_store", "DROP FUNCTION IF EXISTS anima_test_hold() CASCADE"
+    )
+    assert code == 0, out
+    engine.exec("touch", GO)
+    engine.wait_ready()
+    completed = "select count(*) from anima.secret_store_first_start"
+    assert superuser_sql(engine, "postgres", completed)[1].strip() == "1"
 
 
 # ---- R98 ---------------------------------------------------------------------

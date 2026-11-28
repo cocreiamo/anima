@@ -10,6 +10,7 @@ from engine_logic import (
     container_phase,
     form_submission,
     regress_tests_passed,
+    secret_store_storage_stage,
 )
 
 PASSED_LOG = (
@@ -42,6 +43,20 @@ def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     assert container_phase("Error: no such container") == "unknown"
     created = json.dumps({"Status": "created", "Running": False})
     assert container_phase(created) == "unknown"
+
+
+def test_R42_abrupt_stop_in_secret_store_first_start_recovers_detects_violation():
+    """The kill counts only at the stage it was aimed at: each stage is told
+    apart from the storage keys, and keys of no stage are not taken for one."""
+    barrier = ["/core/keyring", "/core/root-key"]
+    initialised = [*barrier, "/core/seal-config", "/core/mounts/x", "/sys/token/salt"]
+    assert secret_store_storage_stage([]) == "empty"
+    assert secret_store_storage_stage(barrier) == "barrier"
+    assert secret_store_storage_stage(initialised) == "initialised"
+    marked = [*initialised, "/core/status/self-init"]
+    assert secret_store_storage_stage(marked) == "self-initialising"
+    assert secret_store_storage_stage(["/core/root-key"]) == "unknown"
+    assert secret_store_storage_stage(["/logical/x/y"]) == "unknown"
 
 
 LOGIN_PAGE = (

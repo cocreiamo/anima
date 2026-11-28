@@ -39,6 +39,24 @@ def container_phase(inspected_state: str) -> str:
     return "unknown"
 
 
+def secret_store_storage_stage(keys: list[str]) -> str:
+    """How far the secret store's first start got, from the keys of its storage
+    table (`path || key`, one per row): `empty`, `barrier` (key ring written,
+    seal configuration not yet), `initialised` (and self-initialisation not
+    marked as started, or finished), `self-initialising` (marked as started and
+    not finished), or `unknown` for rows that fit none of these."""
+    present = set(keys)
+    if not present:
+        return "empty"
+    if "/core/status/self-init" in present:
+        return "self-initialising"
+    if "/core/seal-config" in present:
+        return "initialised"
+    if "/core/keyring" in present:
+        return "barrier"
+    return "unknown"
+
+
 class _Forms(HTMLParser):
     """The first form of a page: its action and its named fields and buttons."""
 

@@ -124,8 +124,21 @@ class Engine:
                 return self.ready_after
             time.sleep(2)
         raise TimeoutError(
-            f"engine not ready within {limit} s (health: {self.health()})"
+            f"engine not ready within {limit} s (health: {self.health()})\n"
+            + self.not_ready_report()
         )
+
+    def not_ready_report(self) -> str:
+        """What the engine says about why it is not ready, read before the test
+        removes it: the failed units, and the state and last journal lines of
+        each part the readiness target is bound to that is not active."""
+        lines = [self.exec("systemctl", "list-units", "--failed", "--plain")[1]]
+        bound = self.unit_property("anima-ready.target", "BindsTo").split()
+        for unit in bound:
+            if not self.active(unit):
+                status = ["systemctl", "status", "--no-pager", "--lines=25", unit]
+                lines.append(self.exec(*status)[1])
+        return "\n".join(lines)
 
     def wait_for(self, what: str, check, limit: float = 90.0, every: float = 1.0):
         """Poll `check()` (returns a truthy value) until it holds or `limit` passes."""
