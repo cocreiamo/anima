@@ -72,7 +72,7 @@ Look here before building something. Each section is derived from its source; th
 | R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
-| R164 | every build pulls from the mirror | pending |
+| R164 | every build pulls from the mirror | written |
 | R75 | every capability directory covered | written |
 | R56 | every check seen to fail | written |
 | R11 | every dependency pinned | written |
@@ -316,7 +316,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
 - R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
-- R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (pending).
+- R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (written).
 - R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
 - R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
 - R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).

@@ -4,8 +4,12 @@
 # Usage: mise run ci:mirror-plan [register (default: components.toml)]
 # Standard output is what the step appends to GITHUB_OUTPUT.
 # The list is read from the register and written nowhere else. Every entry of
-# `component` and `tool_image` that has an `image` is mirrored; the copy tool is
-# the entry named skopeo, and a register without it is a failure.
+# `component` and `tool_image` that has an `image` is mirrored: it is copied from
+# its `source` (the upstream name) into its `image` (the package of the mirror).
+# The copy tool is the entry named skopeo and is taken from its `source`, the one
+# image that is pulled from upstream: it runs before the mirror holds anything, so
+# that a fresh fork can fill its mirror (anima-adopting-a-component, rule 13). A
+# register without it is a failure.
 import json
 import os
 import sys
@@ -15,10 +19,10 @@ from pathlib import Path
 ROOT = Path(os.environ.get("MISE_PROJECT_ROOT") or Path(__file__).resolve().parents[2])
 FIELDS = (
     ("name", "name"),
-    ("image", "image"),
+    ("image", "source"),
     ("tag", "version"),
     ("digest", "digest"),
-    ("mirror", "mirror"),
+    ("mirror", "image"),
 )
 
 
@@ -33,7 +37,7 @@ def plan(register):
     skopeo = next((c for c in entries if c["name"] == "skopeo"), None)
     if skopeo is None:
         raise SystemExit("ci:mirror-plan: the register has no image named skopeo")
-    return {"include": images}, skopeo["image"] + "@" + skopeo["digest"]
+    return {"include": images}, skopeo["source"] + "@" + skopeo["digest"]
 
 
 def main():

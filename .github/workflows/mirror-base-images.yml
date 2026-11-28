@@ -7,22 +7,28 @@ name: Mirror base images
 # now, whole (every platform) and with the digest preserved: a copy that cannot
 # keep the digest, or whose result differs, fails the job. Each copy is reachable
 # by two tags that are never moved: `sha256-<hex>` is the digest itself, and
-# `<tag>-<UTC date>` is the day's copy of the upstream tag. Nothing is deleted.
+# `<tag>-<UTC date>` is the day's copy of the upstream tag; the tag that is the
+# upstream tag itself follows it, once the digest is held, because the update bot
+# reads the digest of a tag and must find only digests that the mirror holds.
+# Nothing is deleted.
 #
-# The list of images is read from the register, never written here. Every step
+# The list of images is read from the register (each entry's `source` is copied
+# into its `image`, the package of the mirror), never written here. Every step
 # is one call to a command of the repository that has a test that runs it
 # (`mise-tasks/ci/`, `tests/ci/`, R170): the plan is `ci:mirror-plan`, the copy
 # of one image is `ci:mirror-copy`. The job that may write packages holds nothing
 # else, runs no tool of the repository (none is installed) and no code but that
 # one command, and runs a pinned image of the copy tool (R163).
-# The builds do not pull from the mirror yet (anima-adopting-a-component).
+# The builds pull from the mirror (R164). This workflow is the exception: it reads
+# upstream, and its copy tool is pulled from upstream too, since it runs before the
+# mirror holds anything (anima-adopting-a-component, rule 13).
 #
 # The upstream rebuild of the engine's base happens around 11:30 UTC (observed
 # on 2026-11-28), so the copy runs after it.
 #
-# Unverified: this workflow has never run. A package is created private by the
-# first push; its visibility, and that this repository may write to it, are the
-# founder's to settle before and after the first run.
+# A package is created private by the first push of an image: its visibility is the
+# founder's to settle after the first run of an image that is new to the register
+# (the builds read the mirror without credentials).
 
 on:
   schedule:

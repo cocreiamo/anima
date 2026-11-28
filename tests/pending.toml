@@ -21,7 +21,6 @@ pending = [
   "test_R50_engine_image_boots_as_operating_system",
   "test_R127_entry_takes_renewed_certificate_without_restart",
   "test_R58_every_adapter_passes_its_contract_suite",
-  "test_R164_every_build_pulls_from_the_mirror",
   "test_R65_every_setting_has_production_default",
   "test_R3_2_expired_token_rejected",
   "test_R36_failed_first_start_repeatable",

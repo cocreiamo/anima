@@ -66,22 +66,29 @@ def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag(scenario, tmp_path
     assert store.digest(mirror, f"sha256-{new}") == new
     assert store.digest(mirror, day) == new
     assert store.digest(mirror, f"sha256-{old}") == old
-    assert store.tags(mirror) == sorted([f"sha256-{new}", day, f"sha256-{old}"])
+    # The upstream tag itself is there too: the update bot reads the digest of a
+    # tag, so it finds in the mirror only a digest that the mirror holds.
+    assert store.digest(mirror, "1") == new
+    tags = sorted([f"sha256-{new}", day, f"sha256-{old}", "1"])
+    assert store.tags(mirror) == tags
     summary = (tmp_path / "summary").read_text()
     assert f"sha256:{new}" in summary and f"sha256:{old}" in summary
 
     again = task("mirror-copy", env=environment)
     assert again.returncode == 0, again.stderr
     assert "already holds" in again.stdout
-    assert store.tags(mirror) == sorted([f"sha256-{new}", day, f"sha256-{old}"])
+    assert store.tags(mirror) == tags
 
-    # The upstream tag moves on: the day's tag of the mirror stays where it is, and
-    # the new digest gets its own tag.
+    # The upstream tag moves on: the day's tag of the mirror stays where it is, the
+    # new digest gets its own tag, and the tag that is the upstream's follows it,
+    # while the digest it named stays reachable by its own tag.
     newer = store.push(upstream, "1", "newer")
     moved = task("mirror-copy", env=environment)
     assert moved.returncode == 0, moved.stderr
     assert store.digest(mirror, day) == new, "a tag of the mirror was moved"
     assert store.digest(mirror, f"sha256-{newer}") == newer
+    assert store.digest(mirror, "1") == newer, "the followed tag did not follow"
+    assert store.digest(mirror, f"sha256-{new}") == new
     assert "left as it is" in moved.stdout
 
 
@@ -102,6 +109,8 @@ def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag_detects_violation(
     missing = task("mirror-copy", env={**environment, "DIGEST": "sha256:" + "1" * 64})
     assert missing.returncode != 0
     assert f"sha256-{'1' * 64}" not in store.tags(mirror)
+    # The tag that follows the upstream was moved before the pinned digest failed.
+    assert store.digest(mirror, "1") == new
 
     # A digest tag that holds another image is a fault, and is left alone.
     other = store.push(mirror, f"sha256-{new}", "another image")

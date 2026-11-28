@@ -18,7 +18,7 @@
 # source build (the Alpine variant), plus --with-libcurl, which PostgreSQL 18
 # needs for OAuth in libpq and for its oauth_validator test module.
 
-ARG BASE=docker.io/library/debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
+ARG BASE=ghcr.io/cocreiamo/anima-mirror/debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
 
 FROM ${BASE} AS toolchain
 RUN apt-get update \

@@ -560,7 +560,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R162'> mirrorNeverDeletesOrMovesATag {
-            doc /* The mirror shall never delete an image and never move or overwrite a tag: each copy shall be reachable under a tag that names its digest and, for the upstream tag, under a tag that names the day, and a tag that exists shall be left as it is. */
+            doc /* The mirror shall never delete an image and never move or overwrite a tag, except one: each copy shall be reachable under a tag that names its digest and, for the upstream tag, under a tag that names the day, and a tag that exists shall be left as it is, except the tag that is the upstream tag itself, which shall follow it only after the digest it names is held under the two tags that are never moved, so that the update bot, which reads the digest of a tag, finds only digests that the mirror holds. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -586,7 +586,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R164'> everyBuildPullsFromTheMirror {
-            doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
+            doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build; the one image taken from upstream shall be the copy tool of the workflow that fills the mirror, which runs before the mirror holds anything. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -621,7 +621,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R176'> mirrorCopyLeavesTheMirrorAsSpecified {
-            doc /* The command that copies an image into the mirror shall, run against a registry, leave the mirror holding the digest that the upstream tag names and the pinned digest, each under its own digest and reachable by its tags, shall move no tag that exists, and shall fail, writing nothing wrong, when the upstream no longer holds what it was asked to copy, when a mirror tag that names a digest holds another image, and when the registry does not answer. */
+            doc /* The command that copies an image into the mirror shall, run against a registry, leave the mirror holding the digest that the upstream tag names and the pinned digest, each under its own digest and reachable by its tags, shall move no tag that exists but the one that is the upstream tag, which it moves to the digest that the upstream tag names now, and shall fail, writing nothing wrong, when the upstream no longer holds what it was asked to copy, when a mirror tag that names a digest holds another image, and when the registry does not answer. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
