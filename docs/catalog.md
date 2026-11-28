@@ -146,6 +146,7 @@ Look here before building something. Each section is derived from its source; th
 | R81 | size limits kept | written |
 | R74 | skill paths match something | written |
 | R72 | skills have one schema | written |
+| R167 | spike brief states why no test answers | written |
 | R62 | storage connection uses no secret | written |
 | R89 | submodule working trees clean | written |
 | R12 | superuser local only | written |
@@ -330,6 +331,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
 - R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
 - R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
+- R167, spike brief states why no test answers, at every commit: `test_R167_spike_brief_states_why_no_test_answers` (written).
 - R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
 - R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).

@@ -12,3 +12,4 @@ A task is done when every line below holds. The reviewer checks them with a fres
 8. **Reported honestly.** The report separates what was run from what was only read and lists every denied command.
 9. **An event leaves a postmortem.** If something went wrong while doing the task, `docs/postmortems/` has an entry whose guard exists.
 10. **Defects solved at the root.** For each defect met, the report states the root cause with its evidence and the class, and either the class is removed by a design change the founder approved or the options and a recommendation are brought to the founder; an instance fix alone does not close a class that has recurred.
+11. **Unknowns tested first, no needless spike.** Each unknown the design rested on has a test that was written first, and a changed plan was reported; a spike states why no test inside the task could answer it.
