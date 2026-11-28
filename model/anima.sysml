@@ -534,6 +534,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R155'> releaseToolFilesNotFormattedAndLicensed {
+            doc /* Every file that the release tool writes shall be excluded from the formatter's check and covered by a licensing annotation, so that the release pull request passes the required checks as the tool writes it. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1693,6 +1698,10 @@ package Anima {
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;
             objective { verify Day0::bareInterpreterRefused; }
+        }
+        verification def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed {
+            subject tools : Toolchain;
+            objective { verify Day0::releaseToolFilesNotFormattedAndLicensed; }
         }
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;
