@@ -243,7 +243,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
-- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_recovers_with_same_start` (written).
+- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).

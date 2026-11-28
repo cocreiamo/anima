@@ -13,6 +13,7 @@ from engine_logic import (
     regress_tests_passed,
     renewal_failure_faults,
     renewal_faults,
+    secret_store_storage_stage,
 )
 
 PASSED_LOG = (
@@ -35,7 +36,9 @@ def test_R21_upstream_regression_suite_passes_detects_violation():
 
 def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     """A kill counts only when the container is seen stopped: a running, paused,
-    created, missing or unreadable one is not."""
+    created, missing or unreadable one is not, and neither is one that podman
+    reports `stopped` after giving up waiting for the exit (ExitCode -1): the
+    previous run is not finished and a start would be undone by its late exit."""
     assert container_phase(EXITED) == "stopped"
     assert container_phase(RUNNING) == "running"
     paused = json.dumps({"Status": "paused", "Running": True, "Paused": True})
@@ -45,6 +48,22 @@ def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     assert container_phase("Error: no such container") == "unknown"
     created = json.dumps({"Status": "created", "Running": False})
     assert container_phase(created) == "unknown"
+    gave_up = json.dumps({"Status": "stopped", "Running": False, "ExitCode": -1})
+    assert container_phase(gave_up) == "stopping"
+
+
+def test_R42_abrupt_stop_in_secret_store_first_start_recovers_detects_violation():
+    """The kill counts only at the stage it was aimed at: each stage is told
+    apart from the storage keys, and keys of no stage are not taken for one."""
+    barrier = ["/core/keyring", "/core/root-key"]
+    initialised = [*barrier, "/core/seal-config", "/core/mounts/x", "/sys/token/salt"]
+    assert secret_store_storage_stage([]) == "empty"
+    assert secret_store_storage_stage(barrier) == "barrier"
+    assert secret_store_storage_stage(initialised) == "initialised"
+    marked = [*initialised, "/core/status/self-init"]
+    assert secret_store_storage_stage(marked) == "self-initialising"
+    assert secret_store_storage_stage(["/core/root-key"]) == "unknown"
+    assert secret_store_storage_stage(["/logical/x/y"]) == "unknown"
 
 
 CERTIFICATE = "serial=0A1B\nnotAfter=Nov 28 12:00:00 2026 GMT\n"

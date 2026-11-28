@@ -1216,6 +1216,10 @@ package Anima {
             subject sys : System;
             objective { verify Day1::oneStartPathAfterCrash; }
         }
+        verification def test_R42_abrupt_stop_in_secret_store_first_start_recovers {
+            subject sys : System;
+            objective { verify Day1::oneStartPathAfterCrash; }
+        }
         verification def test_R36_failed_first_start_repeatable {
             subject sys : System;
             objective { verify Day1::failedFirstStartRepeatable; }

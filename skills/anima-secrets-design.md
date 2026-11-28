@@ -45,7 +45,12 @@ ADR 0003 (secret management). Who may connect and as what is
 4. **Self-initialization runs once and cannot be repaired.** A failed one leaves
    the storage unusable (GAP-015), so a first start is repeatable from an empty
    state with the same command (R36) and nothing precious is in the secret
-   store before the first start has succeeded. What the initialization itself
+   store before the first start has succeeded. The engine uses that: before
+   every start of the store, storage whose first start is not recorded as
+   completed is emptied, and the record is written in the database server once
+   the store is healthy, before any unit that uses the store starts; so an
+   abrupt stop in the middle of the first start recovers with the same start
+   (R42, PM-009, `anima-tech-openbao`). What the initialization itself
    creates (the certificate authority, the seed values, the first machine
    credential) is not converged afterwards (GAP-020); the secret store's
    policies, engines and roles are, by the configurator at every start.

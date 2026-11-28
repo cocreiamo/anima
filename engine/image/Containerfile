@@ -29,6 +29,7 @@ COPY engine/image/configure.image engine/image/configure.container /usr/share/co
 COPY --chmod=555 engine/image/anima-ready /usr/libexec/anima/ready
 COPY engine/image/anima-ready-upheld.conf /usr/lib/systemd/system/multi-user.target.d/50-anima-ready-upheld.conf
 COPY engine/secrets/openbao.hcl /etc/anima/secrets/openbao.hcl
+COPY engine/secrets/first-start.sql /usr/share/anima/secrets/first-start.sql
 COPY engine/configure/secret-store-bootstrap.hcl /etc/anima/secrets/secret-store-bootstrap.hcl
 
 RUN systemctl enable anima-ready.target secrets-root-of-trust.service \
