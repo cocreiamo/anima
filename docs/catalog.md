@@ -191,7 +191,7 @@ Look here before building something. Each section is derived from its source; th
 | R2 | valid token opens session | written |
 | R19 | vector search in every database | pending |
 | R78 | vendor roles limited to permissions | written |
-| R195 | workflows write with organization apps | written |
+|  | workflows write with organization apps | written |
 
 ## Components
 
@@ -404,7 +404,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
 - R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
-- R195, workflows write with organization apps, at every commit: `test_R195_app_names_are_checked_by_name_only` (written).
+- workflows write with organization apps, at every commit: `test_workflows_write_with_organization_apps_names_checked_by_name_only` (written).
 
 ## Skills
 

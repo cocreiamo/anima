@@ -378,7 +378,7 @@ def app_names_env(tmp_path, variables, secrets, workflow=APP_WORKFLOW):
     return {**env, "WORKFLOWS": str(workflows)}, log
 
 
-def test_app_names_are_checked_by_name_only(tmp_path):
+def test_workflows_write_with_organization_apps_names_checked_by_name_only(tmp_path):
     """Proves, with a stub of `gh` (the platform has no stand-in), that the command
     reads the names the workflows use, asks only for the field `name`, and succeeds
     when the organization holds them all."""
@@ -394,7 +394,9 @@ def test_app_names_are_checked_by_name_only(tmp_path):
     assert "X_APP_PRIVATE_KEY" in result.stdout
 
 
-def test_app_names_are_checked_by_name_only_detects_violation(tmp_path):
+def test_workflows_write_with_organization_apps_names_checked_by_name_only_detects_violation(
+    tmp_path,
+):
     """A missing variable, a missing secret, a variable listed where the secret is
     wanted and a workflow that names no App each fail, naming what is missing."""
     env, _ = app_names_env(

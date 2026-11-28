@@ -7,12 +7,14 @@ package WorkflowsWriteWithOrganizationApps {
         subject tools : Toolchain;
     }
 
-    verification def test_workflows_write_with_organization_app_tokens {
+    satisfy workflowsWriteWithOrganizationApps by toolchain;
+
+    verification def test_workflows_write_with_organization_apps_use_app_tokens {
         subject tools : Toolchain;
         objective { verify workflowsWriteWithOrganizationApps; }
     }
 
-    verification def test_app_names_are_checked_by_name_only {
+    verification def test_workflows_write_with_organization_apps_names_checked_by_name_only {
         subject tools : Toolchain;
         objective { verify workflowsWriteWithOrganizationApps; }
     }

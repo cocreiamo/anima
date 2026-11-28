@@ -74,7 +74,7 @@ def app_token_workflow_faults(promote, sync, prepare, forks):
     return found
 
 
-def test_workflows_write_with_organization_app_tokens():
+def test_workflows_write_with_organization_apps_use_app_tokens():
     """Proves, from the text of the three workflows, that each write is given the
     installation token of its App and no other credential, in the job that makes
     it. It does not prove that the Apps, the variables and the secrets exist or
@@ -90,7 +90,7 @@ def test_workflows_write_with_organization_app_tokens():
     )
 
 
-def test_workflows_write_with_organization_app_tokens_detects_violation():
+def test_workflows_write_with_organization_apps_use_app_tokens_detects_violation():
     promote, sync, prepare = (
         PROMOTE.read_text(),
         SYNC_FORKS.read_text(),
