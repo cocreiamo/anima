@@ -539,6 +539,31 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R160'> mirrorCoversEveryBaseImage {
+            doc /* Every container image that the register of components lists, and every image that a build of the engine pulls, shall be copied by a scheduled workflow into a mirror that the organization controls, one package per image, from a list that the workflow reads from the register and does not duplicate, so that no base image is left out of the mirror. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R161'> mirrorPreservesDigests {
+            doc /* The mirror shall hold each image whole, for every platform, under the digest that its source has, for both the digest that the register pins and the digest that the upstream tag names at the time of the copy, and a copy that cannot keep the digest or whose result differs shall fail the run. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R162'> mirrorNeverDeletesOrMovesATag {
+            doc /* The mirror shall never delete an image and never move or overwrite a tag: each copy shall be reachable under a tag that names its digest and, for the upstream tag, under a tag that names the day, and a tag that exists shall be left as it is. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R163'> mirrorHasLeastPrivilege {
+            doc /* The permission to write packages shall be held by the one job that copies images, which shall run no action and none of the repository's code, and the workflow shall start only on a schedule or on request, take its copy tool from the register by digest, and pass its credential only on standard input and as a read-only file. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R164'> everyBuildPullsFromTheMirror {
+            doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1084,6 +1109,11 @@ package Anima {
     satisfy Day0::formatAndTestExcludeEachOther by toolchain;
     satisfy Day0::systemTestsReportOnEveryChange by toolchain;
     satisfy Day0::publishOnlyWhatWasVerified by toolchain;
+    satisfy Day0::mirrorCoversEveryBaseImage by toolchain;
+    satisfy Day0::mirrorPreservesDigests by toolchain;
+    satisfy Day0::mirrorNeverDeletesOrMovesATag by toolchain;
+    satisfy Day0::mirrorHasLeastPrivilege by toolchain;
+    satisfy Day0::everyBuildPullsFromTheMirror by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::recordsMadeFromSharedTemplate by toolchain;
@@ -1702,6 +1732,26 @@ package Anima {
         verification def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed {
             subject tools : Toolchain;
             objective { verify Day0::releaseToolFilesNotFormattedAndLicensed; }
+        }
+        verification def test_R160_mirror_covers_every_base_image {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorCoversEveryBaseImage; }
+        }
+        verification def test_R161_mirror_preserves_digests {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorPreservesDigests; }
+        }
+        verification def test_R162_mirror_never_deletes_or_moves_a_tag {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorNeverDeletesOrMovesATag; }
+        }
+        verification def test_R163_mirror_has_least_privilege {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorHasLeastPrivilege; }
+        }
+        verification def test_R164_every_build_pulls_from_the_mirror {
+            subject tools : Toolchain;
+            objective { verify Day0::everyBuildPullsFromTheMirror; }
         }
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;

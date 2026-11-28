@@ -668,3 +668,14 @@ workaround = "The package is pinned; the mirror fork (GAP-057) is the place to c
 upstream = "not reported"
 resolved_when = "YARP has made a stable release after 2026-11-28 and has kept a regular release cadence for a year, or the entry has moved to another library behind the same port."
 status = "open"
+
+[[gap]]
+id = "GAP-060"
+component = "container registries (quay.io and the other upstream registries of the base images)"
+version = "observed 2026-11-28"
+summary = "The registry of the engine image's base rebuilds its tag daily, around 11:30 UTC, and deletes the previous manifest within hours, so a digest pin lives about a day: on 2026-11-28 the pin on main answered \"manifest unknown\" and broke every build from scratch; the distribution's minimal image behaves the same. The other base images resolved that day (UBI, UBI micro, Debian, Alpine, the Java toolchain, the Go toolchain, the mail catcher, the configurator's image), but none of their registries promises how long a manifest is kept."
+impact = "A digest pin does not make a build rebuildable (TASK-43): a build from scratch fails when the manifest it pins is gone, and the update bot proposes a digest that may be gone by the time it is merged."
+workaround = ".github/workflows/mirror-base-images.yml (R160 to R163) copies the pinned digest and the current tag's digest of every registered image into the organization's mirror, with the digest preserved. The builds do not pull from the mirror yet (TASK-96): until they do, the pin of the engine image's base must be bumped daily."
+upstream = "not reported"
+resolved_when = "Every build of the engine pulls its base images from the mirror by the digest the mirror holds, and the update bot proposes only digests that exist there (R164)."
+status = "open"
