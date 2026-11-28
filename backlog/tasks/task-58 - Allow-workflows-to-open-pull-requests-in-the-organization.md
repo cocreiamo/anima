@@ -33,7 +33,7 @@ A repository cannot let GitHub Actions create and approve pull requests until th
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-2026-11-28: prepare-release.yml gives the release tool an installation token of the App cocreiamo-bot (contents and pull requests write) through the token input of the action, so the pull request it opens starts the required checks (R195). Remains: the founder stores BOT_APP_ID and BOT_APP_PRIVATE_KEY (not present when read on 2026-11-28); the first release pull request opened by the bot must be seen running its checks, then the close-and-reopen gesture is dropped from anima-branching-and-releasing rule 13. The organization setting of GAP-046 is not needed by an App token.
+2026-11-28: prepare-release.yml gives the release tool an installation token of the App cocreiamo-bot (contents and pull requests write) through the token input of the action, so the pull request it opens starts the required checks (workflows-write-with-organization-apps). Remains: the founder stores BOT_APP_ID and BOT_APP_PRIVATE_KEY (not present when read on 2026-11-28); the first release pull request opened by the bot must be seen running its checks, then the close-and-reopen gesture is dropped from anima-branching-and-releasing rule 13. The organization setting of GAP-046 is not needed by an App token.
 <!-- SECTION:NOTES:END -->
 
 ## Brief

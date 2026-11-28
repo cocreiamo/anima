@@ -33,7 +33,7 @@ The GitHub Actions app cannot be a bypass actor, so main-green cannot be restric
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-2026-11-28: promote.yml makes an installation token of the App cocreiamo-promote (contents write, installed on this repository) in the promote job only, and promote:green and promote:release use it; the job's own token is contents read (R195, R171). Remains: the founder stores PROMOTE_APP_ID and PROMOTE_APP_PRIVATE_KEY (not present when read on 2026-11-28); after the first real Promote run that pushes main-green with the token, the platform adds 'restrict updates' to the main-green ruleset with the promote App as the only bypass actor (never before: it would break Promote), and GAP-008 is closed.
+2026-11-28: promote.yml makes an installation token of the App cocreiamo-promote (contents write, installed on this repository) in the promote job only, and promote:green and promote:release use it; the job's own token is contents read (workflows-write-with-organization-apps, R171). Remains: the founder stores PROMOTE_APP_ID and PROMOTE_APP_PRIVATE_KEY (not present when read on 2026-11-28); after the first real Promote run that pushes main-green with the token, the platform adds 'restrict updates' to the main-green ruleset with the promote App as the only bypass actor (never before: it would break Promote), and GAP-008 is closed.
 <!-- SECTION:NOTES:END -->
 
 ## Brief

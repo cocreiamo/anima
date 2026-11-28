@@ -31,7 +31,7 @@ The scheduled workflow that fast-forwards the mirror branches of the forks needs
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-2026-11-28: the secret FORK_SYNC_TOKEN is replaced by the App cocreiamo-fork-sync (contents and workflows write, installed on the anima-* forks, anima-yarp included): sync-forks.yml makes an installation token per fork with actions/create-github-app-token (R195) and ci:sync-fork requires GH_TOKEN. Remains: the founder stores FORK_SYNC_APP_ID (variable) and FORK_SYNC_APP_PRIVATE_KEY (secret) in the organization, visible to this repository; read on 2026-11-28 they did not exist yet. Then the first scheduled sync is the proof.
+2026-11-28: the secret FORK_SYNC_TOKEN is replaced by the App cocreiamo-fork-sync (contents and workflows write, installed on the anima-* forks, anima-yarp included): sync-forks.yml makes an installation token per fork with actions/create-github-app-token (workflows-write-with-organization-apps) and ci:sync-fork requires GH_TOKEN. Remains: the founder stores FORK_SYNC_APP_ID (variable) and FORK_SYNC_APP_PRIVATE_KEY (secret) in the organization, visible to this repository; read on 2026-11-28 they did not exist yet. Then the first scheduled sync is the proof.
 <!-- SECTION:NOTES:END -->
 
 ## Brief
