@@ -276,12 +276,14 @@ def test_R2_valid_token_opens_session(engine):
     """A valid token of the configured issuer, for the scope of a role, opens a
     session of that role, over TLS: an application's token, and a person's token
     from the device flow, whose audit line names the person."""
+    # The engine is shared: only what the server logged from here on counts.
+    logged = len(server_log(engine))
     code, out = login(engine, application_token(engine), "readonly")
     assert code == 0 and "connection succeeded" in out, (
         out,
         server_log(engine)[-2000:],
     )
-    log = server_log(engine)
+    log = server_log(engine)[logged:]
     assert "method=oauth" in log and "user=readonly" in log, log[-1500:]
 
     # A person: the token is the person's own, the session is the role's, and the
@@ -387,16 +389,20 @@ def test_R182_token_validator_reaches_provider_over_loopback(engine):
 
     token = application_token(engine)
     assert token_claims(token)["iss"] == ISSUER
-    # The entry is the only way in from outside; the token login does not use it.
+
+
+def test_R182_token_login_does_not_need_the_entry(own_engine):
+    """The entry is the only way in from outside; a token login does not use it:
+    with the entry stopped, a token of the application still opens a session. On an
+    engine of its own, because it stops a part."""
+    engine = own_engine("r182")
+    engine.wait_ready()
+    token = application_token(engine)
     code, out = engine.exec("systemctl", "stop", "entry.service")
     assert code == 0, out
-    try:
-        assert not engine.active("entry.service")
-        code, out = login(engine, token, "readonly")
-        assert code == 0 and "connection succeeded" in out, out
-    finally:
-        engine.exec("systemctl", "start", "entry.service")
-        engine.wait_ready()
+    assert not engine.active("entry.service")
+    code, out = login(engine, token, "readonly")
+    assert code == 0 and "connection succeeded" in out, out
 
 
 def test_R117_no_temporary_administrator_remains(engine):

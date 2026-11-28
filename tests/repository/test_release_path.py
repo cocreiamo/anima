@@ -78,6 +78,8 @@ RELEVANT = [
     "tests/system/conftest.py",
     "mise-tasks/engine/image",
     "components.toml",
+    "mise-tasks/ci/mirror-copy",
+    "tests/ci/test_ci_mirror.py",
     ".github/workflows/system-tests.yml",
     ".github/workflows/promote.yml",
     "mise-tasks/promote/publish",
@@ -121,10 +123,23 @@ def system_test_faults(text):
         faults += [f"{p} is not relevant" for p in RELEVANT if not pattern.search(p)]
         faults += [f"{p} is relevant" for p in IRRELEVANT if pattern.search(p)]
     parts = steps(job)
-    if not parts or "id: changes" not in parts[0]:
-        faults.append("the first step does not decide whether the change is relevant")
+    decide = [i for i, p in enumerate(parts) if "id: changes" in p]
+    if len(decide) != 1:
+        return faults + [
+            "not exactly one step that decides whether the change is relevant"
+        ]
+    before, deciding, after = (
+        parts[: decide[0]],
+        parts[decide[0]],
+        parts[decide[0] + 1 :],
+    )
+    # Only what the decision needs comes before it, and runs no script of its own.
+    if any("run:" in p for p in before):
+        faults.append("a step that runs something comes before the decision")
+    if run_text(deciding).strip() != 'mise run --quiet ci:changes >> "$GITHUB_OUTPUT"':
+        faults.append("the decision is not the command that is tested")
     gate = "steps.changes.outputs.relevant == 'true'"
-    for part in parts[1:]:
+    for part in after:
         if re.search(r"if: failure\(\)", part):
             continue
         if gate not in part:
@@ -172,12 +187,24 @@ def test_R114_system_tests_report_under_one_name_detects_violation():
     )
     assert system_test_faults(good.replace("github.event_name == 'push'", "true"))
     assert system_test_faults(good.replace("actions/cache/restore@", "actions/other@"))
+    assert system_test_faults(good.replace("mise run --quiet ci:changes", "true"))
+    assert system_test_faults(
+        good.replace(
+            "    steps:\n", "    steps:\n      - run: echo before the decision\n", 1
+        )
+    )
+    assert system_test_faults(good.replace("|mise-tasks/ci/", ""))
+    assert system_test_faults(good.replace("|tests/ci/", ""))
 
 
 # ---- R125: the cache of the inner images is refreshed when they changed, and only then -------
 
 
-def cache_faults(text):
+CACHE_LOAD = ROOT / "mise-tasks" / "ci" / "cache-load"
+CACHE_PACK = ROOT / "mise-tasks" / "ci" / "cache-pack"
+
+
+def cache_faults(text, load_task, pack_task):
     """What would keep the cache of the inner images from being refreshed when the
     inner images changed (a cache is immutable: only a new key stores a new one), or
     would refresh it when they did not, or would make the save fail."""
@@ -201,39 +228,69 @@ def cache_faults(text):
         faults.append("the archive is saved although the key already holds it")
     if "steps.pack.outcome == 'success'" not in saves[0]:
         faults.append("the cache is saved without a new archive")
-    loads = [p for p in parts if "podman load" in run_text(p)]
-    if len(loads) != 1 or not re.search(
-        r"^\s*rm -f ~/engine-cache/images\.tar\s*$", run_text(loads[0]), re.MULTILINE
-    ):
+    loads = [p for p in parts if "mise run ci:cache-load" in run_text(p)]
+    if len(loads) != 1:
         faults.append(
-            "the restored archive is not removed after loading: podman save refuses to"
-            " write over an existing archive"
+            "the restored archive is not loaded by the command that is tested"
         )
     elif parts.index(loads[0]) > parts.index(pack):
-        faults.append("the restored archive is removed after the new one is saved")
+        faults.append("the restored archive is loaded after the new one is saved")
+    # podman save refuses to write over an existing archive (PM-010): the command
+    # that loads removes the restored archive, and the one that saves removes any
+    # archive before it saves.
+    if not re.search(r'^rm -f "\$archive"$', load_task, re.MULTILINE):
+        faults.append("the restored archive is not removed after loading")
+    before_save = pack_task.split("\npodman save", 1)[0]
+    if "\npodman save" not in pack_task or not re.search(
+        r'^rm -f "\$dir/images\.tar"$', before_save, re.MULTILINE
+    ):
+        faults.append("an archive in the way is not removed before the save")
+    if "mise run ci:cache-pack" not in run_text(pack):
+        faults.append("the archive is not saved by the command that is tested")
     return faults
 
 
 def test_R125_cache_of_inner_images_refreshed_when_they_changed():
-    """(PM-010) Proves the text of the workflow. That the cache is refreshed is shown only by
-    the first push to `main` that changes the inner images after it was merged."""
-    assert cache_faults(SYSTEM_TESTS.read_text()) == []
+    """(PM-010) Proves the text of the workflow and of the two commands. That the
+    cache is refreshed is shown only by the first push to `main` that changes the
+    inner images after it was merged; that the commands do what the text says is
+    shown by R171."""
+    assert (
+        cache_faults(
+            SYSTEM_TESTS.read_text(), CACHE_LOAD.read_text(), CACHE_PACK.read_text()
+        )
+        == []
+    )
 
 
 def test_R125_cache_of_inner_images_refreshed_when_they_changed_detects_violation():
-    good = SYSTEM_TESTS.read_text()
-    assert cache_faults(good) == []
-    assert cache_faults(good.replace("          rm -f ~/engine-cache/images.tar\n", ""))
-    assert cache_faults(good.replace("cache-hit != 'true'", "cache-hit == 'true'"))
-    assert cache_faults(good.replace("steps.pack.outcome == 'success'", "true"))
+    good, load, pack = (
+        SYSTEM_TESTS.read_text(),
+        CACHE_LOAD.read_text(),
+        CACHE_PACK.read_text(),
+    )
+    assert cache_faults(good, load, pack) == []
+    assert cache_faults(good, load.replace('rm -f "$archive"', "true"), pack)
+    assert cache_faults(good, load, pack.replace('rm -f "$dir/images.tar"', "true"))
+    assert cache_faults(good, load, pack.replace("\npodman save", "\npodman load"))
+    assert cache_faults(good.replace("mise run ci:cache-load", "true"), load, pack)
+    assert cache_faults(good.replace("mise run ci:cache-pack", "true"), load, pack)
     assert cache_faults(
-        good.replace("          restore-keys: system-tests-engine-\n", "")
+        good.replace("cache-hit != 'true'", "cache-hit == 'true'"), load, pack
+    )
+    assert cache_faults(
+        good.replace("steps.pack.outcome == 'success'", "true"), load, pack
+    )
+    assert cache_faults(
+        good.replace("          restore-keys: system-tests-engine-\n", ""), load, pack
     )
     assert cache_faults(
         good.replace(
             "key: system-tests-engine-${{ steps.key.outputs.value }}\n          restore-keys",
             "key: system-tests-engine\n          restore-keys",
-        )
+        ),
+        load,
+        pack,
     )
 
 
