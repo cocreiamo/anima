@@ -231,10 +231,10 @@ def repository_read(path):
 
 
 def written_test_functions():
-    """The tests of the repository and the system tests, by name, with the file
+    """The tests of the repository, the system tests and those of the promotion, with the file
     that defines each (a guard may be a test that starts the engine)."""
     found = {}
-    for directory in ("repository", "system"):
+    for directory in ("repository", "system", "promote"):
         for path in sorted((ROOT / "tests" / directory).glob("test_*.py")):
             for name in defined_function_names_of(path):
                 found[name] = str(path.relative_to(ROOT))

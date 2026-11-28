@@ -10,37 +10,35 @@ Work starts by loading the skill that matches the paths you will touch (table be
 
 <!-- routing:begin -->
 
-| Skill                              | Family     | Work on                                                                                                                                                                       |
-| ---------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `anima-adopting-a-component`       | product    | `components.toml`, `gaps.toml`, `.gitmodules`, `.github/workflows/sync-forks.yml`                                                                                             |
-| `anima-branching-and-releasing`    | product    | `.github/workflows/**`, `.github/rulesets/**`, `.github/release-please-config.json`, `.github/release-please-manifest.json`                                                   |
-| `anima-designing-a-port`           | product    | any design decision                                                                                                                                                           |
-| `anima-designing-for-production`   | product    | any design decision                                                                                                                                                           |
-| `anima-licensing-and-brand`        | product    | `LICENSE`, `LICENSES/**`, `CLA.md`, `PRIVACY.md`, `PLUGIN-EXCEPTION.md`, `TRADEMARKS.md`, `REUSE.toml`                                                                        |
-| `anima-maintaining-a-fork`         | product    | `third_party/**`, `.gitmodules`, `.github/workflows/sync-forks.yml`, `components.toml`                                                                                        |
-| `anima-product-principles`         | product    | any design decision                                                                                                                                                           |
-| `anima-repository-conventions`     | product    | `CONTRIBUTING.md`, `.editorconfig`, `.gitignore`, `.prettierignore`, `.devcontainer/**`, `REUSE.toml`, `MODULE.bazel`, `BUILD.bazel`                                          |
-| `anima-specifying-requirements`    | product    | `model/**`, `tests/**`                                                                                                                                                        |
-| `anima-working-as-an-agent`        | product    | `AGENTS.md`, `agents/**`, `backlog/**`, `backlog.config.yml`, `docs/work/**`, `docs/postmortems/**`, `docs/evaluation/**`, `docs/catalog*`, `skills/**`, `.claude/**`         |
-| `anima-writing-a-decision-record`  | product    | `docs/adr/**`                                                                                                                                                                 |
-| `anima-access-design`              | capability | `engine/access/**`, `config/access/**`                                                                                                                                        |
-| `anima-configuration-design`       | capability | `config/**`, `engine/configure/**`                                                                                                                                            |
-| `anima-database-design`            | capability | `engine/database/**`, `engine/backup/**`, `engine/vectors/**`                                                                                                                 |
-| `anima-entry-design`               | capability | `engine/entry/**`, `config/entry/**`                                                                                                                                          |
-| `anima-image-design`               | capability | `engine/image/**`                                                                                                                                                             |
-| `anima-mail-design`                | capability | `engine/mail/**`, `config/mail/**`                                                                                                                                            |
-| `anima-secrets-design`             | capability | `engine/secrets/**`                                                                                                                                                           |
-| `anima-tech-adrs-madr`             | technology | `docs/adr/**`, `adrs.toml`                                                                                                                                                    |
-| `anima-tech-backlog-md`            | technology | `backlog/**`, `backlog.config.yml`, `docs/work/**`                                                                                                                            |
-| `anima-tech-github-governance`     | technology | `.github/**`                                                                                                                                                                  |
-| `anima-tech-keycloak`              | technology | `third_party/keycloak/**`, `engine/access/**`, `config/access/**`                                                                                                             |
-| `anima-tech-mise`                  | technology | `mise.toml`, `mise.lock`, `mise-tasks/**`, `.mise/**`, `.devcontainer/**`                                                                                                     |
-| `anima-tech-openbao`               | technology | `third_party/openbao/**`, `engine/secrets/**`                                                                                                                                 |
-| `anima-tech-opentofu`              | technology | `**/*.tf`, `third_party/opentofu/**`, `third_party/terraform-provider-postgresql/**`, `third_party/terraform-provider-vault/**`, `third_party/terraform-provider-keycloak/**` |
-| `anima-tech-podman-quadlet-bootc`  | technology | `engine/image/**`, `engine/**/*.container`, `engine/**/*.image`, `engine/**/*.pod`, `engine/**/Containerfile`, `mise-tasks/engine/**`                                         |
-| `anima-tech-postgresql-oauth`      | technology | `third_party/postgres/**`, `third_party/pg_oidc_validator/**`, `engine/database/**`                                                                                           |
-| `anima-tech-sysml-pilot`           | technology | `model/**`, `mise-tasks/model/**`, `tests/repository/sysml_model.py`                                                                                                          |
-| `anima-tech-testcontainers-podman` | technology | `tests/system/**`                                                                                                                                                             |
+- `anima-adopting-a-component` (product): `components.toml`, `gaps.toml`, `.gitmodules`, `.github/workflows/sync-forks.yml`
+- `anima-branching-and-releasing` (product): `.github/workflows/**`, `.github/rulesets/**`, `.github/release-please-config.json`, `.github/release-please-manifest.json`
+- `anima-designing-a-port` (product): any design decision
+- `anima-designing-for-production` (product): any design decision
+- `anima-licensing-and-brand` (product): `LICENSE`, `LICENSES/**`, `CLA.md`, `PRIVACY.md`, `PLUGIN-EXCEPTION.md`, `TRADEMARKS.md`, `REUSE.toml`
+- `anima-maintaining-a-fork` (product): `third_party/**`, `.gitmodules`, `.github/workflows/sync-forks.yml`, `components.toml`
+- `anima-product-principles` (product): any design decision
+- `anima-repository-conventions` (product): `CONTRIBUTING.md`, `.editorconfig`, `.gitignore`, `.prettierignore`, `.devcontainer/**`, `REUSE.toml`, `MODULE.bazel`, `BUILD.bazel`
+- `anima-specifying-requirements` (product): `model/**`, `tests/**`
+- `anima-working-as-an-agent` (product): `AGENTS.md`, `agents/**`, `backlog/**`, `backlog.config.yml`, `docs/work/**`, `docs/postmortems/**`, `docs/evaluation/**`, `docs/catalog*`, `skills/**`, `.claude/**`
+- `anima-writing-a-decision-record` (product): `docs/adr/**`
+- `anima-access-design` (capability): `engine/access/**`, `config/access/**`
+- `anima-configuration-design` (capability): `config/**`, `engine/configure/**`
+- `anima-database-design` (capability): `engine/database/**`, `engine/backup/**`, `engine/vectors/**`
+- `anima-entry-design` (capability): `engine/entry/**`, `config/entry/**`
+- `anima-image-design` (capability): `engine/image/**`
+- `anima-mail-design` (capability): `engine/mail/**`, `config/mail/**`
+- `anima-secrets-design` (capability): `engine/secrets/**`
+- `anima-tech-adrs-madr` (technology): `docs/adr/**`, `adrs.toml`
+- `anima-tech-backlog-md` (technology): `backlog/**`, `backlog.config.yml`, `docs/work/**`
+- `anima-tech-github-governance` (technology): `.github/**`
+- `anima-tech-keycloak` (technology): `third_party/keycloak/**`, `engine/access/**`, `config/access/**`
+- `anima-tech-mise` (technology): `mise.toml`, `mise.lock`, `mise-tasks/**`, `.mise/**`, `.devcontainer/**`
+- `anima-tech-openbao` (technology): `third_party/openbao/**`, `engine/secrets/**`
+- `anima-tech-opentofu` (technology): `**/*.tf`, `third_party/opentofu/**`, `third_party/terraform-provider-postgresql/**`, `third_party/terraform-provider-vault/**`, `third_party/terraform-provider-keycloak/**`
+- `anima-tech-podman-quadlet-bootc` (technology): `engine/image/**`, `engine/**/*.container`, `engine/**/*.image`, `engine/**/*.pod`, `engine/**/Containerfile`, `mise-tasks/engine/**`
+- `anima-tech-postgresql-oauth` (technology): `third_party/postgres/**`, `third_party/pg_oidc_validator/**`, `engine/database/**`
+- `anima-tech-sysml-pilot` (technology): `model/**`, `mise-tasks/model/**`, `tests/repository/sysml_model.py`
+- `anima-tech-testcontainers-podman` (technology): `tests/system/**`
 
 <!-- routing:end -->
 

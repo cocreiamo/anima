@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#MISE description="Release the version a verified commit carries, naming the image published for it"
+#
+# Usage: GITHUB_REPOSITORY=<owner/name> IMAGE=<repository@digest> [EXISTING=true] mise run promote:release <commit sha>
+#
+# The version is read from the release manifest at that commit. Nothing is
+# released when no version is prepared or it is already released; a version
+# with no published image is refused. EXISTING=true says that an earlier run
+# pushed the image and the tag was not moved.
+set -euo pipefail
+
+sha="${1:?usage: promote:release <commit sha>}"
+repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
+image="${IMAGE:-}"
+
+version="$(gh api "repos/$repo/contents/.github/release-please-manifest.json?ref=$sha" \
+  --jq '.content' | base64 --decode | jq -r '."."')"
+if [ "$version" = "0.0.0" ]; then
+  echo "No version prepared yet."
+elif gh release view "v$version" --repo "$repo" >/dev/null 2>&1; then
+  echo "v$version is already released."
+elif [ -n "$image" ]; then
+  notes="Engine image: \`$image\`"
+  if [ "${EXISTING:-}" = "true" ]; then
+    notes="$notes (published by an earlier run; the tag already existed and was not moved, this run's build was not pushed)"
+  fi
+  gh release create "v$version" --repo "$repo" \
+    --target "$sha" --generate-notes --notes "$notes"
+else
+  echo "v$version has no published image: not releasing it." >&2
+  exit 1
+fi
