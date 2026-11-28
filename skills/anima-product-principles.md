@@ -78,4 +78,4 @@ The criteria behind every design decision on Anima, whatever the component. Each
 
 ## Where the result goes
 
-A decision about the architecture goes to a record in `docs/adr/`, and any other decision to the skill that owns it (`anima-writing-a-decision-record`); one recommendation, then the founder's decision, then build. A rule a machine can check goes to `model/anima.sysml` with its test. A limit found in an adopted product goes to `gaps.toml`; how a technology behaves to its technology skill; an event to `docs/postmortems/`; work to do to the backlog. An unwritten test is listed in `tests/pending.toml`, which is generated.
+A decision about the architecture goes to a record in `docs/adr/`, and any other decision to the skill that owns it (`anima-writing-a-decision-record`); one recommendation, then the founder's decision, then build. A rule a machine can check goes to `model/requirements/` with its test. A limit found in an adopted product goes to `gaps.toml`; how a technology behaves to its technology skill; an event to `docs/postmortems/`; work to do to the backlog. An unwritten test is listed in `tests/pending.toml`, which is generated.
