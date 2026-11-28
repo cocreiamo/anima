@@ -32,7 +32,7 @@ settings is `anima-tech-github-governance`.
 5. **Releases come only from `main-green`** (R24). The version and the changelog are prepared on `main` by the `release-please` pull request (`prepare-release.yml`); the tag and the GitHub release are created by the Promote workflow (`promote.yml`) when the commit that carries the version is promoted. Not: a workflow named Release that only prepared a version (it became Prepare release).
 6. **Build once, promote the artifact.** The images published for a release are the ones built and verified in the promotion run, identified by digest; nothing is rebuilt to be released, and a release build restores no cache. The same pinned sources must also produce the same image, bit for bit, so that building again checks what was promoted (R47).
 7. **Environments run released versions only.** Staging and production are given a version and its digests, never a branch or a commit.
-8. **Versions follow Semantic Versioning 2.0.0.** Before 1.0.0 a breaking change raises the minor number and anything else the patch number. A published tag is never moved or reused.
+8. **Versions follow Semantic Versioning 2.0.0.** A published tag is never moved or reused. Until the founder decides otherwise the first release is 0.0.1 and every release stays in 0.0.\*: only the patch number is raised, whatever the commit type, a breaking change included. The release configuration holds it durably: `initial-version` sets the first release (without it release-please proposes 1.0.0 when no release exists yet, whatever the manifest says) and the `always-bump-patch` versioning strategy sets every later one (R110); a one-shot `release-as` is not used.
 9. **When `main` breaks, revert first.** The offending change is reverted and comes back through a new pull request. A failed promotion blocks every later release until `main` is fixed or reverted, which is the intended pressure.
 10. **A workflow is pinned and least-privileged:** actions by commit SHA, minimal `permissions`, no untrusted input in a shell, `zizmor` clean. A workflow that provides a required check also runs in the merge queue.
 11. **Only the founder commits, pushes or changes a repository setting** (`anima-repository-conventions`). A setting that cannot be a file is a founder task in the backlog.
@@ -44,7 +44,7 @@ settings is `anima-tech-github-governance`.
 - Does the change reach `main` through a pull request with a Conventional Commits title?
 - Is the check fast enough for a pull request, or does it belong to the promotion?
 - Does anything rebuild an image that was promoted, or run a branch in an environment?
-- Is the version number consistent with Semantic Versioning before 1.0.0?
+- Does the version stay in 0.0.\* (patch bump only) until the founder decides otherwise?
 
 ## Where the result goes
 
