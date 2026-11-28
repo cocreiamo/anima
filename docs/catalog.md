@@ -104,6 +104,7 @@ Look here before building something. Each section is derived from its source; th
 | R64 | mail delivered through configured service | written |
 | R160 | mirror covers every base image | written |
 | R163 | mirror has least privilege | written |
+| R165 | mirror keeps signatures of signed images | written |
 | R162 | mirror never deletes or moves atag | written |
 | R161 | mirror preserves digests | written |
 | R91 | no bytecode outside cache | written |
@@ -296,6 +297,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
 - R160, mirror covers every base image, at every commit: `test_R160_mirror_covers_every_base_image` (written).
 - R163, mirror has least privilege, at every commit: `test_R163_mirror_has_least_privilege` (written).
+- R165, mirror keeps signatures of signed images, at every commit: `test_R165_mirror_keeps_the_signatures_of_signed_images` (written).
 - R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
 - R161, mirror preserves digests, at every commit: `test_R161_mirror_preserves_digests` (written).
 - R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
