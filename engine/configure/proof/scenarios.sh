@@ -160,8 +160,14 @@ scenario_secret_store_declared() {
     bao() { podman exec -e BAO_ADDR=http://127.0.0.1:8200 -e BAO_TOKEN="$token" "$CFG_SECRETS" bao "$@"; }
     check secret_store_policy "policy identity-provider" bao policy read identity-provider
     check secret_store_machine_auth "approle role identity-provider" bao read auth/approle/role/identity-provider
+    local public_host=${CFG_PUBLIC_URL#*://}
+    public_host=${public_host%%[:/]*}
     check secret_store_certificate_role "role identity-provider restricted to the public host" \
-        test "$(bao read -field=allowed_domains pki/roles/identity-provider)" = "[idp.anima.test]"
+        test "$(bao read -field=allowed_domains pki/roles/identity-provider)" = "[$public_host]"
+    check secret_store_entry_role "role entry signs for the public host" \
+        test -n "$(bao read -field=allowed_domains pki/roles/entry | grep -F "$public_host")"
+    check secret_store_entry_login "the entry's machine login holds no secret" \
+        test "$(bao read -field=bind_secret_id auth/approle/role/entry)" = false
     check secret_store_static_role "static role svc_idp on the database engine" bao read database/static-roles/svc_idp
     check secret_store_no_second_authority "one issuer on the mount made by the first start" \
         test "$(bao list -format=json pki/issuers | jq length)" -eq 1

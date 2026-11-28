@@ -1,30 +1,56 @@
 #!/usr/bin/bash
 # Gets the HTTP entry point's certificate from the secret store's certificate
-# authority, once, at every start of the engine, into memory (/run is a tmpfs).
+# authority, and renews it before it expires: the entry takes a renewed one without
+# a restart (R127, entryCertificateRenewedBeforeExpiry). The same mechanism as the database server's certificate
+# (engine/database/tls-enable, R118, R119): the process stays up between renewals,
+# the lifetime and the share of it after which the certificate is renewed are set by
+# the unit (the thresholds of entryCertificateRenewedBeforeExpiry), and a renewal that fails ends the process with
+# a message that says so: the unit fails, and the engine is not ready.
 #
-# This is the first build of the entry (TASK-86): the certificate is issued by the
-# same role and the same machine authentication as the database server's
-# (engine/database/tls-enable), for the same names (`localhost` and its loopback
-# address), and it is not renewed. Its renewal and its pickup without a restart,
-# and a role of its own with the public host of the installation, are TASK-87.
+# The key and the certificate are ONE file, a PKCS#12 bundle (`server.pfx`), written
+# beside its place and moved over it: a rename is atomic, so the entry never reads a
+# key with another certificate (R127; `anima-entry-design`). Two files replaced one
+# after the other could be read in between by the entry's file watcher.
 #
-# The private key is made here and never leaves the machine: only a signing
-# request goes to the secret store, which is reached on the pod's loopback (plain
-# HTTP, never published) and authenticates this unit by a role that holds no
-# secret. Output, in $ANIMA_ENTRY_TLS_DIR (default /run/anima/entrytls), owned by
-# the entry's user: server.crt, server.key, ca.crt (the authority's certificate, a
-# public document).
+# The names on the certificate are `localhost`, its loopback address and the host of
+# the installation's public URL (R126), signed through a role of the secret store of
+# its own (`entry`), which the configurator declares from the same public URL.
+#
+# The private key is made here and never leaves the machine: only a signing request
+# goes to the secret store, which is reached on the pod's loopback (plain HTTP, never
+# published) and authenticates this unit by a role that holds no secret. Output, in
+# $ANIMA_ENTRY_TLS_DIR (default /run/anima/entrytls), owned by the entry's user:
+# server.pfx, and ca.crt (the authority's certificate, a public document).
 set -euo pipefail
 
 dir=${ANIMA_ENTRY_TLS_DIR:-/run/anima/entrytls}
 owner=${ANIMA_ENTRY_UID:-1011}
 api_host=127.0.0.1
 api_port=8200
-role=database-server
-lifetime=2592000
+role=entry
+
+lifetime=${ANIMA_ENTRY_TLS_LIFETIME_SECONDS:?the unit sets the certificate lifetime}
+percent=${ANIMA_ENTRY_TLS_RENEW_AFTER_PERCENT:?the unit sets the share of it after which to renew}
+public_url=${ANIMA_IDENTITY_PROVIDER_URL:?the unit sets the installation parameter, the public URL}
+
+# The host of the public URL: its name on the certificate (R126).
+host=${public_url#*://}
+host=${host%%[:/]*}
+if [[ $host =~ ^[0-9.]+$ ]]; then
+    dns=localhost
+    ips=127.0.0.1,$host
+    names="DNS:localhost,IP:127.0.0.1,IP:$host"
+else
+    dns=localhost,$host
+    ips=127.0.0.1
+    names="DNS:localhost,DNS:$host,IP:127.0.0.1"
+fi
+[ "$host" != localhost ] || { dns=localhost; names="DNS:localhost,IP:127.0.0.1"; }
 
 umask 0077
 mkdir -p "$dir"
+work=$(mktemp -d /run/anima/entry-certificate.XXXXXX)
+trap 'rm -rf "$work"' EXIT
 
 # post <path> <json> [token]: the response body, for a request without a client library.
 post() {
@@ -48,21 +74,50 @@ post() {
 field() { sed -n "s/.*\"$1\":\"\\([^\"]*\\)\".*/\\1/p" <<<"$2"; }
 unescape() { printf '%b' "$1"; }
 
-openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
-    -keyout "$dir/server.key.new" -out "$dir/server.csr" 2>/dev/null
-login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
-token=$(field client_token "$login")
-[ -n "$token" ] || { echo "entry certificate: no token from the secret store" >&2; exit 1; }
-csr=$(awk '{ printf "%s\\n", $0 }' "$dir/server.csr")
-signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"localhost\",\"alt_names\":\"localhost\",\"ip_sans\":\"127.0.0.1\",\"ttl\":\"${lifetime}s\"}" "$token")
-unescape "$(field certificate "$signed")" >"$dir/server.crt.new"
-unescape "$(field issuing_ca "$signed")" >"$dir/ca.crt.new"
-[ -s "$dir/server.crt.new" ] || { echo "entry certificate: no certificate in the answer" >&2; exit 1; }
-[ -s "$dir/ca.crt.new" ] || { echo "entry certificate: no authority certificate in the answer" >&2; exit 1; }
-rm -f "$dir/server.csr"
-mv "$dir/server.key.new" "$dir/server.key"
-mv "$dir/server.crt.new" "$dir/server.crt"
-mv "$dir/ca.crt.new" "$dir/ca.crt"
-chmod 0644 "$dir/ca.crt"
-chown "$owner:$owner" "$dir/server.key" "$dir/server.crt" "$dir/ca.crt"
+# issue: a new key in memory, a certificate signed for it, both in one file moved
+# into place.
+issue() {
+    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+        -subj "/CN=$host" -addext "subjectAltName=$names" \
+        -keyout "$work/server.key" -out "$work/server.csr" 2>/dev/null
+    local login token csr signed
+    login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
+    token=$(field client_token "$login")
+    [ -n "$token" ] || { echo "entry certificate: no token from the secret store" >&2; return 1; }
+    csr=$(awk '{ printf "%s\\n", $0 }' "$work/server.csr")
+    signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"$host\",\"alt_names\":\"$dns\",\"ip_sans\":\"$ips\",\"ttl\":\"${lifetime}s\"}" "$token")
+    unescape "$(field certificate "$signed")" >"$work/server.crt"
+    unescape "$(field issuing_ca "$signed")" >"$work/ca.crt"
+    [ -s "$work/server.crt" ] || { echo "entry certificate: no certificate in the answer" >&2; return 1; }
+    [ -s "$work/ca.crt" ] || { echo "entry certificate: no authority certificate in the answer" >&2; return 1; }
+    openssl pkcs12 -export -inkey "$work/server.key" -in "$work/server.crt" -passout pass: -out "$work/server.pfx"
+    chmod 0644 "$work/ca.crt"
+    chown "$owner:$owner" "$work/server.pfx" "$work/ca.crt"
+    # The same file system as the final place (memory), so that each move is a rename.
+    cp -p "$work/ca.crt" "$dir/ca.crt.new"
+    cp -p "$work/server.pfx" "$dir/server.pfx.new"
+    mv "$dir/ca.crt.new" "$dir/ca.crt"
+    mv "$dir/server.pfx.new" "$dir/server.pfx"
+}
+
+# A certificate already in place (the memory outlives this process) makes this start
+# a renewal: the word that a failure reports.
+what=issuance
+[ -s "$dir/server.pfx" ] && what=renewal
+
+trap 'exit 0' TERM
+while true; do
+    # In a subshell, so that the exit of `post` ends the attempt and not this loop.
+    status=0
+    (issue) || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "entry certificate $what failed: the certificate in place is the last one the secret store signed" >&2
+        exit 1
+    fi
+    what=renewal
+    # Ready once the first certificate is in place; the entry starts after this.
+    systemd-notify --ready 2>/dev/null || true
+    # Waits in the background so that a stop is taken at once.
+    sleep $((lifetime * percent / 100)) &
+    wait $!
+done

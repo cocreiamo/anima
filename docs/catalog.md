@@ -67,10 +67,11 @@ Look here before building something. Each section is derived from its source; th
 | R1 | engine built from pinned sources | written |
 | R125 | engine image cache refreshed | written |
 | R52 | engine parts validated without starting | written |
+|  | entry certificate renewed before expiry | written |
 | R128 | entry forwards only declared prefixes | written |
 | R129 | entry never forwards management | written |
 | R132 | entry overwrites forwarded header | written |
-| R127 | entry takes renewed certificate without restart | pending |
+| R127 | entry takes renewed certificate without restart | written |
 | R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
@@ -142,6 +143,7 @@ Look here before building something. Each section is derived from its source; th
 | R41 | probes and single readiness | written |
 | R66 | profile differs only in selection and data | pending |
 | R170 | promotion steps are tested commands | written |
+|  | public url declared once | written |
 | R115 | publish only what was verified | written |
 | R16 | published images attested | pending |
 | R98 | readiness negative when configurator fails | written |
@@ -175,6 +177,7 @@ Look here before building something. Each section is derived from its source; th
 | R57 | texts do not age | written |
 | R33 | token for other client refused | pending |
 | R34 | token rules require scope | written |
+|  | token validator reaches provider over loopback | written |
 | R26 | unattended start | pending |
 | R102 | undeclared client gets no role scope | written |
 | R101 | undeclared identity never holds role scope | written |
@@ -369,6 +372,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
 - R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
 - R170, promotion steps are tested commands, at every commit: `test_R170_promotion_steps_are_calls_to_tested_commands` (written).
+- public url declared once, at every commit: `test_public_url_declared_once` (written).
 - R115, publish only what was verified, at every commit: `test_R115_commands_run_through_mise` (written).
 - R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
 - R171, release commands decide as stated, at every commit: `test_R171_release_commands_decide_as_stated` (written).

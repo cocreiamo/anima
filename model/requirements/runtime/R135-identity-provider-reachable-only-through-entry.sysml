@@ -10,6 +10,11 @@ package R135 {
 
     satisfy identityProviderReachableOnlyThroughEntry by anima.engine;
 
+    verification def test_R135_forged_forwarded_header_not_trusted {
+        subject sys : System;
+        objective { verify identityProviderReachableOnlyThroughEntry; }
+    }
+
     verification def test_R135_identity_provider_reachable_only_through_entry {
         subject sys : System;
         objective { verify identityProviderReachableOnlyThroughEntry; }

@@ -679,3 +679,14 @@ workaround = ".github/workflows/mirror-base-images.yml (R160 to R163) copies the
 upstream = "not reported"
 resolved_when = "Every build of the engine pulls its base images from the mirror by the digest the mirror holds, and the update bot proposes only digests that exist there (R164)."
 status = "open"
+
+[[gap]]
+id = "GAP-061"
+component = "pg_oidc_validator"
+version = "1.1.0, read in the pinned source 2026-11-28"
+summary = "The validator has no setting for a trust anchor: it fetches the discovery document and the keys with libcurl and its compiled-in system store, and the library does not read the CA-file environment variable. The engine's own certificate authority therefore cannot be given to it, so it cannot fetch over the entry (TLS with the engine authority's certificate)."
+impact = "The validator cannot use the public URL, which is the entry's. The engine works around it with an internal channel."
+workaround = "The validator fetches over the pod's loopback from the identity provider directly (`pg_oidc_validator.discovery_url_override`, rendered next to the access rules), and the provider publishes back-channel URLs that follow the request (`--hostname-backchannel-dynamic`), so the keys are fetched there too (tokenValidatorReachesProviderOverLoopback). The issuer stays the public URL. Token logins do not depend on the entry."
+upstream = "not reported"
+resolved_when = "The validator accepts a setting that names a certificate authority file (TASK-100), and the engine may give it the engine authority's certificate."
+status = "open"

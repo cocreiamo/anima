@@ -6,7 +6,7 @@
 # hand. The one installation parameter they need is the identity provider's
 # public URL (ANIMA_IDENTITY_PROVIDER_URL, no default).
 #
-# Output: .cache/configure/pg_hba.conf and .cache/configure/pg_ident.conf
+# Output: .cache/configure/pg_hba.conf, pg_ident.conf and validator.conf
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -23,6 +23,8 @@ render() {
 
 render access_rules >"$out/pg_hba.conf.new"
 render identity_map >"$out/pg_ident.conf.new"
+render validator_settings >"$out/validator.conf.new"
 mv "$out/pg_hba.conf.new" "$out/pg_hba.conf"
 mv "$out/pg_ident.conf.new" "$out/pg_ident.conf"
-echo "configure: wrote $out/pg_hba.conf and $out/pg_ident.conf"
+mv "$out/validator.conf.new" "$out/validator.conf"
+echo "configure: wrote $out/pg_hba.conf, $out/pg_ident.conf and $out/validator.conf"

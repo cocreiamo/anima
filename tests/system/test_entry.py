@@ -17,18 +17,21 @@ import ssl
 import subprocess
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import CACHE
+from conftest import CACHE, PUBLIC_URL
 from engine_logic import (
     OTHER_FORWARDING_HEADERS,
     certificate_chain_faults,
+    forwarded_trust_faults,
     forwarding_faults,
     listener_faults,
     published_faults,
     routing_faults,
 )
+from test_tokens import Inside
 
 ENTRY_PORT = 8443
 CERTIFICATE_DIRECTORY = "/run/anima/entrytls"
@@ -369,8 +372,9 @@ def test_R126_entry_terminates_tls_with_engine_certificate(engine):
         check=False,
     )
     assert shown.returncode == 0, shown.stderr
+    host = urllib.parse.urlsplit(PUBLIC_URL).hostname
     faults = certificate_chain_faults(
-        shown.stdout, AUTHORITY, ["localhost", "127.0.0.1"]
+        shown.stdout, AUTHORITY, sorted({"localhost", "127.0.0.1", host})
     )
     assert not faults, (faults, shown.stdout)
     # Not trusted by anything but the engine's authority: the system's roots refuse it.
@@ -379,9 +383,10 @@ def test_R126_entry_terminates_tls_with_engine_certificate(engine):
         system = ssl.create_default_context()
         system.minimum_version = ssl.TLSVersion.TLSv1_2
         system.wrap_socket(raw, server_hostname="localhost")
-    # The serving process holds that certificate and key files.
+    # The serving process holds the certificate and its key as one file, and the
+    # authority's certificate (R127).
     code, out = engine.exec("ls", CERTIFICATE_DIRECTORY)
-    assert code == 0 and "ca.crt" in out and "server.crt" in out, out
+    assert code == 0 and "ca.crt" in out and "server.pfx" in out, out
 
 
 def test_R135_identity_provider_reachable_only_through_entry(engine):
@@ -438,3 +443,43 @@ def test_R135_identity_provider_reachable_only_through_entry(engine):
     entry = EngineEntry(engine)
     status, text = entry.get("/realms/anima/.well-known/openid-configuration")
     assert status == 200 and '"issuer"' in text, (status, text[:200])
+
+
+def test_R135_forged_forwarded_header_not_trusted(engine):
+    """A forged forwarding header sent to the identity provider is not trusted. A
+    request from an address that is not the loopback cannot be sent: the provider
+    listens on the loopback only and no other address accepts a connection (the
+    test of R135 above). What is shown here is the rest of the chain: the provider
+    trusts the loopback and nothing else, and a forged header sent through the
+    entry, the only way in, does not reach the addresses the provider publishes. A
+    control shows that the provider does follow the header from the loopback, so
+    that it is the entry's overwrite that keeps the forged host out."""
+    forged = "forged.example"
+    entry = EngineEntry(engine)
+    path = "/realms/anima/.well-known/openid-configuration"
+    sent = {
+        "Forwarded": {"Forwarded": f"for=6.6.6.6;host={forged};proto=https"},
+        "X-Forwarded-*": {
+            "X-Forwarded-Host": forged,
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-For": "6.6.6.6",
+        },
+    }
+    documents = {}
+    for name, headers in sent.items():
+        status, text = entry.get(path, headers)
+        assert status == 200, (name, status, text[:200])
+        documents[name] = json.loads(text)
+    code, out = engine.exec(
+        "podman", "inspect", "--format", "{{json .Config.Cmd}}", "access"
+    )
+    assert code == 0, out
+    faults = forwarded_trust_faults(json.loads(out), documents, forged)
+    assert not faults, faults
+
+    control = Inside(engine)
+    status, text = control.request(
+        f"{control.base}{path}",
+        headers={"Forwarded": f"for=6.6.6.6;host={forged};proto=https"},
+    )
+    assert status == 200 and forged in text, (status, text[:300])

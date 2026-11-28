@@ -9,7 +9,8 @@
 #   converge.sh plan-json           plan, print the plan as JSON on standard output, apply nothing
 #   converge.sh state-json          print the decrypted state (to check it holds no secret)
 #   converge.sh render <name>       print the database server's access rules
-#                                   (access_rules) or identity map (identity_map),
+#                                   (access_rules), identity map (identity_map) or the
+#                                   token validator's settings (validator_settings),
 #                                   derived from the declaration of the roles
 #
 # Secrets are files of the host's secret mechanism, read into the environment of
@@ -45,7 +46,7 @@ read_secret() {
 export TF_VAR_identity_provider_url="$ANIMA_IDENTITY_PROVIDER_URL"
 
 if [ "$mode" = render ]; then
-    name=${2:?usage: converge.sh render access_rules|identity_map}
+    name=${2:?usage: converge.sh render access_rules|identity_map|validator_settings}
     mkdir -p "$work/render"
     tofu -chdir="$root/rendering" init -input=false -no-color >&2
     tofu -chdir="$root/rendering" apply -input=false -no-color -auto-approve -state="$work/render/state" >"$work/render/apply.log" || { cat "$work/render/apply.log" >&2; exit 1; }

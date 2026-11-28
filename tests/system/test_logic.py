@@ -11,7 +11,9 @@ from engine_logic import (
     container_phase,
     form_submission,
     inner_start_times,
+    internal_channel_faults,
     issuer_faults,
+    login_faults,
     on_hosted_runner,
     production_faults,
     regress_tests_passed,
@@ -107,6 +109,34 @@ def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
     assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")
 
 
+def test_entry_certificate_renewed_before_expiry_detects_violation():
+    """The same decision as the database server's (R118), for the entry's
+    certificate: another one, outliving the first, taken in time, no restart of
+    the entry."""
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t1") == []
+    assert renewal_faults(FIRST, FIRST, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 1000.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t2")
+
+
+def test_entry_certificate_renewed_before_expiry_failure_leaves_engine_not_ready_detects_violation():
+    """The answer after a failed renewal of the entry's certificate must be
+    negative and say that the certificate could not be renewed."""
+    said = "not ready\nentry-certificate.service: failed\nentry certificate renewal failed: refused"
+    assert renewal_failure_faults("unhealthy", said) == []
+    assert renewal_failure_faults("healthy", said)
+    assert renewal_failure_faults("unhealthy", "")
+    assert renewal_failure_faults("unhealthy", "not ready\nentry.service: failed")
+
+
+def test_token_validator_reaches_provider_over_loopback_without_the_entry_detects_violation():
+    """A login that fails, or that does not say it succeeded, is a fault."""
+    assert login_faults(0, "connection succeeded") == []
+    assert login_faults(1, "connection succeeded")
+    assert login_faults(0, "")
+    assert login_faults(1, "connection to database failed")
+
+
 LOGIN_PAGE = (
     '<form id="kc-form-login" action="http://localhost:8080/a?x=1&amp;y=2" method="post">'
     '<input name="username" type="text"/><input name="password" type="password"/>'
@@ -166,6 +196,28 @@ def test_R116_issuer_is_the_configured_public_url_detects_violation():
     assert issuer_faults({"localhost:8080": url, "127.0.0.1:41000": other}, url)
     assert issuer_faults({"localhost:8080": url}, url)
     assert issuer_faults({}, url)
+
+
+def test_token_validator_reaches_provider_over_loopback_detects_violation():
+    """The setting, the issuer of the document and the address of the key set must
+    each be right. The last is the observed failure: a provider that is not told to
+    follow the request publishes the key set at the public https address, which the
+    validator cannot trust (it has no trust-anchor setting)."""
+    internal = "http://127.0.0.1:8080"
+    issuer = "https://idp.example:8443/realms/anima"
+    override = f"{internal}/realms/anima"
+    right = {
+        "issuer": issuer,
+        "jwks_uri": f"{internal}/realms/anima/protocol/openid-connect/certs",
+    }
+    assert internal_channel_faults(override, right, internal, issuer) == []
+    public_keys = {**right, "jwks_uri": f"{issuer}/protocol/openid-connect/certs"}
+    assert internal_channel_faults(override, public_keys, internal, issuer)
+    request_issuer = {**right, "issuer": f"{internal}/realms/anima"}
+    assert internal_channel_faults(override, request_issuer, internal, issuer)
+    assert internal_channel_faults("", right, internal, issuer)
+    assert internal_channel_faults(issuer, right, internal, issuer)
+    assert internal_channel_faults(override, {}, internal, issuer)
 
 
 def test_R117_no_temporary_administrator_remains_detects_violation():

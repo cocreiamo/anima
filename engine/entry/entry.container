@@ -1,10 +1,15 @@
 [Unit]
 Description=Anima HTTP entry point: the one way in for HTTP, forwarding only the declared prefixes of the identity provider (ADR 0008)
-# The listen address (written by anima-listen), the certificate (issued by the
-# secret store's authority, once: TASK-86), and the identity provider it forwards
-# to. The entry starts last of the pod's containers (two `podman run` into one
-# pod at the same moment were seen to hang each other).
-Requires=anima-listen-container.service anima-listen-host.service entry-certificate.service
+# The listen address (written by anima-listen), the certificate (issued and renewed
+# by the secret store's authority, entry-certificate.service), and the identity
+# provider it forwards to. The entry starts last of the pod's containers (two
+# `podman run` into one pod at the same moment were seen to hang each other).
+# The certificate is wanted, not required: a renewal that fails stops
+# entry-certificate.service, and the entry must keep serving the certificate in place
+# (the readiness target says the engine is not ready, entryCertificateRenewedBeforeExpiry), and it takes a renewed
+# one without a restart (R127).
+Requires=anima-listen-container.service anima-listen-host.service
+Wants=entry-certificate.service
 After=anima-listen-container.service anima-listen-host.service entry-certificate.service database.service secrets.service database-tls.service database-prepare.service access.service
 
 [Container]
@@ -21,9 +26,10 @@ NoNewPrivileges=true
 Tmpfs=/tmp:rw,mode=1777
 Volume=/run/anima/entrytls:/run/anima/entrytls:ro
 # The listener and its certificate are configuration of the entry, not code of the
-# host program: the address is the one the way of starting gives (entry.env).
-Environment=Kestrel__Endpoints__Https__Certificate__Path=/run/anima/entrytls/server.crt
-Environment=Kestrel__Endpoints__Https__Certificate__KeyPath=/run/anima/entrytls/server.key
+# host program: the address is the one the way of starting gives (entry.env). The key
+# and the certificate are one file, so that a renewal replaces them as one and the
+# entry's file watcher never reads a key with another's certificate (R127).
+Environment=Kestrel__Endpoints__Https__Certificate__Path=/run/anima/entrytls/server.pfx
 # Startup, liveness and readiness: the listener accepts a connection.
 HealthStartupCmd=/usr/local/bin/entry-check
 HealthStartupInterval=2s
