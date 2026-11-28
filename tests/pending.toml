@@ -17,7 +17,6 @@ pending = [
   "test_R19_vector_search_in_every_database",
   "test_R20_backup_restores_into_empty_system",
   "test_R23_images_for_both_architectures",
-  "test_R24_release_only_from_verified_commit",
   "test_R26_unattended_start",
   "test_R27_idp_role_confined_to_its_database",
   "test_R31_service_roles_internal_token_roles_by_token",
