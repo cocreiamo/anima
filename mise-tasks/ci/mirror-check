@@ -9,7 +9,7 @@
 # the registry: a register entry added after the last copy, a package that is
 # private, a digest that was never copied. It runs after the copies in the mirror
 # workflow and before any build (the system tests, the promotion), so that the
-# fault shows there and not as a refusal in the middle of a build (R196, TASK-96).
+# fault shows there and not as a refusal in the middle of a build (mirrorHoldsEveryPin, TASK-96).
 # For a registry on a development machine: ANIMA_MIRROR_INSECURE=1 (plain HTTP).
 import json
 import os

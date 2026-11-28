@@ -190,7 +190,7 @@ def test_R165_signed_image_is_copied_with_its_signatures_detects_violation(
     assert [t for t in store.tags(mirror) if t.endswith(".sig")] == []
 
 
-# ---- R196: the mirror holds every pin of the register --------------------------------------------
+# ---- the mirror holds every pin of the register --------------------------------------------
 
 
 def register_of(path, host, entries):
@@ -209,7 +209,7 @@ def register_of(path, host, entries):
 CHECK_ENV = {"ANIMA_MIRROR_INSECURE": "1"}
 
 
-def test_R196_mirror_holds_every_pin(store, tmp_path):
+def test_mirror_holds_every_pin(store, tmp_path):
     """Proves, against a registry, that the check passes when the mirror holds the
     digest that the register pins for each image, and that the check is run after
     the copies of the mirror workflow, before the builds of the system tests and by
@@ -234,7 +234,7 @@ def test_R196_mirror_holds_every_pin(store, tmp_path):
     assert verify.index("ci:mirror-check") < verify.index("engine:test")
 
 
-def test_R196_mirror_holds_every_pin_detects_violation(store, tmp_path):
+def test_mirror_holds_every_pin_detects_violation(store, tmp_path):
     """A digest that the mirror does not hold, a package that does not exist, a
     registry that does not answer and an empty register each fail, and the failure
     names the image."""

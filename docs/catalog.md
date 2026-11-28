@@ -117,7 +117,7 @@ Look here before building something. Each section is derived from its source; th
 | R176 | mirror copy leaves the mirror as specified | written |
 | R160 | mirror covers every base image | written |
 | R163 | mirror has least privilege | written |
-| R196 | mirror holds every pin | written |
+|  | mirror holds every pin | written |
 | R165 | mirror keeps signatures of signed images | written |
 | R162 | mirror never deletes or moves atag | written |
 | R175 | mirror plan comes from the register | written |
@@ -351,7 +351,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R176, mirror copy leaves the mirror as specified, at every commit: `test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag` (written).
 - R160, mirror covers every base image, at every commit: `test_R160_mirror_covers_every_base_image` (written).
 - R163, mirror has least privilege, at every commit: `test_R163_mirror_has_least_privilege` (written).
-- R196, mirror holds every pin, when an image is promoted: `test_R196_mirror_holds_every_pin` (written).
+- mirror holds every pin, when an image is promoted: `test_mirror_holds_every_pin` (written).
 - R165, mirror keeps signatures of signed images, at every commit: `test_R165_mirror_keeps_the_signatures_of_signed_images` (written).
 - R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
 - R175, mirror plan comes from the register, at every commit: `test_R175_mirror_plan_comes_from_the_register` (written).

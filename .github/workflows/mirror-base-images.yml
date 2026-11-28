@@ -28,7 +28,7 @@ name: Mirror base images
 #
 # The builds read the mirror without credentials, so its packages must be public
 # (all 13 were on 2026-11-28); the last job checks that the mirror holds every pin
-# of the register, read that way (R196).
+# of the register, read that way (requirement mirrorHoldsEveryPin).
 
 on:
   schedule:
@@ -103,7 +103,7 @@ jobs:
 
   check:
     # After the copies: the mirror holds every pin of the register, read without
-    # credentials as a build reads it (R196). It holds no write permission and
+    # credentials as a build reads it (requirement mirrorHoldsEveryPin). It holds no write permission and
     # fails loudly here rather than as a refusal in the middle of a build.
     name: Check the mirror holds every pin
     needs: mirror
