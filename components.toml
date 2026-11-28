@@ -166,7 +166,7 @@ digest = "sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a
 [[component]]
 name = "ubi9"
 role = "base of the identity provider's image: the stage that installs its packages (the upstream container file's own base)"
-version = "9.9"
+version = "9.9-1795197514"
 license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9"
 image = "registry.access.redhat.com/ubi9"
