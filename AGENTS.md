@@ -63,6 +63,7 @@ Work starts by loading the skill that matches the paths you will touch (table be
 - A text states a version or a measured number only at the register or threshold that pins it or as dated evidence (`anima-specifying-requirements`).
 - A generated file is never edited by hand: change its source and run `mise run generate`. `mise run generate:list` prints them; the agent settings refuse edits to them, to `third_party/` and to lock files.
 - A decision record is only for the architecture of the product; how to write one is the skill `anima-writing-a-decision-record`. Everything else (how we work, legal and brand, tooling, principles) is a rule of a skill.
+- A defect is solved at its root: state the root cause and its class, fix the instance if cheap, bring the design changes that would remove the class to the founder for approval (`anima-working-as-an-agent`).
 - Something that went wrong is a postmortem, closed only by a protection that exists; a defect of an adopted technology is a gap; how a technology behaves is a rule of its skill. Write the lesson back in the same change.
 - Every check is a requirement in the model with its test and its `_detects_violation` companion; a limit is a threshold in the model.
 
