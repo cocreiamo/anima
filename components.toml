@@ -229,11 +229,11 @@ digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4
 [[tool_image]]
 name = "eclipse-temurin"
 role = "build stage of the identity provider's image: the Java toolchain that compiles it"
-version = "21-jdk"
+version = "27-jdk"
 license = "GPL-2.0-only WITH Classpath-exception-2.0"
 upstream = "https://github.com/adoptium/containers"
 image = "docker.io/library/eclipse-temurin"
-digest = "sha256:8ad118b146aa92da815b576441acd6b42b38236797ad0b6edc8c200b85bb0734"
+digest = "sha256:f67511a7888677dbc4fb64ee6f17f9237c24d2b110f65a61716a3b516b6b3fa8"
 
 [[tool_image]]
 name = "golang"
