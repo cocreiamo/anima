@@ -776,6 +776,16 @@ package Anima {
                  * travels in clear. */
             subject engine : Engine;
         }
+        requirement <'R118'> certificateRenewedBeforeExpiry {
+            doc /* The certificate that the database server presents shall be renewed, from the secret store's authority and with no restart of the server, once the share of its lifetime given by renewAfterPercent has passed, and so before it expires. */
+            subject engine : Engine;
+            attribute certificateLifetime : ISQ::DurationValue = 2592000 [SI::s];
+            attribute renewAfterPercent : ScalarValues::Integer = 66;
+        }
+        requirement <'R119'> failedRenewalLeavesEngineNotReady {
+            doc /* A renewal of the database server's certificate that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
+            subject engine : Engine;
+        }
         requirement <'R30'> nothingReachableByDefault {
             doc /* Unless the configuration declares otherwise, no service of
                  * the engine shall be reachable from outside the machine. */
@@ -1004,6 +1014,8 @@ package Anima {
     satisfy Runtime::databaseServerDependsOnStandardIssuerOnly by anima.engine.postgresql;
     satisfy Runtime::superuserLocalOnly by anima.engine.postgresql;
     satisfy Runtime::encryptedConnectionsOnly by anima.engine;
+    satisfy Runtime::certificateRenewedBeforeExpiry by anima.engine;
+    satisfy Runtime::failedRenewalLeavesEngineNotReady by anima.engine;
     satisfy Runtime::passesUpstreamRegressionSuite by anima.engine.postgresql;
     satisfy Runtime::rolesDeclaredWithIdentities by anima;
     satisfy Runtime::nothingReachableByDefault by anima.engine;
@@ -1130,6 +1142,14 @@ package Anima {
         verification def test_R15_encrypted_connections_only {
             subject sys : System;
             objective { verify Runtime::encryptedConnectionsOnly; }
+        }
+        verification def test_R118_certificate_renewed_before_expiry {
+            subject sys : System;
+            objective { verify Runtime::certificateRenewedBeforeExpiry; }
+        }
+        verification def test_R119_failed_renewal_leaves_engine_not_ready {
+            subject sys : System;
+            objective { verify Runtime::failedRenewalLeavesEngineNotReady; }
         }
         verification def test_R16_published_images_attested {
             subject tools : Toolchain;

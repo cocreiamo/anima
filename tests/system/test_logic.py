@@ -7,9 +7,12 @@ import json
 
 from engine_logic import (
     audit_names_person,
+    certificate_facts,
     container_phase,
     form_submission,
     regress_tests_passed,
+    renewal_failure_faults,
+    renewal_faults,
     secret_store_storage_stage,
 )
 
@@ -61,6 +64,40 @@ def test_R42_abrupt_stop_in_secret_store_first_start_recovers_detects_violation(
     assert secret_store_storage_stage(marked) == "self-initialising"
     assert secret_store_storage_stage(["/core/root-key"]) == "unknown"
     assert secret_store_storage_stage(["/logical/x/y"]) == "unknown"
+
+
+CERTIFICATE = "serial=0A1B\nnotAfter=Nov 28 12:00:00 2026 GMT\n"
+FIRST = {"serial": "0A1B", "not_after": 1000.0}
+SECOND = {"serial": "0C2D", "not_after": 1600.0}
+
+
+def test_R118_certificate_renewed_before_expiry_detects_violation():
+    """A renewal counts only when the certificate is another one, outliving the
+    first, taken before the first expired, with no restart of the server."""
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t1") == []
+    assert renewal_faults(FIRST, FIRST, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, {**SECOND, "not_after": 900.0}, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 1000.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t2")
+    assert certificate_facts(CERTIFICATE) == {
+        "serial": "0A1B",
+        "not_after": 1795867200.0,
+    }
+    assert certificate_facts("") is None
+    assert certificate_facts("serial=0A1B\nnotAfter=never\n") is None
+    assert certificate_facts("notAfter=Nov 28 12:00:00 2026 GMT\n") is None
+
+
+def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
+    """The answer after a failed renewal must be negative and say why: a ready
+    answer, a silent one and one that names another fault are not."""
+    said = (
+        "not ready\ndatabase-tls.service: failed\ncertificate renewal failed: refused"
+    )
+    assert renewal_failure_faults("unhealthy", said) == []
+    assert renewal_failure_faults("healthy", said)
+    assert renewal_failure_faults("unhealthy", "")
+    assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")
 
 
 LOGIN_PAGE = (
