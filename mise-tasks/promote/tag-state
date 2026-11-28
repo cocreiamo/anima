@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#MISE description="Ask a registry whether an image tag exists: prints exists, absent or unknown (and fails on unknown)"
+#
+# Usage: mise run promote:tag-state <reference with a tag>
+#
+# Three answers, not two (PM-013). `podman manifest inspect` takes a bare
+# reference: with a `docker://` prefix podman 4.9.3 looks the name up among
+# local images and always fails. Only the registry's own "manifest unknown" or
+# "name unknown" means the tag is absent; any other failure (no network, 401,
+# 403) is unknown, and a tag is never pushed over one that may exist.
+# ANIMA_REGISTRY_INSECURE=1 allows a registry without TLS (the tests').
+set -euo pipefail
+
+ref="${1:?usage: promote:tag-state <reference with a tag>}"
+flags=()
+[ "${ANIMA_REGISTRY_INSECURE:-}" = "1" ] && flags+=(--tls-verify=false)
+
+rc=0
+err="$(podman manifest inspect "${flags[@]}" "$ref" 2>&1 >/dev/null)" || rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo exists
+elif printf '%s' "$err" | grep -Eiq 'manifest unknown|name unknown'; then
+  echo absent
+else
+  echo "Cannot tell whether $ref exists: $err" >&2
+  echo unknown
+  exit 1
+fi

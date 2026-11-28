@@ -109,12 +109,12 @@ class Provider:
         self.base = f"https://127.0.0.1:{engine.container.get_exposed_port(8443)}"
         code, authority = engine.exec("cat", "/run/anima/entrytls/ca.crt")
         assert code == 0 and "BEGIN CERTIFICATE" in authority, authority
+        context = ssl.create_default_context(cadata=authority)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         jar = self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(jar),
-            urllib.request.HTTPSHandler(
-                context=ssl.create_default_context(cadata=authority)
-            ),
+            urllib.request.HTTPSHandler(context=context),
             _NoRedirect,
         )
 

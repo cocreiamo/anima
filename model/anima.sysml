@@ -577,13 +577,64 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R166'> postmortemNamesRootAndClassOptions {
+            doc /* Every postmortem numbered from the number held by this requirement shall state its root cause with the evidence, its class and the earlier occurrences of the class, the design options that would remove the class and the decision taken on them, each in a section that is not empty. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+            attribute firstRootedPostmortem : ScalarValues::Integer = 14;
+        }
+        requirement <'R167'> spikeBriefStatesWhyNoTestAnswers {
+            doc /* Every task whose role is spike shall carry in its brief a non-empty line stating why a test inside the task cannot answer the question, so that a spike is kept only when its answer cannot be obtained by a test. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R164'> everyBuildPullsFromTheMirror {
             doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R170'> promotionStepsAreTestedCommands {
+            doc /* Every step of every workflow of the repository that does something, other than the login to the registry, shall be one call to a command of the repository, with literal or environment arguments and no choice, parsing or sequencing of its own, and every such command shall be run by a test against the real tools (the container runtime, the version control, a registry; only the platform's own interface may be replaced by a recorded answer), which the automated verification of the engine image runs on every change to them. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R171'> releaseCommandsDecideAsStated {
+            doc /* The commands that decide and record a release shall read the version prepared at the verified commit, shall release nothing when none is prepared, when it is already released or when no image was published for it, shall name the published image by digest in the release, and shall move the green branch only forward. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R172'> changeFilterDecidesFromTheComparison {
+            doc /* The decision whether a change touches the engine shall be taken from the platform's comparison of the change with its base, counting every page of the answer and a renamed file by both its names; without a base the change shall count as touching it; and when the comparison cannot be obtained or read the decision shall fail, never answer that nothing changed. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R173'> innerImageCacheKeyFollowsItsInputs {
+            doc /* The key of the cache of the inner images shall depend on exactly the pins of the submodules and the files that those images are made of, and the command that computes it shall fail when those inputs are absent. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R174'> innerImageCacheRoundTrips {
+            doc /* The inner images shall be saved as one archive that replaces any earlier archive and shall be loaded back from it, and the commands that save and load shall fail when an image was not built or the archive cannot be read. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R175'> mirrorPlanComesFromTheRegister {
+            doc /* The plan of the mirror shall list every image of the register of components with its name, address, tag, digest and mirror package, shall name the copy tool by its digest from the register, and shall fail when the register has no copy tool. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R176'> mirrorCopyLeavesTheMirrorAsSpecified {
+            doc /* The command that copies an image into the mirror shall, run against a registry, leave the mirror holding the digest that the upstream tag names and the pinned digest, each under its own digest and reachable by its tags, shall move no tag that exists, and shall fail, writing nothing wrong, when the upstream no longer holds what it was asked to copy, when a mirror tag that names a digest holds another image, and when the registry does not answer. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R177'> forkSyncPassesItsArgumentsAndFailsLoudly {
+            doc /* The command that brings a branch of a fork up to date with its upstream shall hand the fork, the upstream and the branch to the platform's tool and shall fail with the tool's own message when the tool refuses, and when it is not given all three. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
-            doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
+            doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources, the commands of the promotion or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -593,7 +644,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R115'> publishOnlyWhatWasVerified {
-            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. A version tag already in the registry shall never be pushed over: the promotion shall ask the registry whether the tag exists, shall treat only the registry's own answer that it does not as permission to push, and shall stop when the registry cannot say. */
+            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. A version tag already in the registry shall never be pushed over: the promotion shall ask the registry whether the tag exists, shall treat only the registry's own answer that it does not as permission to push, and shall stop when the registry cannot say. The promotion shall take the loaded image from what the runtime prints on loading and compare its id with the one that passed, and shall read the digest of a tag that already exists from the registry, never from local storage. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1809,9 +1860,49 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::mirrorKeepsSignaturesOfSignedImages; }
         }
+        verification def test_R166_postmortem_names_root_and_class_options {
+            subject tools : Toolchain;
+            objective { verify Day0::postmortemNamesRootAndClassOptions; }
+        }
+        verification def test_R167_spike_brief_states_why_no_test_answers {
+            subject tools : Toolchain;
+            objective { verify Day0::spikeBriefStatesWhyNoTestAnswers; }
+        }
         verification def test_R164_every_build_pulls_from_the_mirror {
             subject tools : Toolchain;
             objective { verify Day0::everyBuildPullsFromTheMirror; }
+        }
+        verification def test_R170_workflow_steps_call_tested_commands {
+            subject tools : Toolchain;
+            objective { verify Day0::promotionStepsAreTestedCommands; }
+        }
+        verification def test_R172_change_filter_decides_from_the_comparison {
+            subject tools : Toolchain;
+            objective { verify Day0::changeFilterDecidesFromTheComparison; }
+        }
+        verification def test_R173_cache_key_follows_what_the_inner_images_are_made_of {
+            subject tools : Toolchain;
+            objective { verify Day0::innerImageCacheKeyFollowsItsInputs; }
+        }
+        verification def test_R174_inner_images_survive_a_round_trip_through_the_cache {
+            subject tools : Toolchain;
+            objective { verify Day0::innerImageCacheRoundTrips; }
+        }
+        verification def test_R175_mirror_plan_comes_from_the_register {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorPlanComesFromTheRegister; }
+        }
+        verification def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorCopyLeavesTheMirrorAsSpecified; }
+        }
+        verification def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool {
+            subject tools : Toolchain;
+            objective { verify Day0::forkSyncPassesItsArgumentsAndFailsLoudly; }
+        }
+        verification def test_R165_signed_image_is_copied_with_its_signatures {
+            subject tools : Toolchain;
+            objective { verify Day0::mirrorKeepsSignaturesOfSignedImages; }
         }
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;
@@ -1828,6 +1919,22 @@ package Anima {
         verification def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent {
             subject tools : Toolchain;
             objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R115_promotion_loads_only_the_image_that_passed {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R115_commands_run_through_mise {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R170_promotion_steps_are_calls_to_tested_commands {
+            subject tools : Toolchain;
+            objective { verify Day0::promotionStepsAreTestedCommands; }
+        }
+        verification def test_R171_release_commands_decide_as_stated {
+            subject tools : Toolchain;
+            objective { verify Day0::releaseCommandsDecideAsStated; }
         }
         verification def test_R112_format_and_test_exclude_each_other {
             subject tools : Toolchain;

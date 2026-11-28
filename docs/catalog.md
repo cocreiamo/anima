@@ -39,6 +39,7 @@ Look here before building something. Each section is derived from its source; th
 | R47 | builds reproducible | pending |
 | R87 | catalog synonym keys exist | written |
 | R118 | certificate renewed before expiry | written |
+| R172 | change filter decides from the comparison | written |
 | R108 | checks pass from empty cache | written |
 | R55 | checks stay fast | written |
 | R17 | component licenses allowed | written |
@@ -88,6 +89,7 @@ Look here before building something. Each section is derived from its source; th
 | R69 | fitness markers complete | written |
 | R35 | fixed role names reserved | pending |
 | R3.3 | foreign issuer token rejected | pending |
+| R177 | fork sync passes its arguments and fails loudly | written |
 | R112 | format and test exclude each other | written |
 | R6 | identities declared | written |
 | R14 | identities reapplied | written |
@@ -100,14 +102,18 @@ Look here before building something. Each section is derived from its source; th
 | R99 | image rebuilt when any input changes | written |
 | R23 | images for both architectures | pending |
 | R150 | independent additions do not conflict in generated files | written |
+| R173 | inner image cache key follows its inputs | written |
+| R174 | inner image cache round trips | written |
 | R3 | invalid token rejected | see its parts |
 | R116 | issuer is the configured public url | written |
 | R68 | limits held in model | written |
 | R64 | mail delivered through configured service | written |
+| R176 | mirror copy leaves the mirror as specified | written |
 | R160 | mirror covers every base image | written |
 | R163 | mirror has least privilege | written |
 | R165 | mirror keeps signatures of signed images | written |
 | R162 | mirror never deletes or moves atag | written |
+| R175 | mirror plan comes from the register | written |
 | R161 | mirror preserves digests | written |
 | R91 | no bytecode outside cache | written |
 | R4 | no password access | pending |
@@ -121,15 +127,18 @@ Look here before building something. Each section is derived from its source; th
 | R21 | passes upstream regression suite | written |
 | R106 | plan guard refuses undeclared contraction | written |
 | R82 | postmortem guards exist | written |
+| R166 | postmortem names root and class options | written |
 | R85 | postmortem not open too long | written |
 | R84 | postmortem recurrence needs stronger guard | written |
 | R83 | postmortem status agrees with guards | written |
 | R41 | probes and single readiness | written |
 | R66 | profile differs only in selection and data | pending |
+| R170 | promotion steps are tested commands | written |
 | R115 | publish only what was verified | written |
 | R16 | published images attested | pending |
 | R98 | readiness negative when configurator fails | written |
 | R145 | records made from shared template | written |
+| R171 | release commands decide as stated | written |
 | R24 | release only from verified commit | written |
 | R155 | release tool files not formatted and licensed | written |
 | R110 | releases stay patch only | written |
@@ -141,17 +150,18 @@ Look here before building something. Each section is derived from its source; th
 | R7 | secrets generated | pending |
 | R61 | server serves without secret store | written |
 | R40 | serves only when converged | pending |
-| R168 | shared engine stays undisturbed | written |
+| R181 | shared engine stays undisturbed | written |
 | R9 | single command start | written |
 | R81 | size limits kept | written |
 | R74 | skill paths match something | written |
 | R72 | skills have one schema | written |
+| R167 | spike brief states why no test answers | written |
 | R62 | storage connection uses no secret | written |
 | R89 | submodule working trees clean | written |
 | R12 | superuser local only | written |
 | R133 | supplied certificate selected by one parameter | pending |
 | R114 | system tests report on every change | written |
-| R167 | system tests stay fast | written |
+| R180 | system tests stay fast | written |
 | R3.1 | tampered token rejected | written |
 | R80 | task acceptance names verifications | written |
 | R57 | texts do not age | written |
@@ -207,6 +217,14 @@ Look here before building something. Each section is derived from its source; th
 | `adr:check` | Check the decision records: sections, status, dates, numbering, links (adrs doctor) |
 | `build` | Build Anima's own code with Bazel |
 | `check` | Run every check |
+| `ci:cache-key` | Print value=<key>, the key of the inner images' cache: a hash of the submodule status and of the files that the images are made of |
+| `ci:cache-load` | Load the inner images from the archive of the restored cache, then remove the archive |
+| `ci:cache-pack` | Save the inner images as one archive in the cache directory |
+| `ci:changes` | Decide whether a change touches the paths that a check is about: compares the base and the head through the API, and prints relevant=true or relevant=false |
+| `ci:mirror-copy` | Copy one image into the organization's mirror: the digest that the upstream tag names now and the pinned digest, whole, with the digest kept, under tags that are never moved |
+| `ci:mirror-plan` | Read the images to mirror and the copy tool from the register, and print the lines images= and skopeo= |
+| `ci:sync-fork` | Fast-forward one branch of a fork from its upstream (gh repo sync) |
+| `ci:test` | Run the integration tests of the commands that the workflows call (they start containers: podman and a throwaway registry); extra arguments go to pytest |
 | `commit-msg` | Git commit-msg hook: the message follows Conventional Commits |
 | `engine:build` | Build the inner images (database, access, secrets, mail, entry) from the pinned forks, or the ones named; skips an image whose inputs did not change |
 | `engine:configure-build` | Build the configurator image; its tag is a hash of every input, so an unchanged image is not rebuilt |
@@ -236,6 +254,15 @@ Look here before building something. Each section is derived from its source; th
 | `model:fetch` | Fetch the SysML v2 pilot implementation into the cache (idempotent, safe to run in parallel) and print its directory |
 | `pre-commit` | Git pre-commit hook: the fast checks |
 | `pre-push` | Git pre-push hook: every check |
+| `promote:archive` | Archive the engine image that passed the verification and print its id (image-id=<id>) |
+| `promote:green` | Move main-green to a commit that passed every verification (a fast-forward, never forced) |
+| `promote:load` | Load an archive and check that it holds the image that passed; print its reference (ref=<reference>) |
+| `promote:plan` | Decide whether the commit carries a version to publish: print version=<version> and publish=<true|false> |
+| `promote:publish` | Publish an image under its version unless the tag exists, never moving a tag; print reference=<repository>@<digest> and existing=<true|false> |
+| `promote:registry-digest` | Print the manifest digest that a registry holds for a tag |
+| `promote:release` | Release the version a verified commit carries, naming the image published for it |
+| `promote:tag-state` | Ask a registry whether an image tag exists: prints exists, absent or unknown (and fails on unknown) |
+| `promote:test` | Run the commands of the promotion against real podman and a throwaway local registry; extra arguments go to pytest |
 | `promote:verify` | Everything a commit of main must pass to be promoted to main-green |
 | `secrets:check` | Scan the repository for committed secrets |
 | `test` | Run the automated verifications (waits for a running format) |
@@ -269,6 +296,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
 - R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
 - R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
+- R172, change filter decides from the comparison, at every commit: `test_R172_change_filter_decides_from_the_comparison` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
 - R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
@@ -297,14 +325,19 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
 - R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
+- R177, fork sync passes its arguments and fails loudly, at every commit: `test_R177_fork_sync_passes_its_arguments_to_the_platform_tool` (written).
 - R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
 - R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
 - R150, independent additions do not conflict in generated files, at every commit: `test_R150_independent_additions_do_not_conflict_in_generated_files` (written).
+- R173, inner image cache key follows its inputs, at every commit: `test_R173_cache_key_follows_what_the_inner_images_are_made_of` (written).
+- R174, inner image cache round trips, at every commit: `test_R174_inner_images_survive_a_round_trip_through_the_cache` (written).
 - R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
+- R176, mirror copy leaves the mirror as specified, at every commit: `test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag` (written).
 - R160, mirror covers every base image, at every commit: `test_R160_mirror_covers_every_base_image` (written).
 - R163, mirror has least privilege, at every commit: `test_R163_mirror_has_least_privilege` (written).
 - R165, mirror keeps signatures of signed images, at every commit: `test_R165_mirror_keeps_the_signatures_of_signed_images` (written).
 - R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
+- R175, mirror plan comes from the register, at every commit: `test_R175_mirror_plan_comes_from_the_register` (written).
 - R161, mirror preserves digests, at every commit: `test_R161_mirror_preserves_digests` (written).
 - R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
@@ -313,13 +346,16 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
 - R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
+- R166, postmortem names root and class options, at every commit: `test_R166_postmortem_names_root_and_class_options` (written).
 - R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
 - R84, postmortem recurrence needs stronger guard, at every commit: `test_R84_postmortem_recurrence_needs_stronger_guard` (written).
 - R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
 - R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
-- R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R170, promotion steps are tested commands, at every commit: `test_R170_promotion_steps_are_calls_to_tested_commands` (written).
+- R115, publish only what was verified, at every commit: `test_R115_commands_run_through_mise` (written).
 - R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
+- R171, release commands decide as stated, at every commit: `test_R171_release_commands_decide_as_stated` (written).
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
 - R155, release tool files not formatted and licensed, at every commit: `test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
@@ -327,14 +363,15 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
 - R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
-- R168, shared engine stays undisturbed, when an image is promoted: `test_R168_shared_engine_stays_undisturbed` (written).
+- R181, shared engine stays undisturbed, when an image is promoted: `test_R181_shared_engine_stays_undisturbed` (written).
 - R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
 - R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
 - R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
 - R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
+- R167, spike brief states why no test answers, at every commit: `test_R167_spike_brief_states_why_no_test_answers` (written).
 - R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
-- R167, system tests stay fast, when an image is promoted: `test_R167_system_tests_stay_fast` (written).
+- R180, system tests stay fast, when an image is promoted: `test_R180_system_tests_stay_fast` (written).
 - R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
 - R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
 - R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).

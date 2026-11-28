@@ -326,7 +326,9 @@ class EngineEntry:
         self.port = int(engine.container.get_exposed_port(ENTRY_PORT))
         code, authority = engine.exec("cat", f"{CERTIFICATE_DIRECTORY}/ca.crt")
         assert code == 0 and "BEGIN CERTIFICATE" in authority, authority
-        self.context = ssl.create_default_context(cadata=authority)
+        context = ssl.create_default_context(cadata=authority)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        self.context = context
         self.authority = authority
 
     def connect(self) -> ssl.SSLSocket:
@@ -374,7 +376,9 @@ def test_R126_entry_terminates_tls_with_engine_certificate(engine):
     # Not trusted by anything but the engine's authority: the system's roots refuse it.
     raw = socket.create_connection(("127.0.0.1", entry.port), timeout=30)
     with pytest.raises(ssl.SSLCertVerificationError):
-        ssl.create_default_context().wrap_socket(raw, server_hostname="localhost")
+        system = ssl.create_default_context()
+        system.minimum_version = ssl.TLSVersion.TLSv1_2
+        system.wrap_socket(raw, server_hostname="localhost")
     # The serving process holds that certificate and key files.
     code, out = engine.exec("ls", CERTIFICATE_DIRECTORY)
     assert code == 0 and "ca.crt" in out and "server.crt" in out, out

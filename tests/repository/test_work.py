@@ -1,5 +1,5 @@
 """Work to do and what went wrong: the backlog and the postmortems.
-R79, R80, R82 to R85.
+R79, R80, R82 to R85, R166.
 
 Each check is a function of its inputs; its companion test
 (`<name>_detects_violation`) feeds it a deliberately wrong input.
@@ -231,10 +231,10 @@ def repository_read(path):
 
 
 def written_test_functions():
-    """The tests of the repository and the system tests, by name, with the file
+    """The tests of the repository, the system tests and those of the promotion, with the file
     that defines each (a guard may be a test that starts the engine)."""
     found = {}
-    for directory in ("repository", "system"):
+    for directory in ("repository", "system", "promote"):
         for path in sorted((ROOT / "tests" / directory).glob("test_*.py")):
             for name in defined_function_names_of(path):
                 found[name] = str(path.relative_to(ROOT))
@@ -426,3 +426,89 @@ def test_R85_postmortem_not_open_too_long_detects_violation():
     assert open_too_long(pms, date(2026, 11, 10), 14) == []
     assert open_too_long(pms, date(2026, 11, 20), 14)
     assert open_too_long([_pm(date="2026-01-01")], date(2026, 11, 20), 14) == []
+
+
+# ---- R166: a postmortem names its root cause, its class and the options -----------------------
+
+ROOTED_SECTIONS = (
+    "Root cause",
+    "Class and earlier occurrences",
+    "Design options",
+    "Decision on the options",
+)
+
+
+def rooted_faults(pms, first):
+    """Every postmortem numbered `first` or later has the four sections, none empty."""
+    faults = []
+    for pm in pms:
+        number = int(pm["id"].split("-")[1])
+        if number < first:
+            continue
+        parts = re.split(r"^## ", pm["body"], flags=re.MULTILINE)[1:]
+        sections = {p.split("\n", 1)[0].strip(): p.split("\n", 1)[-1] for p in parts}
+        for name in ROOTED_SECTIONS:
+            text = re.sub(r"<!--.*?-->", "", sections.get(name, ""), flags=re.DOTALL)
+            if not text.strip():
+                faults.append(f"{pm['id']}: section '{name}' is missing or empty")
+    return faults
+
+
+def test_R166_postmortem_names_root_and_class_options(model):
+    first, _unit = thresholds(model)["R166"]["firstRootedPostmortem"]
+    faults = rooted_faults(read_postmortems(), int(first))
+    assert not faults, faults
+
+
+def test_R166_postmortem_names_root_and_class_options_detects_violation():
+    full = "".join(f"## {n}\n\ntext\n\n" for n in ROOTED_SECTIONS)
+    old = _pm(id="PM-013", body="## Overview\n\nx\n")
+    assert rooted_faults([old], 14) == []  # history is not rewritten
+    assert rooted_faults([_pm(id="PM-014", body=full)], 14) == []
+    assert rooted_faults([_pm(id="PM-014", body="## Overview\n\nx\n")], 14)
+    assert rooted_faults([_pm(id="PM-014", body=full.replace("text", "", 1))], 14)
+    assert rooted_faults(
+        [_pm(id="PM-015", body=full.replace("Design options", "X"))], 14
+    )
+    assert rooted_faults(
+        [_pm(id="PM-014", body=full.replace("text", "<!-- c -->", 1))], 14
+    )
+
+
+# ---- R167: a spike says why no test inside the task answers its question -------------------
+
+WHY_NO_TEST = re.compile(
+    r"^- Why a test inside the task cannot answer it:[ \t]*(\S.*)$", re.MULTILINE
+)
+
+
+def spike_faults(tasks):
+    """Every task of role spike has the line, with a reason, in its brief."""
+    return [
+        f"{t['file']}: a spike task does not say why no test inside the task can answer it"
+        for t in tasks
+        if t.get("role") == "spike" and not WHY_NO_TEST.search(t.get("body", ""))
+    ]
+
+
+def test_R167_spike_brief_states_why_no_test_answers():
+    tasks = []
+    for path in sorted((ROOT / "backlog" / "tasks").glob("*.md")):
+        fields, body = al.read_document(path)
+        tasks.append({**fields, "file": path.name, "body": body})
+    faults = spike_faults(tasks)
+    assert not faults, faults
+
+
+def test_R167_spike_brief_states_why_no_test_answers_detects_violation():
+    line = "- Why a test inside the task cannot answer it: nothing exists to test"
+    spike = {"file": "t.md", "role": "spike", "body": f"### Decision\n\n{line}\n"}
+    assert spike_faults([spike]) == []
+    assert spike_faults([{**spike, "body": "### Decision\n\n- x\n"}])
+    assert spike_faults(
+        [{**spike, "body": "- Why a test inside the task cannot answer it:   \n"}]
+    )
+    assert spike_faults(
+        [{**spike, "body": "- Why a test inside the task cannot answer it:\n- y"}]
+    )
+    assert spike_faults([{**spike, "role": "implementer"}]) == []

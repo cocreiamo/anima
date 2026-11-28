@@ -314,6 +314,18 @@ image = "docker.io/library/golang"
 digest = "sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666"
 mirror = "ghcr.io/cocreiamo/anima-mirror/golang"
 
+# The registry that the tests of the promotion start on a local port, to run its
+# commands against a real one (`tests/promote/`, R115).
+[[tool_image]]
+name = "distribution"
+role = "throwaway registry of the promotion's integration tests: the commands push to it and read it back"
+version = "3.1.2"
+license = "Apache-2.0"
+upstream = "https://github.com/distribution/distribution"
+image = "ghcr.io/distribution/distribution"
+digest = "sha256:d106962e6fe3fa69c178cec77eeeee5edb626b8df6535b7bd6b95e658a0a5ca9"
+mirror = "ghcr.io/cocreiamo/anima-mirror/distribution"
+
 # The tool that copies the images above into the mirror. The mirror workflow
 # (`.github/workflows/mirror-base-images.yml`) runs it with podman and takes
 # this entry's reference from here, so that it is pinned and updated like every

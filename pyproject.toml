@@ -13,8 +13,14 @@ package = false
 
 [tool.ruff]
 extend-exclude = ["third_party", ".cache"]
-# The generate tasks are Python scripts without an extension.
-include = ["*.py", "*.pyi", "**/pyproject.toml", "mise-tasks/generate/*"]
+# The generate tasks and the plan of the mirror are Python scripts without an extension.
+include = [
+  "*.py",
+  "*.pyi",
+  "**/pyproject.toml",
+  "mise-tasks/generate/*",
+  "mise-tasks/ci/mirror-plan",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
