@@ -945,6 +945,12 @@ package Anima {
             doc /* A renewal of the database server's certificate that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
             subject engine : Engine;
         }
+        requirement <'R184'> entryCertificateRenewedBeforeExpiry {
+            doc /* The certificate that the HTTP entry point presents shall be renewed, from the engine's certificate authority and with no restart of the entry, once the share of its lifetime given by renewAfterPercent has passed, and so before it expires, with the same lifetime and share as the database server's certificate; a renewal that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
+            subject listener : HttpEntry;
+            attribute certificateLifetime : ISQ::DurationValue = 2592000 [SI::s];
+            attribute renewAfterPercent : ScalarValues::Integer = 66;
+        }
         requirement <'R116'> issuerIsTheConfiguredPublicUrl {
             doc /* The issuer of a token shall be the configured public URL of the identity provider, whatever name the request used to reach it. */
             subject engine : Engine;
@@ -1425,6 +1431,14 @@ package Anima {
             subject sys : System;
             objective { verify Runtime::failedRenewalLeavesEngineNotReady; }
         }
+        verification def test_R184_entry_certificate_renewed_before_expiry {
+            subject sys : System;
+            objective { verify Runtime::entryCertificateRenewedBeforeExpiry; }
+        }
+        verification def test_R184_failed_entry_renewal_leaves_engine_not_ready {
+            subject sys : System;
+            objective { verify Runtime::entryCertificateRenewedBeforeExpiry; }
+        }
         verification def test_R116_issuer_is_the_configured_public_url {
             subject sys : System;
             objective { verify Runtime::issuerIsTheConfiguredPublicUrl; }
@@ -1480,6 +1494,10 @@ package Anima {
         verification def test_R134_engine_authority_certificate_obtainable {
             subject sys : System;
             objective { verify Runtime::engineAuthorityCertificateObtainable; }
+        }
+        verification def test_R135_forged_forwarded_header_not_trusted {
+            subject sys : System;
+            objective { verify Runtime::identityProviderReachableOnlyThroughEntry; }
         }
         verification def test_R135_identity_provider_reachable_only_through_entry {
             subject sys : System;

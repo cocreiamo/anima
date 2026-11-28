@@ -10,9 +10,10 @@ from engine_logic import (
     certificate_facts,
     container_phase,
     form_submission,
-    internal_channel_faults,
     inner_start_times,
+    internal_channel_faults,
     issuer_faults,
+    login_faults,
     on_hosted_runner,
     production_faults,
     regress_tests_passed,
@@ -106,6 +107,34 @@ def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
     assert renewal_failure_faults("healthy", said)
     assert renewal_failure_faults("unhealthy", "")
     assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")
+
+
+def test_R184_entry_certificate_renewed_before_expiry_detects_violation():
+    """The same decision as the database server's (R118), for the entry's
+    certificate: another one, outliving the first, taken in time, no restart of
+    the entry."""
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t1") == []
+    assert renewal_faults(FIRST, FIRST, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 1000.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t2")
+
+
+def test_R184_failed_entry_renewal_leaves_engine_not_ready_detects_violation():
+    """The answer after a failed renewal of the entry's certificate must be
+    negative and say that the certificate could not be renewed."""
+    said = "not ready\nentry-certificate.service: failed\nentry certificate renewal failed: refused"
+    assert renewal_failure_faults("unhealthy", said) == []
+    assert renewal_failure_faults("healthy", said)
+    assert renewal_failure_faults("unhealthy", "")
+    assert renewal_failure_faults("unhealthy", "not ready\nentry.service: failed")
+
+
+def test_R182_token_login_does_not_need_the_entry_detects_violation():
+    """A login that fails, or that does not say it succeeded, is a fault."""
+    assert login_faults(0, "connection succeeded") == []
+    assert login_faults(1, "connection succeeded")
+    assert login_faults(0, "")
+    assert login_faults(1, "connection to database failed")
 
 
 LOGIN_PAGE = (

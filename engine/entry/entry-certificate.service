@@ -1,17 +1,29 @@
 [Unit]
-Description=Anima HTTP entry point: its certificate, issued once by the engine's certificate authority
-# Issued by the secret store (its certificate authority), so after it is healthy;
-# the entry waits for it. This is the first build of the entry: no renewal yet (TASK-87).
+Description=Anima HTTP entry point: its certificate from the engine's certificate authority, renewed before it expires
+# Signed by the secret store's authority through the role the configurator declares
+# for the entry (the public host of the installation is on it), so after both. The
+# unit stays up to renew the certificate before it expires (R184) and the entry takes
+# the renewed one without a restart (R127). A renewal that fails fails this unit and
+# so the readiness target (anima-ready.target is bound to it); the certificate in
+# memory stays in place and is the one the entry keeps serving.
 Requires=secrets.service
-After=secrets.service
+After=secrets.service configure.service
+# Tried again for as long as it fails; the readiness target says why it is not ready.
 StartLimitIntervalSec=0
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+# Ready once the first certificate is in place: the entry starts after that.
+Type=notify
+NotifyAccess=all
+# The installation parameter: the public URL (declared once), whose host is on the
+# certificate.
+EnvironmentFile=/usr/share/anima/public-url.env
+# The thresholds of R184, the same as the database server's certificate (R118): the
+# lifetime of the certificate in seconds and the share of it, in percent, after
+# which it is renewed. The model holds them; a test compares.
+Environment=ANIMA_ENTRY_TLS_LIFETIME_SECONDS=2592000
+Environment=ANIMA_ENTRY_TLS_RENEW_AFTER_PERCENT=66
 ExecStart=/usr/libexec/anima/entry-certificate
-TimeoutStartSec=120
-# The statements are repeatable; tried again for as long as the secret store is not
-# ready to sign, and the readiness target says why the engine is not ready.
+TimeoutStartSec=300
 Restart=on-failure
-RestartSec=3
+RestartSec=5

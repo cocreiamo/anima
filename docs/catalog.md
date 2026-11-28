@@ -65,10 +65,11 @@ Look here before building something. Each section is derived from its source; th
 | R1 | engine built from pinned sources | written |
 | R125 | engine image cache refreshed | written |
 | R52 | engine parts validated without starting | written |
+| R184 | entry certificate renewed before expiry | written |
 | R128 | entry forwards only declared prefixes | written |
 | R129 | entry never forwards management | written |
 | R132 | entry overwrites forwarded header | written |
-| R127 | entry takes renewed certificate without restart | pending |
+| R127 | entry takes renewed certificate without restart | written |
 | R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |

@@ -29,6 +29,7 @@ from engine_logic import (
     form_submission,
     internal_channel_faults,
     issuer_faults,
+    login_faults,
     production_faults,
     temporary_administrators,
 )
@@ -402,7 +403,7 @@ def test_R182_token_login_does_not_need_the_entry(own_engine):
     assert code == 0, out
     assert not engine.active("entry.service")
     code, out = login(engine, token, "readonly")
-    assert code == 0 and "connection succeeded" in out, out
+    assert not login_faults(code, out), out
 
 
 def test_R117_no_temporary_administrator_remains(engine):

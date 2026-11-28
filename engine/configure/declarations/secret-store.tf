@@ -57,6 +57,43 @@ resource "vault_pki_secret_backend_role" "identity_provider" {
   key_bits           = 256
 }
 
+# The certificate of the HTTP entry point (R126, R184): a role of the authority that
+# signs a request (the key is made by the unit that asks and never leaves it), whose
+# names are `localhost`, its loopback address and the host of the public URL, and
+# the machine authentication of the one unit that asks for it, like the database
+# server's: a role id that is a name and not a secret, a login accepted only from the
+# pod's loopback, a token that can sign for this one role and nothing else.
+resource "vault_policy" "entry" {
+  name   = "entry"
+  policy = "path \"${local.certificate_mount}/sign/entry\" { capabilities = [\"update\"] }"
+}
+
+resource "vault_pki_secret_backend_role" "entry" {
+  backend            = local.certificate_mount
+  name               = "entry"
+  allowed_domains    = distinct(["localhost", local.certificate_host])
+  allow_bare_domains = true
+  allow_subdomains   = false
+  allow_localhost    = true
+  allow_ip_sans      = true
+  enforce_hostnames  = true
+  ttl                = 2592000
+  max_ttl            = 2592000
+  key_type           = "ec"
+  key_bits           = 256
+}
+
+resource "vault_approle_auth_backend_role" "entry" {
+  backend               = local.machine_auth_mount
+  role_name             = "entry"
+  role_id               = "entry"
+  bind_secret_id        = false
+  secret_id_bound_cidrs = ["127.0.0.1/32"]
+  token_bound_cidrs     = ["127.0.0.1/32"]
+  token_policies        = [vault_policy.entry.name]
+  token_ttl             = 300
+}
+
 resource "vault_mount" "database" {
   path = "database"
   type = "database"

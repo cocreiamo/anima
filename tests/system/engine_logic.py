@@ -237,6 +237,17 @@ def internal_channel_faults(
     return faults
 
 
+def login_faults(code: int, output: str) -> list[str]:
+    """A token login (R182) counts only when the client exited 0 and said that the
+    connection succeeded."""
+    faults = []
+    if code != 0:
+        faults.append(f"the client exited {code}")
+    if "connection succeeded" not in output:
+        faults.append("the client did not report a connection")
+    return faults
+
+
 def temporary_administrators(users: list[dict]) -> list[str]:
     """The users of a realm marked temporary administrators (R117): the attribute
     `is_temporary_admin` holding `true`. A service account is a user too."""
@@ -362,6 +373,53 @@ def certificate_chain_faults(text: str, authority: str, names: list[str]) -> lis
     for name in names:
         if not re.search(rf"(DNS|IP Address):{re.escape(name)}(,|\s|$)", text):
             faults.append(f"{name} is not a name of the certificate")
+    return faults
+
+
+def pickup_faults(
+    observed: list[str], entry_before: str, entry_after: str, log: str
+) -> list[str]:
+    """What is wrong with how the entry took a renewed certificate (R127), from the
+    certificate each connection during the renewal was given (`observed`: a
+    fingerprint, or `FAILED ...` for a connection that did not complete, which is
+    what a key that does not belong to its certificate gives), the start time of
+    the entry's container before and after, and its log. A connection that fails, a
+    certificate that never changes, a restart, and the entry's own report that it
+    could not load what it was given are faults."""
+    faults = []
+    failed = [o for o in observed if o.startswith("FAILED")]
+    if failed:
+        faults.append(f"{len(failed)} connections failed, the first: {failed[0]!r}")
+    if len({o for o in observed if not o.startswith("FAILED")}) < 2:
+        faults.append("the entry never presented another certificate")
+    if entry_after != entry_before:
+        faults.append("the entry was restarted")
+    if "Unable to reload" in log or "crit:" in log:
+        faults.append("the entry reports that it could not load its certificate")
+    return faults
+
+
+def forwarded_trust_faults(
+    command: list[str], documents: dict[str, dict], forged: str
+) -> list[str]:
+    """What is wrong with the identity provider's trust of the `Forwarded` header
+    (R132, R135), from the arguments it was started with and the discovery
+    documents it answered (by name of the request) to requests that carried a forged
+    header naming the host `forged`. It must read the header, trust the loopback and
+    nothing else, and no address in an answer may name the forged host. A request
+    from an address that is not the loopback cannot be sent: the provider listens on
+    the loopback only (R135), and that is tested apart."""
+    faults = []
+    if "--proxy-headers=forwarded" not in command:
+        faults.append("the provider does not read the Forwarded header")
+    trusted = [a for a in command if a.startswith("--proxy-trusted-addresses")]
+    if trusted != ["--proxy-trusted-addresses=127.0.0.1/32"]:
+        faults.append(f"the provider trusts {trusted!r}, not the loopback alone")
+    if not documents:
+        faults.append("no request was made")
+    for name, document in documents.items():
+        if forged in json.dumps(document):
+            faults.append(f"the answer to {name} names the forged host")
     return faults
 
 

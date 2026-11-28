@@ -5,8 +5,10 @@ from engine_logic import (
     OTHER_FORWARDING_HEADERS,
     certificate_chain_faults,
     entry_pin_faults,
+    forwarded_trust_faults,
     forwarding_faults,
     listener_faults,
+    pickup_faults,
     published_faults,
     routing_faults,
 )
@@ -104,6 +106,47 @@ def test_R135_identity_provider_reachable_only_through_entry_detects_violation()
     assert published_faults({"5432/tcp": ["127.0.0.1"]}, declared)
     assert published_faults({**published, "8443/tcp": ["0.0.0.0"]}, declared)
     assert published_faults({**published, "8443/tcp": ["127.0.0.1", "::1"]}, declared)
+
+
+def test_R127_entry_takes_renewed_certificate_without_restart_detects_violation():
+    """A failed connection (a key that does not belong to its certificate), a
+    certificate that never changed, a restart, and the entry's own report that it
+    could not load are each a fault; the observed way of a renewal that replaces the
+    certificate and the key as two files, certificate first, is the last: the entry
+    kept the old pair and logged a critical error, and no connection failed."""
+    old, new = "a" * 64, "b" * 64
+    good = [old, old, new, new]
+    assert pickup_faults(good, "t1", "t1", "") == []
+    assert pickup_faults([old, "FAILED handshake", new], "t1", "t1", "")
+    assert pickup_faults([old, old, old], "t1", "t1", "")
+    assert pickup_faults([], "t1", "t1", "")
+    assert pickup_faults(good, "t1", "t2", "")
+    log = "crit: Microsoft.AspNetCore.Server.Kestrel[0]\n      Unable to reload configuration."
+    assert pickup_faults(good, "t1", "t1", log)
+    assert pickup_faults([old, old, old], "t1", "t1", log)
+
+
+def test_R135_forged_forwarded_header_not_trusted_detects_violation():
+    """The provider must read the header and trust the loopback alone; an answer
+    that names the forged host, a wider trust, and a check that asked nothing are
+    faults."""
+    command = [
+        "start",
+        "--proxy-headers=forwarded",
+        "--proxy-trusted-addresses=127.0.0.1/32",
+    ]
+    clean = {"by the public name": {"jwks_uri": "https://idp.example:8443/certs"}}
+    forged = "forged.example"
+    assert forwarded_trust_faults(command, clean, forged) == []
+    leaking = {"by the public name": {"jwks_uri": "https://forged.example/certs"}}
+    assert forwarded_trust_faults(command, leaking, forged)
+    assert forwarded_trust_faults(command[:1] + command[2:], clean, forged)
+    wider = [*command[:2], "--proxy-trusted-addresses=10.0.0.0/8,127.0.0.1/32"]
+    assert forwarded_trust_faults(wider, clean, forged)
+    assert forwarded_trust_faults(
+        [*command, "--proxy-trusted-addresses=0.0.0.0/0"], clean, forged
+    )
+    assert forwarded_trust_faults(command, {}, forged)
 
 
 def test_R126_entry_terminates_tls_with_engine_certificate_detects_violation():

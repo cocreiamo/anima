@@ -575,6 +575,8 @@ def test_R37_declared_state_is_applied(proof):
         "secret_store_policy",
         "secret_store_machine_auth",
         "secret_store_certificate_role",
+        "secret_store_entry_role",
+        "secret_store_entry_login",
         "secret_store_static_role",
         "secret_store_no_second_authority",
         "idp_role_confined",
