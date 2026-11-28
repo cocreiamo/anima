@@ -10,7 +10,11 @@ really about architecture: no such check was designed, so that remains a
 matter of the skill `anima-writing-a-decision-record` and of review.
 """
 
+import json
+import os
 import re
+import subprocess
+import tomllib
 
 from repo_facts import repository_files
 from sysml_model import ROOT
@@ -134,3 +138,72 @@ def test_R94_no_reference_to_a_record_that_does_not_exist_detects_violation():
     assert reference_faults({"a.md": "(ADR\n 0002)"}, existing) == []
     # A date after the word is not a reference.
     assert reference_faults({"a.md": "the ADR\n2026-11-27"}, existing) == []
+
+
+# ---- R145: the records are made from the organization's template -------------------
+
+TEMPLATE = "shared/templates/adr-madr.md"
+
+
+def template_faults(config, root):
+    """The configuration of the record tool names the template of the shared
+    repository, and the file is there (the shared submodule is checked out)."""
+    custom = config.get("templates", {}).get("custom")
+    if custom != TEMPLATE:
+        return [f"[templates].custom is {custom!r}, not {TEMPLATE!r}"]
+    if not (root / custom).is_file():
+        return [f"{custom} does not exist: is the shared submodule checked out?"]
+    return []
+
+
+def new_record(config_text, directory):
+    """Create a record in a repository of its own under `directory` with the
+    given configuration: the result of `adrs new` and the records listed."""
+    (directory / "docs" / "adr").mkdir(parents=True)
+    config = directory / "adrs.toml"
+    config.write_text(config_text)
+    # The configuration is named explicitly: a user-level one never counts.
+    env = {**os.environ, "ADRS_CONFIG": str(config)}
+    made = subprocess.run(
+        ["adrs", "new", "A title"],
+        cwd=directory,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    listed = subprocess.run(
+        ["adrs", "export", "json"],
+        cwd=directory,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    records = json.loads(listed.stdout)["adrs"] if listed.returncode == 0 else []
+    return made, records
+
+
+def test_R145_records_made_from_the_shared_template(tmp_path):
+    config = tomllib.loads((ROOT / "adrs.toml").read_text())
+    assert not template_faults(config, ROOT)
+    # The same configuration, with the template named by its full path (the
+    # path of a template is read from the directory of the configuration),
+    # makes a record that the tool lists.
+    text = (ROOT / "adrs.toml").read_text().replace(TEMPLATE, str(ROOT / TEMPLATE))
+    made, records = new_record(text, tmp_path)
+    assert made.returncode == 0, made.stderr
+    assert [(r["number"], r["title"]) for r in records] == [(1, "A title")]
+
+
+def test_R145_records_made_from_the_shared_template_detects_violation(tmp_path):
+    assert template_faults({}, ROOT)
+    assert template_faults({"templates": {"custom": "other.md"}}, ROOT)
+    assert template_faults({"templates": {"custom": TEMPLATE}}, tmp_path)
+    missing = (
+        '[templates]\nformat = "madr"\nvariant = "full"\n'
+        f'custom = "{tmp_path}/missing.md"\n'
+    )
+    made, records = new_record(missing, tmp_path / "repository")
+    assert made.returncode != 0
+    assert records == []
