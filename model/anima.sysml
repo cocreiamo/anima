@@ -564,6 +564,17 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R166'> postmortemNamesRootAndClassOptions {
+            doc /* Every postmortem numbered from the number held by this requirement shall state its root cause with the evidence, its class and the earlier occurrences of the class, the design options that would remove the class and the decision taken on them, each in a section that is not empty. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+            attribute firstRootedPostmortem : ScalarValues::Integer = 14;
+        }
+        requirement <'R167'> spikeBriefStatesWhyNoTestAnswers {
+            doc /* Every task whose role is spike shall carry in its brief a non-empty line stating why a test inside the task cannot answer the question, so that a spike is kept only when its answer cannot be obtained by a test. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R164'> everyBuildPullsFromTheMirror {
             doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1785,6 +1796,14 @@ package Anima {
         verification def test_R165_mirror_keeps_the_signatures_of_signed_images {
             subject tools : Toolchain;
             objective { verify Day0::mirrorKeepsSignaturesOfSignedImages; }
+        }
+        verification def test_R166_postmortem_names_root_and_class_options {
+            subject tools : Toolchain;
+            objective { verify Day0::postmortemNamesRootAndClassOptions; }
+        }
+        verification def test_R167_spike_brief_states_why_no_test_answers {
+            subject tools : Toolchain;
+            objective { verify Day0::spikeBriefStatesWhyNoTestAnswers; }
         }
         verification def test_R164_every_build_pulls_from_the_mirror {
             subject tools : Toolchain;

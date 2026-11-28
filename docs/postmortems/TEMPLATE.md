@@ -31,6 +31,8 @@ Front matter
 - recurrences lists the dates on which the event happened again. After the first
   recurrence, every further one needs a guard added on or after it that is
   stronger than the strongest guard in force before it.
+- From PM-014 the sections Root cause, Class and earlier occurrences, Design
+  options and Decision on the options are required and not empty (R166).
 - An open postmortem is closed, or it fails the checks, within the limit held in
   the model.
 -->
@@ -45,9 +47,13 @@ Two sentences: the event, its root cause and its impact.
 
 A short, factual description. No names of people.
 
-## Root causes
+## Root cause
 
-The conditions that contributed. Include anything done during the response that made it worse, with the intention of learning from it.
+The root cause, not the symptom, with the evidence for it (what was run or read). Include anything done during the response that made it worse, with the intention of learning from it.
+
+## Class and earlier occurrences
+
+The class of the event (the front matter's `class`) and whether the class occurred before: the postmortems and the gaps that belong to it, or that there are none.
 
 ## Resolution
 
@@ -66,6 +72,14 @@ Be specific: what was affected, for how long, what was damaged or not.
 ## How did we do
 
 What went well. What did not go so well.
+
+## Design options
+
+The changes of design that would remove the class, not the instance, with one recommendation. A change of design is built only after the founder approves it.
+
+## Decision on the options
+
+What the founder decided on each option and when, or that the decision is awaited. An instance fix alone never closes a class that has recurred.
 
 ## Guards
 
