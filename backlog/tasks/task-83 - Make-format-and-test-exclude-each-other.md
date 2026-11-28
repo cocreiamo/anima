@@ -1,9 +1,10 @@
 ---
 id: TASK-83
 title: Make format and test exclude each other
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-27T20:19:48Z'
+updated_date: '2026-11-28T04:16:22Z'
 labels:
   - tooling
 dependencies: []
@@ -26,8 +27,8 @@ PM-006: the formatter rewrote test files while a test session was running. Build
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: a run of format and a run of test exclude each other, shown by a test with its negative case
-- [ ] #2 Check: PM-006 lists the guard and its status follows
+- [x] #1 Check: a run of format and a run of test exclude each other, shown by a test with its negative case
+- [x] #2 Check: PM-006 lists the guard and its status follows
 <!-- AC:END -->
 
 ## Brief

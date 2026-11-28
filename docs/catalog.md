@@ -136,6 +136,7 @@ Look here before building something. Each section is derived from its source; th
 | R107 | bare interpreter refused | written |
 | R108 | checks pass from empty cache | written |
 | R110 | releases stay patch only | written |
+| R112 | format and test exclude each other | written |
 
 ## Components
 
@@ -184,7 +185,7 @@ Look here before building something. Each section is derived from its source; th
 | `engine:units-check` | Validate the engine's units without starting them: Quadlet's dry run and systemd-analyze verify, inside a container of the engine image |
 | `engine:up` | Start the engine image as a container with rootless podman (name: anima-engine) |
 | `engine:wait` | Wait until the engine container (ANIMA_NAME, default anima-engine) is healthy; prints the seconds it took |
-| `format` | Write the generated files, then format Anima's own files |
+| `format` | Write the generated files, then format Anima's own files (waits for running tests) |
 | `generate` | Write every generated file (ADR index from adrs, skills index and pointers, pending tests) |
 | `generate:check` | Fail if a generated file is out of date; writes nothing |
 | `generate:list` | Print the generated files that an agent may not edit, one per line |
@@ -198,7 +199,7 @@ Look here before building something. Each section is derived from its source; th
 | `pre-push` | Git pre-push hook: every check |
 | `promote:verify` | Everything a commit of main must pass to be promoted to main-green |
 | `secrets:check` | Scan the repository for committed secrets |
-| `test` | Run the automated verifications |
+| `test` | Run the automated verifications (waits for a running format) |
 | `workflows:check` | Analyse the GitHub Actions workflows (syntax, permissions, injection, unpinned actions) |
 
 ## Tools (`mise.toml`)
@@ -285,6 +286,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
+- R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
 
 ## Skills
 
