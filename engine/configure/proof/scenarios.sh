@@ -161,7 +161,7 @@ scenario_secret_store_declared() {
     check secret_store_policy "policy identity-provider" bao policy read identity-provider
     check secret_store_machine_auth "approle role identity-provider" bao read auth/approle/role/identity-provider
     check secret_store_certificate_role "role identity-provider restricted to the public host" \
-        test "$(bao read -field=allowed_domains pki/roles/identity-provider)" = "[idp.anima.test]"
+        test "$(bao read -field=allowed_domains pki/roles/identity-provider)" = "[$(host=${CFG_PUBLIC_URL#*://}; echo "${host%%[:/]*}")]"
     check secret_store_static_role "static role svc_idp on the database engine" bao read database/static-roles/svc_idp
     check secret_store_no_second_authority "one issuer on the mount made by the first start" \
         test "$(bao list -format=json pki/issuers | jq length)" -eq 1

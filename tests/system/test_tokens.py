@@ -23,17 +23,22 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from conftest import CACHE
+from conftest import CACHE, PUBLIC_URL
 from engine_logic import (
     audit_names_person,
     form_submission,
+    internal_channel_faults,
     issuer_faults,
     production_faults,
     temporary_administrators,
 )
 
-ISSUER = "http://localhost:8080/realms/anima"
-PUBLIC_HOST = "localhost:8080"
+# Derived from the one declaration of the public URL (conftest.PUBLIC_URL).
+ISSUER = f"{PUBLIC_URL}/realms/anima"
+PUBLIC_HOST = urllib.parse.urlsplit(PUBLIC_URL).netloc
+# The identity provider as the configurator and the database server reach it: on
+# the pod's loopback, in plain HTTP, never through the entry.
+INTERNAL_URL = "http://127.0.0.1:8080"
 # The identity provider's two credentials of the configurator, derived inside the
 # engine from its root of trust: the temporary one it was started with, and the
 # permanent client of the configurator in the master realm.
@@ -49,7 +54,7 @@ cat <&3
 """
 
 
-def application_token(engine, host: str = PUBLIC_HOST) -> str:
+def application_token(engine, host: str = "127.0.0.1:8080") -> str:
     """The token of the application `reporting`, asked by the name `host`."""
     code, out = engine.exec("bash", "-c", TOKEN_SCRIPT.replace("__HOST__", host))
     assert code == 0 and '"access_token":"' in out, out
@@ -72,14 +77,14 @@ class Inside:
     forwards its administration interface or its administrative realm, so a test
     that needs them comes this way, as the configurator does."""
 
-    base = "http://127.0.0.1:8080"
+    base = INTERNAL_URL
 
     def __init__(self, engine):
         self.engine = engine
 
     def request(self, url, data=None, headers=None, method=None, json_body=None):
         """(status, body); a redirect is not followed; never raises on a status."""
-        headers = {"Host": "localhost:8080", **(headers or {})}
+        headers = dict(headers or {})
         body = None
         if json_body is not None:
             body = json.dumps(json_body)
@@ -102,8 +107,9 @@ class Inside:
 class Provider:
     """The identity provider as a person's browser reaches it: through the entry,
     over TLS, trusting the engine's own authority. Its public URL (the issuer)
-    names port 8080, so every address it hands out is moved to the entry's
-    published port; cookies are kept and redirects are followed by hand."""
+    names the entry's port inside the engine, so every address it hands out is
+    moved to the entry's published port; cookies are kept and redirects are
+    followed by hand."""
 
     def __init__(self, engine):
         self.base = f"https://127.0.0.1:{engine.container.get_exposed_port(8443)}"
@@ -119,14 +125,11 @@ class Provider:
         )
 
     def local(self, url: str) -> str:
-        return url.replace("http://localhost:8080", self.base)
+        return url.replace(PUBLIC_URL, self.base)
 
     def request(self, url, data=None, headers=None, method=None, json_body=None):
         """(status, body); follows redirects; never raises on a status."""
-        # A person reaches the provider by its public name; the published port
-        # only carries the connection. Without this header the issuer of the
-        # tokens follows the address used and the database server refuses them.
-        headers = {"Host": "localhost:8080", **(headers or {})}
+        headers = dict(headers or {})
         body = None
         if json_body is not None:
             body = json.dumps(json_body).encode()
@@ -136,11 +139,6 @@ class Provider:
         url = self.local(url)
         for _ in range(10):
             req = urllib.request.Request(url, data=body, headers=headers, method=method)
-            # The provider marks its cookies Secure although the engine's public
-            # URL is plain HTTP in the local profile; a browser on localhost sends
-            # them anyway, the cookie jar does not.
-            for cookie in self.jar:
-                cookie.secure = False
             try:
                 with self.opener.open(req, timeout=30) as response:
                     return response.status, response.read().decode()
@@ -257,7 +255,6 @@ def login(engine, token: str, role: str) -> tuple[int, str]:
             "run",
             "--rm",
             "--network=host",
-            "--env=PGOAUTHDEBUG=UNSAFE",
             "--entrypoint=oauth_hook_client",
             client_image(),
             "--token",
@@ -280,7 +277,10 @@ def test_R2_valid_token_opens_session(engine):
     session of that role, over TLS: an application's token, and a person's token
     from the device flow, whose audit line names the person."""
     code, out = login(engine, application_token(engine), "readonly")
-    assert code == 0 and "connection succeeded" in out, out
+    assert code == 0 and "connection succeeded" in out, (
+        out,
+        server_log(engine)[-2000:],
+    )
     log = server_log(engine)
     assert "method=oauth" in log and "user=readonly" in log, log[-1500:]
 
@@ -358,6 +358,45 @@ def test_R116_issuer_is_the_configured_public_url(engine):
         ]
     faults = issuer_faults(issuers, ISSUER)
     assert not faults, faults
+
+
+def test_R182_token_validator_reaches_provider_over_loopback(engine):
+    """The issuer of the tokens is the public https URL, which the validator cannot
+    trust (it has no trust-anchor setting), so it reads the provider's discovery
+    document and keys over the pod's loopback, from the provider directly: its
+    setting names the provider's own address, the provider's key set is published
+    at that address, and a token login succeeds while the entry is stopped."""
+    code, shown = engine.inner(
+        "database",
+        "psql",
+        "--host=/run/postgresql",
+        "--username=postgres",
+        "--dbname=postgres",
+        "--no-psqlrc",
+        "--tuples-only",
+        "--command=show pg_oidc_validator.discovery_url_override",
+    )
+    assert code == 0, shown
+    override = shown.strip()
+    status, text = Inside(engine).request(
+        f"{override}/.well-known/openid-configuration"
+    )
+    assert status == 200, (status, text)
+    faults = internal_channel_faults(override, json.loads(text), INTERNAL_URL, ISSUER)
+    assert not faults, faults
+
+    token = application_token(engine)
+    assert token_claims(token)["iss"] == ISSUER
+    # The entry is the only way in from outside; the token login does not use it.
+    code, out = engine.exec("systemctl", "stop", "entry.service")
+    assert code == 0, out
+    try:
+        assert not engine.active("entry.service")
+        code, out = login(engine, token, "readonly")
+        assert code == 0 and "connection succeeded" in out, out
+    finally:
+        engine.exec("systemctl", "start", "entry.service")
+        engine.wait_ready()
 
 
 def test_R117_no_temporary_administrator_remains(engine):

@@ -27,6 +27,19 @@ CACHE = ROOT / ".cache" / "engine"
 READY_LIMIT_SECONDS = 180
 
 
+def declared_public_url() -> str:
+    """The identity provider's public URL as the installation declares it, in the
+    one file that states it (`engine/access/public-url.env`)."""
+    for line in (ROOT / "engine/access/public-url.env").read_text().splitlines():
+        if line.startswith("ANIMA_IDENTITY_PROVIDER_URL="):
+            return line.split("=", 1)[1].strip()
+    raise AssertionError("engine/access/public-url.env declares no public URL")
+
+
+# What every test derives its names from: nothing else repeats the URL.
+PUBLIC_URL = declared_public_url()
+
+
 OFFLINE_MODULES = {
     "test_inputs.py",
     "test_logic.py",

@@ -22,13 +22,18 @@ Environment=KC_HTTP_MANAGEMENT_HOST=127.0.0.1
 # and the management host above): the HTTP entry point (engine/entry/) terminates
 # TLS and is the one way in (R135). The `Forwarded` header it sets is trusted from
 # the loopback and from nowhere else; the hostname is the public URL, never the
-# request's name (R116).
+# request's name (R116), and so is the issuer. The back-channel URLs it publishes
+# (the key set, the token endpoint) follow the request instead
+# (--hostname-backchannel-dynamic): a request that reaches it on the loopback gets
+# loopback addresses, which is how the database server's token validator reads
+# the keys without the entry (R182). A request through the entry gets the public
+# ones, and no other address can reach the provider (R135).
 Environment=KC_HTTP_ENABLED=true
 Environment=KC_DB_URL=jdbc:postgresql://127.0.0.1:5432/idp
 Environment=KC_DB_USERNAME=svc_idp
 Pod=anima.pod
 # Production mode on the image's optimized build; the state is in the database.
-Exec=start --optimized --http-port=8080 --hostname=${ANIMA_IDENTITY_PROVIDER_URL} --proxy-headers=forwarded --proxy-trusted-addresses=127.0.0.1/32
+Exec=start --optimized --http-port=8080 --hostname=${ANIMA_IDENTITY_PROVIDER_URL} --hostname-backchannel-dynamic=true --proxy-headers=forwarded --proxy-trusted-addresses=127.0.0.1/32
 Mount=type=tmpfs,destination=/opt/keycloak/data,tmpfs-mode=1777
 Tmpfs=/tmp:rw,mode=1777
 # Startup, liveness and readiness through the management port (no curl in the

@@ -51,12 +51,12 @@ build_database() {
     # The access rules and the identity map are generated from the one declaration
     # of the roles by the configurator's own templating; they are inputs of the tag.
     # The identity provider's public URL is an installation parameter: the default
-    # is the local engine's own address.
-    ANIMA_IDENTITY_PROVIDER_URL=${ANIMA_IDENTITY_PROVIDER_URL:-http://localhost:8080} \
+    # is the one the installation declares (R183), never a copy of it.
+    ANIMA_IDENTITY_PROVIDER_URL=${ANIMA_IDENTITY_PROVIDER_URL:-$(sed -n 's/^ANIMA_IDENTITY_PROVIDER_URL=//p' engine/access/public-url.env)} \
         mise run engine:configure-render >/dev/null
     mkdir -p "$out/rules"
-    cp .cache/configure/pg_hba.conf .cache/configure/pg_ident.conf "$out/rules/"
-    printf '%s\n' "$pg" "$vec" "$oidc" "$bkr" | ANIMA_TAG_EXTRA="$out/rules/pg_hba.conf $out/rules/pg_ident.conf" build "$name" engine/database/Containerfile "$target" \
+    cp .cache/configure/pg_hba.conf .cache/configure/pg_ident.conf .cache/configure/validator.conf "$out/rules/"
+    printf '%s\n' "$pg" "$vec" "$oidc" "$bkr" | ANIMA_TAG_EXTRA="$out/rules/pg_hba.conf $out/rules/pg_ident.conf $out/rules/validator.conf" build "$name" engine/database/Containerfile "$target" \
         --build-context "rules=$out/rules" \
         --build-context "postgres=third_party/postgres" \
         --build-context "pgvector=third_party/pgvector" \

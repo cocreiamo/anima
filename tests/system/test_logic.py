@@ -10,6 +10,7 @@ from engine_logic import (
     certificate_facts,
     container_phase,
     form_submission,
+    internal_channel_faults,
     issuer_faults,
     production_faults,
     regress_tests_passed,
@@ -162,6 +163,28 @@ def test_R116_issuer_is_the_configured_public_url_detects_violation():
     assert issuer_faults({"localhost:8080": url, "127.0.0.1:41000": other}, url)
     assert issuer_faults({"localhost:8080": url}, url)
     assert issuer_faults({}, url)
+
+
+def test_R182_token_validator_reaches_provider_over_loopback_detects_violation():
+    """The setting, the issuer of the document and the address of the key set must
+    each be right. The last is the observed failure: a provider that is not told to
+    follow the request publishes the key set at the public https address, which the
+    validator cannot trust (it has no trust-anchor setting)."""
+    internal = "http://127.0.0.1:8080"
+    issuer = "https://idp.example:8443/realms/anima"
+    override = f"{internal}/realms/anima"
+    right = {
+        "issuer": issuer,
+        "jwks_uri": f"{internal}/realms/anima/protocol/openid-connect/certs",
+    }
+    assert internal_channel_faults(override, right, internal, issuer) == []
+    public_keys = {**right, "jwks_uri": f"{issuer}/protocol/openid-connect/certs"}
+    assert internal_channel_faults(override, public_keys, internal, issuer)
+    request_issuer = {**right, "issuer": f"{internal}/realms/anima"}
+    assert internal_channel_faults(override, request_issuer, internal, issuer)
+    assert internal_channel_faults("", right, internal, issuer)
+    assert internal_channel_faults(issuer, right, internal, issuer)
+    assert internal_channel_faults(override, {}, internal, issuer)
 
 
 def test_R117_no_temporary_administrator_remains_detects_violation():

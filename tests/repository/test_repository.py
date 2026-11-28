@@ -518,6 +518,51 @@ def test_R45_contractions_register_well_formed():
     assert not contraction_faults(load_toml("contractions.toml")["contraction"])
 
 
+# ---- R183: the public URL is declared once ---------------------------------------
+
+PUBLIC_URL_FILE = "engine/access/public-url.env"
+PUBLIC_URL_SURFACE = ("engine/", "config/", "mise-tasks/", "tests/system/")
+
+
+def declared_public_url(text):
+    """The public URL a declaration file states, or None."""
+    for line in text.splitlines():
+        if line.startswith("ANIMA_IDENTITY_PROVIDER_URL="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+
+def public_url_repeats(texts, declaration=PUBLIC_URL_FILE):
+    """The files, other than the declaration, whose text holds the declared URL."""
+    url = declared_public_url(texts[declaration])
+    if not url:
+        return [f"{declaration}: declares no public URL"]
+    return [
+        name
+        for name, text in sorted(texts.items())
+        if name != declaration and url in text
+    ]
+
+
+def test_R183_public_url_declared_once():
+    paths = [
+        path
+        for name, path in repository_files()
+        if name.startswith(PUBLIC_URL_SURFACE) or name == PUBLIC_URL_FILE
+    ]
+    repeats = public_url_repeats(read_texts(paths))
+    assert not repeats, repeats
+
+
+def test_R183_public_url_declared_once_detects_violation():
+    declaration = "ANIMA_IDENTITY_PROVIDER_URL=https://idp.example:8443\n"
+    texts = {PUBLIC_URL_FILE: declaration, "a": "no url here", "b": "x"}
+    assert public_url_repeats(texts) == []
+    repeated = {**texts, "c": "see https://idp.example:8443/realms"}
+    assert public_url_repeats(repeated) == ["c"]
+    assert public_url_repeats({PUBLIC_URL_FILE: "# nothing\n"})
+
+
 def test_R45_contractions_register_well_formed_detects_violation():
     entry = {
         "what": "a",

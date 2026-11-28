@@ -529,6 +529,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R183'> publicUrlDeclaredOnce {
+            doc /* The public URL of the identity provider shall be stated in one file of the repository, and no file of the engine, the configuration, the tasks or the tests shall repeat it. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R107'> bareInterpreterRefused {
             doc /* The agent settings shall refuse a command that starts a bare Python interpreter, and shall not refuse one that starts through the task runner. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -879,6 +884,10 @@ package Anima {
         }
         requirement <'R116'> issuerIsTheConfiguredPublicUrl {
             doc /* The issuer of a token shall be the configured public URL of the identity provider, whatever name the request used to reach it. */
+            subject engine : Engine;
+        }
+        requirement <'R182'> tokenValidatorReachesProviderOverLoopback {
+            doc /* The database server's token validator shall obtain the discovery document and the keys of the identity provider over the pod's loopback, from the identity provider directly and not through the HTTP entry point, while the issuer it checks stays the public URL, so that a token login neither depends on the entry nor needs the validator to trust the engine's certificate authority. */
             subject engine : Engine;
         }
         requirement <'R117'> noTemporaryAdministratorRemains {
@@ -1343,6 +1352,10 @@ package Anima {
             subject sys : System;
             objective { verify Runtime::issuerIsTheConfiguredPublicUrl; }
         }
+        verification def test_R182_token_validator_reaches_provider_over_loopback {
+            subject sys : System;
+            objective { verify Runtime::tokenValidatorReachesProviderOverLoopback; }
+        }
         verification def test_R117_no_temporary_administrator_remains {
             subject sys : System;
             objective { verify Runtime::noTemporaryAdministratorRemains; }
@@ -1778,6 +1791,10 @@ package Anima {
         verification def test_R110_releases_stay_patch_only {
             subject tools : Toolchain;
             objective { verify Day0::releasesStayPatchOnly; }
+        }
+        verification def test_R183_public_url_declared_once {
+            subject tools : Toolchain;
+            objective { verify Day0::publicUrlDeclaredOnce; }
         }
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;

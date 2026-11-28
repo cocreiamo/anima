@@ -15,7 +15,8 @@ CFG_IDP=cfg-idp
 CFG_VOLUMES=(cfg-data cfg-socket)
 CFG_PODMAN_SECRETS=(cfg-root-of-trust cfg-secret-id cfg-bootstrap-client-id cfg-bootstrap-secret cfg-configurator-secret)
 CFG_IDP_PORT=${CFG_IDP_PORT:-15401}
-CFG_PUBLIC_URL=${ANIMA_IDENTITY_PROVIDER_URL:-http://idp.anima.test:8080}
+# The public URL is the one the installation declares (R183), never a copy of it.
+CFG_PUBLIC_URL=${ANIMA_IDENTITY_PROVIDER_URL:-$(sed -n 's/^ANIMA_IDENTITY_PROVIDER_URL=//p' "$(cd "${MISE_PROJECT_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../../..}" && pwd)/engine/access/public-url.env")}
 CFG_TMP=${CFG_TMP:-${TMPDIR:-/tmp}/cfg-proof}
 
 cfg_root() { cd "${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}" && pwd; }

@@ -6,6 +6,7 @@ Each is a function of text or of a recorded state, so that it runs in every
 
 import json
 import re
+import urllib.parse
 from datetime import UTC, datetime
 from html import unescape
 from html.parser import HTMLParser
@@ -203,6 +204,36 @@ def issuer_faults(issuers: dict[str, str], expected: str) -> list[str]:
     ]
     if len(issuers) < 2:
         faults.append("fewer than two names were tried")
+    return faults
+
+
+def internal_channel_faults(
+    override: str, discovery: dict, internal_url: str, issuer: str
+) -> list[str]:
+    """What is wrong with the way the database server's token validator reaches the
+    identity provider (R182). `override` is its discovery setting, `discovery` the
+    document the provider answers at that address, `internal_url` the provider's
+    address on the pod's loopback and `issuer` the public issuer. The setting must
+    name the provider's own address and the realm of the issuer; the document must
+    still carry the public issuer (tokens are checked against it); and its key set
+    must be fetched from the same internal address, because the provider publishes
+    its key address from the request unless it is told to follow it, and the
+    validator trusts no certificate authority, so a public https address of the
+    key set fails the login at the key fetch."""
+    faults = []
+    realm_path = urllib.parse.urlsplit(issuer).path
+    if override != f"{internal_url}{realm_path}":
+        faults.append(
+            f"the discovery setting is {override!r}, not the provider's own address"
+        )
+    if discovery.get("issuer") != issuer:
+        faults.append(
+            f"the document's issuer is {discovery.get('issuer')!r}, not the public one"
+        )
+    if not str(discovery.get("jwks_uri", "")).startswith(f"{internal_url}/"):
+        faults.append(
+            f"the key set is fetched from {discovery.get('jwks_uri')!r}, not from the provider's own address"
+        )
     return faults
 
 
