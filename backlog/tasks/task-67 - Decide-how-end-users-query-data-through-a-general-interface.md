@@ -59,6 +59,7 @@ Task: TASK-67, Decide how end users query data through a general interface. Role
 ### Decision this serves (spike only)
 
 - Whether end users will ever query data through a general interface with their own row-level permissions, and if so how the session is held; an answer that makes end users database roles is refused.
+- Why a test inside the task cannot answer it: the question is whether a general interface is wanted at all, and no implementation exists to test.
 
 ## Report
 
