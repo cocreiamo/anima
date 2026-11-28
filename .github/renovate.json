@@ -7,7 +7,7 @@
     "customManagers": [
         {
             "customType": "regex",
-            "description": "Images listed in components.toml, shipped or used only by tools and tests",
+            "description": "Images listed in components.toml, shipped or used only by tools and tests. Their name is the package of the organization's mirror (R164): the bot reads the tags of the mirror, where the tag of the version moves to the digest that upstream names only after the mirror holds it, so it proposes only digests that exist there",
             "managerFilePatterns": ["/^components\\.toml$/"],
             "matchStrings": [
                 "version = \"(?<currentValue>[^\"]+)\"\\n(?:[a-z_]+ = .*\\n)*?image = \"(?<depName>[^\"]+)\"\\ndigest = \"(?<currentDigest>sha256:[0-9a-f]+)\""
@@ -50,7 +50,10 @@
         },
         {
             "description": "The configurator's version in the declarations, its register entry and its image move together",
-            "matchDepNames": ["opentofu/opentofu", "ghcr.io/opentofu/opentofu"],
+            "matchDepNames": [
+                "opentofu/opentofu",
+                "ghcr.io/cocreiamo/anima-mirror/opentofu-image"
+            ],
             "groupName": "opentofu"
         },
         {
@@ -60,7 +63,7 @@
         },
         {
             "description": "The Maven image that builds the identity provider stays on the Maven version that the fork's wrapper names (R168) and on the long-term-support line of the JDK (21, R124): no other tag is proposed, only the digest of this one; a new Maven is a decision that changes the register and this pattern together",
-            "matchPackageNames": ["docker.io/library/maven"],
+            "matchPackageNames": ["ghcr.io/cocreiamo/anima-mirror/maven"],
             "allowedVersions": "/^3\\.9\\.16-eclipse-temurin-21$/"
         },
         {

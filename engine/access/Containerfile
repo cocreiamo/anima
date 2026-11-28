@@ -16,9 +16,9 @@
 # `mise run engine:build` mounts at /root/.m2 (.cache/engine/m2), so that a
 # rebuild does not download everything again.
 
-ARG BUILDER=docker.io/library/maven:3.9.16-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320
-ARG UBI=registry.access.redhat.com/ubi9:9.9-1795197514@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
-ARG UBI_MICRO=registry.access.redhat.com/ubi9-micro:9.9-1794478307@sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db
+ARG BUILDER=ghcr.io/cocreiamo/anima-mirror/maven:3.9.16-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320
+ARG UBI=ghcr.io/cocreiamo/anima-mirror/ubi9:9.9-1795197514@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
+ARG UBI_MICRO=ghcr.io/cocreiamo/anima-mirror/ubi9-micro:9.9-1794478307@sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db
 
 FROM ${BUILDER} AS dist
 # The Administration UI build runs a .NET tool (Kiota) that needs ICU.

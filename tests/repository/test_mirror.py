@@ -1,4 +1,4 @@
-"""The mirror of the base images. R160 to R163, R165 (GAP-060, TASK-43).
+"""The mirror of the base images. R160 to R165 (GAP-060, TASK-43, TASK-96).
 
 The workflow that copies every image of the register into the organization's
 mirror, and the two commands it calls (`mise-tasks/ci/mirror-plan`, `mirror-copy`),
@@ -6,8 +6,8 @@ are read as text here; that the commands do what the text says is run for real
 against a registry in `tests/ci/` (R175, R176, R165), and that the hosted registry
 accepts the copy is shown only by the first run (`anima-branching-and-releasing`).
 Each check is a function of its inputs and has a `_detects_violation` companion
-that feeds it a deliberately wrong one. That the builds pull from the mirror is
-R164, whose test is written when they do.
+that feeds it a deliberately wrong one. That every build pulls from the mirror is
+R164 (the last section).
 """
 
 import re
@@ -83,17 +83,21 @@ def images_of(register):
 
 
 def register_faults(register):
-    """Each image of the register has its own package in the mirror, and the copy
-    tool is itself one of them, so that the workflow can take it from the register."""
+    """Each image of the register is its own package in the mirror (`image`) and
+    names the upstream it is copied from (`source`, outside the mirror), and the
+    copy tool is itself one of them, so that the workflow can take it from the
+    register."""
     faults, seen = [], set()
     entries = images_of(register)
     for c in entries:
-        name, mirror = c["name"], c.get("mirror")
+        name, mirror, source = c["name"], c["image"], c.get("source", "")
         if mirror != NAMESPACE + name:
-            faults.append(f"{name}: mirror is {mirror}, not {NAMESPACE}{name}")
+            faults.append(f"{name}: image is {mirror}, not {NAMESPACE}{name}")
         elif mirror in seen:
             faults.append(f"{name}: {mirror} is used twice")
         seen.add(mirror)
+        if not source or source.startswith(NAMESPACE) or "mirror" in c:
+            faults.append(f"{name}: source is {source!r}, an upstream name is needed")
     if "skopeo" not in {c["name"] for c in entries}:
         faults.append("the copy tool is not in the register")
     return faults
@@ -101,11 +105,9 @@ def register_faults(register):
 
 def pulled_faults(register, files):
     """Each image that a container file or a unit under engine/ pulls and that the
-    register does not hold, either under its upstream name or under its mirror's:
-    the mirror would leave it out."""
-    known = set()
-    for c in images_of(register):
-        known |= {(c["image"], c["digest"]), (c.get("mirror"), c["digest"])}
+    register does not hold, under its mirror's name and its digest: the mirror
+    would leave it out."""
+    known = {(c["image"], c["digest"]) for c in images_of(register)}
     faults = []
     for name, text in files.items():
         for m in PINNED_REFERENCE.finditer(text):
@@ -126,12 +128,13 @@ def list_faults(workflow, plan, copy, register):
         if section not in plan:
             faults.append(f"the plan does not read {section}")
     if (
-        '("mirror", "mirror")' not in plan
+        '("mirror", "image")' not in plan
+        or '("image", "source")' not in plan
         or "fromJSON(needs.plan.outputs.images)" not in workflow
     ):
-        faults.append("the copies are not driven by the register's mirror names")
+        faults.append("the copies are not driven by the register's names")
     for c in images_of(register):
-        for own in (c["image"], c["digest"], c["mirror"]):
+        for own in (c["source"], c["image"], c["digest"]):
             for where, text in (("workflow", workflow), ("plan", plan), ("copy", copy)):
                 if own in text:
                     faults.append(f"{c['name']}: {own} is written in the {where}")
@@ -176,28 +179,31 @@ def test_R160_mirror_covers_every_base_image_detects_violation():
     for key in ("component", "tool_image"):
         for c in register.get(key, []):
             without[key].append(
-                {k: v for k, v in c.items() if k != "mirror"} if c is first else c
+                {k: v for k, v in c.items() if k != "source"} if c is first else c
             )
     assert register_faults(without)
-    wrong = {"component": [{**first, "mirror": "ghcr.io/elsewhere/x"}]}
+    wrong = {"component": [{**first, "image": "ghcr.io/elsewhere/x"}]}
     assert register_faults(wrong)
     twice = {
-        "tool_image": [{**c, "mirror": NAMESPACE + "x"} for c in images_of(register)]
+        "tool_image": [{**c, "image": NAMESPACE + "x"} for c in images_of(register)]
     }
     assert register_faults(twice)
+    # An upstream name that is the mirror's, and the field of the former shape.
+    assert register_faults({"component": [{**first, "source": first["image"]}]})
+    assert register_faults({"component": [{**first, "mirror": first["image"]}]})
     no_tool = {"component": [c for c in images_of(register) if c["name"] != "skopeo"]}
     assert register_faults(no_tool)
 
     extra = {"engine/x/Containerfile": f"FROM {HOST}/team/tool:1@sha256:{'0' * 64}\n"}
     assert pulled_faults(register, extra)
-    held = f"FROM {first['image']}:1@{first['digest']}\n"
-    assert not pulled_faults(register, {"engine/x/Containerfile": held})
-    through_mirror = f"FROM {first['mirror']}@{first['digest']}\n"
+    upstream = f"FROM {first['source']}:1@{first['digest']}\n"
+    assert pulled_faults(register, {"engine/x/Containerfile": upstream})
+    through_mirror = f"FROM {first['image']}:1@{first['digest']}\n"
     assert not pulled_faults(register, {"engine/x/Containerfile": through_mirror})
 
     assert list_faults(workflow, plan, copy, register) == []
-    assert list_faults(workflow + f"# {first['image']}\n", plan, copy, register)
-    assert list_faults(workflow, plan + f"# {first['mirror']}\n", copy, register)
+    assert list_faults(workflow + f"# {first['source']}\n", plan, copy, register)
+    assert list_faults(workflow, plan + f"# {first['image']}\n", copy, register)
     assert list_faults(workflow, plan, copy + f"# {first['digest']}\n", register)
     assert list_faults(workflow, plan.replace("tool_image", "other"), copy, register)
     assert list_faults(
@@ -210,7 +216,10 @@ def test_R160_mirror_covers_every_base_image_detects_violation():
         register,
     )
     assert list_faults(
-        workflow, plan.replace('("mirror", "mirror")', ""), copy, register
+        workflow, plan.replace('("mirror", "image")', ""), copy, register
+    )
+    assert list_faults(
+        workflow, plan.replace('("image", "source")', ""), copy, register
     )
 
 
@@ -235,7 +244,7 @@ def digest_faults(workflow):
     after = workflow.split("sk copy", 1)[-1]
     if not re.search(r'\[ "\$held" = "\$hex" \] \|\| die', after):
         faults.append("the copy is not read back and compared with the expected digest")
-    for source in re.findall(r'^\s*put "([^"]*)"', workflow, re.MULTILINE):
+    for source in re.findall(r'^\s*(?:put|follow) "([^"]*)"', workflow, re.MULTILINE):
         if "@sha256:" not in source:
             faults.append(f"a copy is taken from {source}, not by digest")
     for wanted in ('put "$IMAGE@sha256:$current"', 'put "$IMAGE@sha256:$pinned"'):
@@ -268,16 +277,28 @@ def test_R161_mirror_preserves_digests_detects_violation():
         good.replace('put "$IMAGE@sha256:$current"', 'put "$IMAGE:$TAG"')
     )
     assert digest_faults(good.replace("--retry-times 3", "|| true"))
+    assert digest_faults(
+        good.replace('follow "$IMAGE@sha256:$current"', 'follow "$IMAGE:$TAG"')
+    )
     assert digest_faults("name: nothing\n")
 
 
-# ---- R162: nothing in the mirror is deleted, moved or overwritten -----------------------------
+# ---- R162: nothing in the mirror is deleted, and no immutable tag is moved --------------------
 
 TAGS = {'"sha256-$current"', '"$TAG-$today"', '"sha256-$pinned"'}
+# The one tag that is moved: the upstream tag itself, which follows it, so that the
+# update bot, which reads the digest of a tag, finds only digests that the mirror
+# holds (TASK-96). It is moved only after its digest is held under immutable tags.
+FOLLOWED = '"$TAG"'
+
+
+def function_body(text, name):
+    return text.split(f"{name}() {{", 1)[-1].split("\n}\n", 1)[0]
 
 
 def immutability_faults(workflow):
-    """What would let a copy delete, move or overwrite something the mirror holds."""
+    """What would let a copy delete, move or overwrite something the mirror holds,
+    other than the one tag that follows the upstream tag."""
     faults = []
     if re.search(
         r"\bdelete\b|\bDELETE\b|--force|\brmi\b|\bsync\b|gh api|skopeo-delete", workflow
@@ -286,25 +307,44 @@ def immutability_faults(workflow):
     if "latest" in workflow:
         faults.append("a moving name is mentioned")
     copies = copy_commands(workflow)
-    body = workflow.split("put() {", 1)[-1].split("\n}\n", 1)[0]
-    if len(copies) != 1 or "sk copy" not in body:
-        faults.append("the mirror is written outside the one function that guards it")
-    else:
-        before = body.split("sk copy", 1)[0]
-        if 'manifest_hex "$MIRROR:$tag"' not in before or before.count("return 0") < 2:
-            faults.append("a tag that exists is not left alone before the copy")
-        if "sha256-*) die" not in before:
-            faults.append("a digest tag that names another digest is not a fault")
+    if len(copies) != 1 or "sk copy" not in function_body(workflow, "write"):
+        faults.append("the mirror is written outside the one function that does it")
+    put = function_body(workflow, "put")
+    before = put.split("write ", 1)[0]
+    if "write " not in put:
+        faults.append("a tag is put without the one function that writes")
+    if 'manifest_hex "$MIRROR:$tag"' not in before or before.count("return 0") < 2:
+        faults.append("a tag that exists is not left alone before the copy")
+    if "sha256-*) die" not in before:
+        faults.append("a digest tag that names another digest is not a fault")
     named = set(re.findall(r'^\s*put "[^"]*" ("[^"]*")', workflow, re.MULTILINE))
     if named != TAGS:
         faults.append(f"the mirror is tagged with {sorted(named)}, not {sorted(TAGS)}")
+    follows = re.findall(r'^\s*follow "[^"]*" ("[^"]*")', workflow, re.MULTILINE)
+    if follows != [FOLLOWED]:
+        faults.append(f"the tags that are moved are {follows}, not {[FOLLOWED]}")
+    body = function_body(workflow, "follow")
+    if "write " not in body or 'manifest_hex "$MIRROR:$tag"' not in body:
+        faults.append("the followed tag is not read before it is moved")
+    order = [
+        workflow.find(f'{call} "$IMAGE@sha256:$current" {tag}')
+        for call, tag in (
+            ("put", '"sha256-$current"'),
+            ("put", '"$TAG-$today"'),
+            ("follow", FOLLOWED),
+        )
+    ]
+    if -1 in order or order != sorted(order):
+        faults.append("the tag moves before its digest is held under immutable tags")
     return faults
 
 
 def test_R162_mirror_never_deletes_or_moves_a_tag():
-    """Proves the text of the copy command: one function writes the mirror, and only
-    after it has found the tag absent; no command deletes. That a tag that exists is
-    left as it is is run in R176."""
+    """Proves the text of the copy command: one function writes the mirror, `put`
+    only after it has found the tag absent, and the one tag that moves is the
+    upstream tag, after its digest is held under the digest tag and the day's tag;
+    no command deletes. That a tag that exists is left as it is, and that the
+    followed tag moves, is run in R176."""
     assert immutability_faults(COPY.read_text()) == []
 
 
@@ -316,12 +356,30 @@ def test_R162_mirror_never_deletes_or_moves_a_tag_detects_violation():
     assert immutability_faults(good.replace("--retry-times 3", "--force"))
     assert immutability_faults(good.replace('"$TAG-$today"', "latest"))
     assert immutability_faults(good.replace("        return 0\n", "", 1))
+    head, tail = good.split("put() {", 1)
     assert immutability_faults(
-        good.replace('manifest_hex "$MIRROR:$tag"', 'manifest_hex "$IMAGE"', 1)
+        head
+        + "put() {"
+        + tail.replace('manifest_hex "$MIRROR:$tag"', 'manifest_hex "$IMAGE"', 1)
     )
     assert immutability_faults(good.replace("sha256-*) die", "sha256-*) echo"))
     assert immutability_faults(good + "    sk copy --all --preserve-digests a b\n")
+    # A day's tag or a digest tag that is moved, or that follows.
     assert immutability_faults(good.replace('"$TAG-$today"', '"$TAG"'))
+    assert immutability_faults(
+        good.replace(
+            'follow "$IMAGE@sha256:$current" "$TAG"',
+            'follow "$IMAGE@sha256:$current" "$TAG-$today"',
+        )
+    )
+    # The followed tag is moved before its digest is held, or not read first.
+    followed = 'follow "$IMAGE@sha256:$current" "$TAG" "$current"\n'
+    assert followed in good
+    assert immutability_faults(
+        good.replace(followed, "").replace("today=", followed + "today=", 1)
+    )
+    assert immutability_faults(good.replace(followed, ""))
+    assert immutability_faults(good.replace(followed, followed * 2))
 
 
 # ---- R163: the job that writes packages holds nothing else ------------------------------------
@@ -516,3 +574,211 @@ def test_R165_mirror_keeps_the_signatures_of_signed_images_detects_violation():
     assert signature_faults(good.replace("$MIRROR:\n", "$OTHER:\n"))
     assert signature_faults(good.replace("use-sigstore-attachments: true", "x: 1"))
     assert signature_faults(good + "# sk copy --remove-signatures\n")
+
+
+# ---- R164: every build pulls from the mirror ----------------------------------------------------
+
+# The files that build or run something and could name an image: the container
+# files and units, the tasks, the workflows and the tests that start images. The
+# register names the upstream of each image (`source`) for the mirror workflow
+# alone, which reads the field and holds no name (R160).
+SCANNED = (
+    "engine",
+    "mise-tasks",
+    ".github/workflows",
+    ".github/renovate.json",
+    "tests/ci",
+    "tests/promote",
+    "tests/system",
+)
+LOCAL = "localhost/"
+REFERENCE = re.compile(
+    r"(?P<image>[^:@]+)(?::(?P<tag>[^@]+))?@(?P<digest>sha256:[0-9a-f]{64})"
+)
+
+
+def image_references(text):
+    """Every image that a container file or a unit starts from: the operand of a
+    `FROM` that is not a stage, `scratch` or an argument, the default of an `ARG`
+    that is a reference, an image of `COPY --from` and the `Image=` of a unit."""
+    stages = set(
+        re.findall(r"^FROM\s+\S+\s+AS\s+(\S+)", text, re.MULTILINE | re.IGNORECASE)
+    )
+    found = []
+    for m in re.finditer(
+        r"^\s*FROM\s+(?:--\S+\s+)*(\S+)", text, re.MULTILINE | re.IGNORECASE
+    ):
+        operand = m[1]
+        if (
+            operand not in stages
+            and operand.lower() != "scratch"
+            and not operand.startswith("$")
+        ):
+            found.append(operand)
+    found += [
+        m[1]
+        for m in re.finditer(r"^\s*ARG\s+\w+=(\S+)", text, re.MULTILINE)
+        if "/" in m[1]
+    ]
+    found += [
+        m[1]
+        for m in re.finditer(
+            r"^\s*COPY\s+(?:--\S+\s+)*?--from=(\S+)", text, re.MULTILINE
+        )
+        if "/" in m[1] and m[1] not in stages
+    ]
+    # A unit's `Image=` is a reference, the name of another unit (`x.image`) or an
+    # archive that the engine image carries (`oci-archive:`), which are not pulled.
+    found += [
+        r
+        for r in re.findall(r"^Image=(\S+)", text, re.MULTILINE)
+        if not r.endswith((".image", ".build")) and not r.startswith("oci-archive:")
+    ]
+    return [r for r in found if not r.startswith(LOCAL)]
+
+
+def build_faults(register, files):
+    """Each image that a container file or a unit pulls and that is not the
+    register's package of the mirror, under the register's digest and tag."""
+    known = {c["image"]: c for c in images_of(register)}
+    faults = []
+    for name, text in files.items():
+        for ref in image_references(text):
+            m = REFERENCE.fullmatch(ref)
+            entry = known.get(m["image"]) if m else None
+            if entry is None:
+                faults.append(f"{name}: {ref} is not an image of the mirror by digest")
+            elif m["digest"] != entry["digest"] or m["tag"] != entry["version"]:
+                faults.append(f"{name}: {ref} is not the register's pin of its image")
+    return faults
+
+
+def upstream_faults(register, files):
+    """Each file that writes the upstream name of an image of the register: only
+    the register does, and the mirror workflow reads it from there."""
+    return [
+        f"{name}: names {c['source']}"
+        for name, text in files.items()
+        for c in images_of(register)
+        if c["source"] in text
+    ]
+
+
+def bootstrap_faults(register, plan, workflow):
+    """The one image that is pulled from upstream is the copy tool: the workflow
+    that fills the mirror runs before the mirror holds anything, so the plan names
+    it by its upstream, and nothing else is exempt."""
+    faults = []
+    tool = [c for c in images_of(register) if c["name"] == "skopeo"]
+    if len(tool) != 1:
+        return ["the copy tool is not one entry of the register"]
+    if plan.count('skopeo["source"]') != 1 or tool[0]["image"] in plan:
+        faults.append("the plan does not take the copy tool from its upstream")
+    if plan.count('"skopeo"') != 1 or plan.count('["source"]') != 1:
+        faults.append("the plan exempts something else from the mirror")
+    if "needs.plan.outputs.skopeo" not in workflow:
+        faults.append("the workflow does not take the copy tool from the plan")
+    return faults
+
+
+# The images that a rule of the update bot names (`.github/renovate.json`): the
+# bot reads the mirror, so a rule names the mirror's package, and the name is the
+# register's, not a copy of it that could drift.
+RULED = ("opentofu-image", "maven")
+
+
+def renovate_faults(register, config_text):
+    """What would leave a rule of the update bot naming something other than the
+    mirror's package of an image that it has a rule for."""
+    faults = []
+    entries = {c["name"]: c for c in images_of(register)}
+    for name in RULED:
+        if entries[name]["image"] not in config_text:
+            faults.append(f"no rule of the update bot names the mirror's {name}")
+    return faults
+
+
+def scanned_files():
+    found = {}
+    for place in SCANNED:
+        base = ROOT / place
+        for path in sorted(base.rglob("*") if base.is_dir() else [base]):
+            if path.is_file() and "__pycache__" not in path.parts:
+                try:
+                    found[str(path.relative_to(ROOT))] = path.read_text()
+                except UnicodeDecodeError:
+                    continue
+    return found
+
+
+def test_R164_every_build_pulls_from_the_mirror():
+    """Proves that every image that a container file or a unit under engine/ pulls
+    is the register's package of the mirror under the register's digest and tag,
+    that every image of the register is that package, that no file that builds,
+    runs or tests writes an upstream name, and that the copy tool of the workflow
+    that fills the mirror is the one image taken from upstream. That the mirror
+    holds each digest is shown by a build that pulls it (the system tests) and by
+    the workflow's run; the update bot's side is `test_renovate.py`."""
+    register = load_toml("components.toml")
+    files = engine_files()
+    assert files and image_references("".join(files.values())), "no image pulled"
+    assert register_faults(register) == []
+    assert build_faults(register, files) == []
+    assert upstream_faults(register, scanned_files()) == []
+    assert bootstrap_faults(register, PLAN.read_text(), WORKFLOW.read_text()) == []
+    config = (ROOT / ".github" / "renovate.json").read_text()
+    assert renovate_faults(register, config) == []
+
+
+def test_R164_every_build_pulls_from_the_mirror_detects_violation():
+    register = load_toml("components.toml")
+    first = images_of(register)[0]
+    pin = f"{first['image']}:{first['version']}@{first['digest']}"
+    upstream = f"{first['source']}:{first['version']}@{first['digest']}"
+
+    def faults(text, name="engine/x/Containerfile"):
+        return build_faults(register, {name: text})
+
+    assert faults(f"FROM {pin}\n") == []
+    assert faults(f"FROM {pin} AS a\nFROM a AS b\nFROM scratch\nFROM ${{X}}\n") == []
+    assert faults(f"ARG BASE={pin}\nFROM ${{BASE}}\n") == []
+    assert faults("FROM localhost/anima/x:1\n") == []
+    # The upstream name, with or without its digest, in each place that pulls.
+    assert faults(f"FROM {upstream}\n")
+    assert faults(f"FROM {first['source']}:{first['version']}\n")
+    assert faults(f"ARG BASE={upstream}\nFROM ${{BASE}}\n")
+    assert faults(f"FROM {pin} AS a\nCOPY --from={upstream} /a /a\n")
+    assert faults(f"[Container]\nImage={upstream}\n", "engine/x/x.container")
+    assert faults(f"FROM --platform=linux/amd64 {upstream}\n")
+    # The mirror's name with another digest or tag than the register's.
+    assert faults(f"FROM {pin.replace(first['digest'], 'sha256:' + '0' * 64)}\n")
+    assert faults(f"FROM {first['image']}:other@{first['digest']}\n")
+    assert faults(f"FROM {NAMESPACE}unregistered:1@sha256:{'0' * 64}\n")
+
+    # A file that writes the upstream name of an image of the register.
+    assert upstream_faults(register, {"mise-tasks/x": "podman run quiet\n"}) == []
+    assert upstream_faults(register, {"mise-tasks/x": f"podman run {upstream}\n"})
+    assert upstream_faults(register, {".github/workflows/x.yml": first["source"]})
+
+    # The update bot: a rule that names the upstream of an image, not the mirror's.
+    config = (ROOT / ".github" / "renovate.json").read_text()
+    assert renovate_faults(register, config) == []
+    ruled = next(c for c in images_of(register) if c["name"] == RULED[0])
+    upstream_rule = config.replace(ruled["image"], ruled["source"])
+    assert renovate_faults(register, upstream_rule)
+    assert renovate_faults(register, "{}")
+    assert upstream_faults(register, {".github/renovate.json": upstream_rule})
+
+    # The one exemption: the copy tool, from the plan, and only it.
+    plan, workflow = PLAN.read_text(), WORKFLOW.read_text()
+    tool = next(c for c in images_of(register) if c["name"] == "skopeo")
+    assert bootstrap_faults(register, plan, workflow) == []
+    assert bootstrap_faults(
+        register, plan.replace('skopeo["source"]', 'skopeo["image"]'), workflow
+    )
+    assert bootstrap_faults(register, plan + f"# {tool['image']}\n", workflow)
+    assert bootstrap_faults(register, plan + 'x = other["source"]\n', workflow)
+    assert bootstrap_faults(
+        register, plan, workflow.replace("needs.plan.outputs.skopeo", "x")
+    )
+    assert bootstrap_faults({"component": []}, plan, workflow)

@@ -98,7 +98,7 @@ depends = [
 description = "Everything a commit of main must pass to be promoted to main-green"
 # The system tests build the engine image and run it; the other long suites
 # (upstream regression, hardening) join here. One after the other, never together.
-run = ["mise run check", "mise run engine:test"]
+run = ["mise run ci:mirror-check", "mise run check", "mise run engine:test"]
 
 # ---- Git hooks, installed by `mise run hooks:install` -----------------------
 

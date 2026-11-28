@@ -11,8 +11,8 @@
 # hashes of the lock file for that architecture: a provider that is not the
 # locked one fails the build.
 
-ARG CONFIGURATOR=ghcr.io/opentofu/opentofu:1.13.10-minimal@sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c
-ARG BASE=docker.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+ARG CONFIGURATOR=ghcr.io/cocreiamo/anima-mirror/opentofu-image:1.13.10-minimal@sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c
+ARG BASE=ghcr.io/cocreiamo/anima-mirror/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 FROM ${CONFIGURATOR} AS configurator
 

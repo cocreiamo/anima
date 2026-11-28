@@ -1,7 +1,7 @@
 ---
 id: TASK-96
 title: 'GAP-060: Switch every build to the mirror of the base images'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-28T12:10:32Z'
 labels:
@@ -30,15 +30,17 @@ The upstream registries delete the manifest of a pinned digest (GAP-060, observe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 test_R164_every_build_pulls_from_the_mirror
-- [ ] #2 Check: the update bot proposes only digests that exist in the mirror (renovate.json watches the mirror)
-- [ ] #3 Check: GAP-060 is updated in gaps.toml (status)
+- [x] #1 test_R164_every_build_pulls_from_the_mirror
+- [x] #2 Check: the update bot proposes only digests that exist in the mirror (renovate.json watches the mirror)
+- [x] #3 Check: GAP-060 is updated in gaps.toml (status)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 The dependencies images (TASK-43, step 5; `localhost/anima/secrets-dependencies:<tag>`, built by `mise run engine:build`) are not published yet. They join this switch: publish each as `ghcr.io/cocreiamo/anima-mirror/<name>-dependencies` with a tag that names its inputs (the tag `mise-tasks/engine/tag` computes) by a workflow job with the same least privilege as the mirror's (R163), record the digest it gives, and have `engine:build` consume `container-image://<mirror>/<name>-dependencies@<digest>` when the local tag is absent, so that a build on a clean machine reads the held image and reaches no module proxy. The visibility of the package is the founder's decision, the same as for the base images.
+
+Not done in this task (decided with the lead, 2026-11-28): the publication of the dependencies images stays a step of TASK-43 (step 5, remaining).
 <!-- SECTION:NOTES:END -->
 
 ## Brief
@@ -88,4 +90,23 @@ Start only when the founder has decided the visibility of the mirror's packages 
 
 ## Report
 
-(`docs/work/handback-template.md`, when done)
+Task: TASK-96. Role: implementer. Date: 2026-11-28.
+
+### Done
+
+- `components.toml`: every image entry has `image` (the mirror package, what builds pull) and `source` (the upstream, read only by the mirror workflow); the `mirror` field is gone.
+- `mise-tasks/ci/mirror-plan` copies `source` into `image`; the copy tool is the one image taken from its `source` (bootstrap). `mise-tasks/ci/mirror-copy` moves the tag that is the upstream tag after the digest is held under `sha256-<hex>` and `<tag>-<UTC date>` (R162, R176 texts).
+- Every `FROM` and image `ARG` under `engine/` names the mirror with the register's tag and digest.
+- `.github/renovate.json` names the mirror in the opentofu group and the Maven line rules; the manager reads the register's `image`, now the mirror.
+- `test_R164_every_build_pulls_from_the_mirror` with its companion; R160 to R162 and R175, R176 tests follow the new shape; R164 left the pending list through the generator.
+- GAP-060 (workaround in force, stays open: the gap is the upstream registries' behaviour), rule 13 of `anima-adopting-a-component`, TASK-43 notes.
+
+### Unknowns resolved
+
+- Every pinned digest resolves in the mirror, except the Maven image: its entry was registered after the last mirror run (the mirror holds the earlier `eclipse-temurin` package, not `maven`; anonymous read answers 403). A run of the workflow on main fills it, and its package must then be made public.
+- The update bot reads a digest by the tag of the version, so the mirror needs that tag: the workflow now moves it.
+
+### Only read
+
+- The behaviour of Renovate (documentation: the docker datasource, docker versioning and the Docker guide); the bot itself was not run.
+

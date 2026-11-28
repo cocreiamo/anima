@@ -12,7 +12,10 @@
 # pinned digest, whole (every platform) and with the digest preserved: a copy that
 # cannot keep the digest, or whose result differs, fails. Each copy is reachable by
 # two tags that are never moved: `sha256-<hex>` is the digest itself, and
-# `<tag>-<UTC date>` is the day's copy of the upstream tag. Nothing is deleted.
+# `<tag>-<UTC date>` is the day's copy of the upstream tag. The tag that is the
+# upstream tag itself follows it, once the digest is held under its own tags: the
+# update bot reads the digest of that tag, so it finds only digests that the mirror
+# holds. Nothing is deleted.
 set -euo pipefail
 
 : "${SKOPEO:?} ${NAME:?} ${IMAGE:?} ${TAG:?} ${DIGEST:?} ${MIRROR:?} ${REGISTRY_TOKEN:?} ${ACTOR:?}"
@@ -78,10 +81,23 @@ manifest_hex() {
     fi
 }
 
-# Puts a source (a reference by digest) into the mirror under a tag, whole
-# and with its digest, and reads the result back. A tag that exists is
-# never moved or deleted: a day's tag that names another digest is kept,
-# a digest tag that does (it cannot) is a fault.
+# Writes a source (a reference by digest) into the mirror under a tag, whole
+# and with its digest, and reads the result back. The only place that writes.
+write() {
+    local source="$1" tag="$2" hex="$3" held
+    local copy_tls=()
+    if [ "${#tls[@]}" -gt 0 ]; then
+        copy_tls=(--src-tls-verify=false --dest-tls-verify=false)
+    fi
+    sk copy --all --preserve-digests --retry-times 3 --src-no-creds --dest-authfile /auth.json "${copy_tls[@]}" "docker://$source" "docker://$MIRROR:$tag"
+    held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
+    [ "$held" = "$hex" ] || die "$MIRROR:$tag holds sha256:$held after the copy, not sha256:$hex: the digest was not preserved"
+    echo "$MIRROR:$tag now holds sha256:$hex."
+}
+
+# Puts a source into the mirror under a tag that is never moved. A tag that
+# exists is left alone: a day's tag that names another digest is kept, a digest
+# tag that does (it cannot) is a fault.
 put() {
     local source="$1" tag="$2" hex="$3" held
     held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
@@ -95,14 +111,22 @@ put() {
         echo "::warning::$MIRROR:$tag holds sha256:$held, not sha256:$hex: left as it is, a tag is never moved."
         return 0
     fi
-    local copy_tls=()
-    if [ "${#tls[@]}" -gt 0 ]; then
-        copy_tls=(--src-tls-verify=false --dest-tls-verify=false)
-    fi
-    sk copy --all --preserve-digests --retry-times 3 --src-no-creds --dest-authfile /auth.json "${copy_tls[@]}" "docker://$source" "docker://$MIRROR:$tag"
+    write "$source" "$tag" "$hex"
+}
+
+# Moves the tag that is the upstream tag itself to the digest that it names now,
+# so that the update bot, which reads a digest by tag, finds there only a digest
+# that the mirror holds (R162). It is the one tag that is moved, and only after
+# the digest is held under its own immutable tag, so that the image it named
+# before stays reachable by that tag and by its digest.
+follow() {
+    local source="$1" tag="$2" hex="$3" held
     held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
-    [ "$held" = "$hex" ] || die "$MIRROR:$tag holds sha256:$held after the copy, not sha256:$hex: the digest was not preserved"
-    echo "$MIRROR:$tag now holds sha256:$hex."
+    if [ "$held" = "$hex" ]; then
+        echo "$MIRROR:$tag already holds sha256:$hex."
+        return 0
+    fi
+    write "$source" "$tag" "$hex"
 }
 
 today="$(date -u +%Y%m%d)"
@@ -110,6 +134,7 @@ current="$(manifest_hex "$IMAGE:$TAG" --no-creds)"
 [ -n "$current" ] || die "$IMAGE:$TAG does not exist upstream any more"
 put "$IMAGE@sha256:$current" "sha256-$current" "$current"
 put "$IMAGE@sha256:$current" "$TAG-$today" "$current"
+follow "$IMAGE@sha256:$current" "$TAG" "$current"
 
 pinned="${DIGEST#sha256:}"
 put "$IMAGE@sha256:$pinned" "sha256-$pinned" "$pinned"
