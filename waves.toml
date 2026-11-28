@@ -50,3 +50,15 @@ ran = [
 where = "GitHub, workflow runs 46173147975 (CI, success) and 46173147442 (System tests, success) on commit b0fa6d2"
 result = "passed"
 date = "2026-11-28"
+
+# Wave R1 (the first wave of the restructuring after R0: "wave 1" of the coordinator's
+# plan; R200 requires the id to be R<n>). This entry registers the block of the
+# resource envelopes (R203 to R210); the coordinator adds the other blocks of the wave.
+# It is open until the full engine tests have passed on the merged wave: this block
+# was written test-first and checked with its own tests only (the repository tests
+# of the block, and the new system tests with the token tests against one engine).
+[[wave]]
+id = "R1"
+branch = "kickoff-restructure"
+blocks = ["R1.envelopes"]
+status = "open"
