@@ -122,7 +122,8 @@ def test_R179_offline_build_succeeds_and_names_what_is_missing_detects_violation
     built = build_verified(broken, tag)
     assert built.returncode != 0, "the build succeeded without the module"
     output = built.stderr + built.stdout
-    # go names the module it wanted ("go: downloading <module> <version>") and says why it
-    # did not get it ("module lookup disabled by GOPROXY=off").
-    assert f"go: downloading {MISSING} " in output, output[-2000:]
-    assert "module lookup disabled by GOPROXY=off" in output, output[-2000:]
+    # go names the module and the version it wanted and says why it did not get it:
+    # "go: <module>@<version>: module lookup disabled by GOPROXY=off".
+    assert re.search(
+        rf"go: {re.escape(MISSING)}@v\S+: module lookup disabled by GOPROXY=off", output
+    ), output[-2000:]
