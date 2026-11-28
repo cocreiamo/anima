@@ -140,6 +140,9 @@ Look here before building something. Each section is derived from its source; th
 | R113 | data files read with yaml library | written |
 | R114 | system tests report on every change | written |
 | R115 | publish only what was verified | written |
+| R120 | update bot follows configurator releases | written |
+| R121 | update bot follows task runner everywhere | written |
+| R122 | update bot ignores build contexts | written |
 
 ## Components
 
@@ -295,6 +298,9 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R120, update bot follows configurator releases, at every commit: `test_R120_update_bot_follows_the_configurators_releases` (written).
+- R121, update bot follows task runner everywhere, at every commit: `test_R121_update_bot_follows_the_task_runner_everywhere` (written).
+- R122, update bot ignores build contexts, at every commit: `test_R122_update_bot_ignores_build_contexts` (written).
 
 ## Skills
 
