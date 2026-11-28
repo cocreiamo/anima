@@ -2,7 +2,8 @@
 
 The rules every repository of the organization shares are in the
 [contributing guide of the organization](https://github.com/cocreiamo/.github/blob/main/CONTRIBUTING.md):
-the contributor license agreement, Conventional Commits, signed commits, a pull
+the contributor license agreement (see the [privacy notice](PRIVACY.md) for the
+data its signing records), Conventional Commits, signed commits, a pull
 request for every change, and how to set up with mise. The code of conduct and
 the security policy are in the same repository. This page lists what is
 specific to Anima.
