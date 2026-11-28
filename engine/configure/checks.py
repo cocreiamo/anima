@@ -65,7 +65,7 @@ DataLoader.add_constructor("tag:yaml.org,2002:map", _construct_mapping)
 
 def read_yaml_file(path):
     """A data file, read with the YAML library through `DataLoader`."""
-    return yaml.load(Path(path).read_text(), Loader=DataLoader)  # noqa: S506
+    return yaml.load(Path(path).read_text(), Loader=DataLoader)
 
 
 # ---- The declaration of the fixed roles ---------------------------------------
