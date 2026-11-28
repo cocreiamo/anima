@@ -329,11 +329,12 @@ def test_R108_export_runs_once_for_one_input_detects_violation(tmp_path):
 # ---- R191: the export reads every file of the model, and its cache key covers them ----------
 
 
-def directory_export_faults(script_text, tmp_path):
+def directory_export_faults(script_text, tmp_path, only=None):
     """Export a directory of files with the script under test, with a stand-in
     for the JVM that lists the files it is given, and change the directory: the
     export reads every file; the same files give the same cache entry and no new
-    run; a changed, added, renamed or removed file gives another entry."""
+    run; a changed, added, renamed or removed file gives another entry. `only`
+    limits the changes made, for a check that needs one."""
     export, env, _model, runs = fake_export_root(tmp_path, script_text)
     seen = tmp_path / "seen"
     java = tmp_path / "bin" / "java"
@@ -382,6 +383,8 @@ def directory_export_faults(script_text, tmp_path):
     }
     before_path, before = first, count
     for what, change in changes.items():
+        if only is not None and what not in only:
+            continue
         change()
         path, after = run()
         if path == before_path or after != before + 1:
@@ -405,7 +408,7 @@ def test_R191_export_reads_every_file_of_the_model_detects_violation(tmp_path):
     hashed = "find . -type f -name '*.sysml' -print0 | LC_ALL=C sort -z"
     assert text.count(hashed) == 1
     root_only = text.replace(hashed, "find . -type f -name 'anima.sysml' -print0")
-    assert directory_export_faults(root_only, tmp_path)
+    assert directory_export_faults(root_only, tmp_path, only=("changed",))
     # A copy of the root file alone.
     (tmp_path / "again").mkdir()
     assert directory_export_faults(
@@ -414,6 +417,7 @@ def test_R191_export_reads_every_file_of_the_model_detects_violation(tmp_path):
             "-name 'anima.sysml' -print0 \\\n                | tar",
         ),
         tmp_path / "again",
+        only=(),
     )
 
 
