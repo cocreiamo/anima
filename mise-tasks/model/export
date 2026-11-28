@@ -19,9 +19,12 @@ input="$(realpath "${1:-$root/model/anima.sysml}")"
 # finds the cache prints its path and does nothing else. The cache is never
 # stale: a changed input has another hash. Callers must not delete it.
 #
-# Safe under parallel runs: a run exports in a directory of its own and then
-# moves it into place in one step. If another run got there first the move
-# fails, and this run discards its copy and prints the one in place.
+# Safe under parallel runs, and run once (R108): callers that find no cache
+# take a lock per input, check the cache again once they hold it, and only the
+# first starts the JVM; the others wait for it and print its result. The run
+# exports in a directory of its own and moves it into place in one step, so a
+# reader never sees a half-written one. If the first run fails the next in the
+# queue tries for itself.
 hash="$(sha256sum "$input" | cut -d' ' -f1)"
 base="$root/.cache/sysml-export"
 cached="$base/$SYSML_PILOT_VERSION/$hash"
@@ -30,26 +33,30 @@ if [ -f "$cached/model.json" ]; then
     exit 0
 fi
 
-# The one place that fetches the pilot, safe in parallel (PM-007). It also
-# gives the library its aliases for GAP-002. A run that finds the cache above
-# never waits for it.
-pilot="$("$root/mise-tasks/model/fetch")"
-jar="$pilot/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
-lib="$pilot/sysml.library"
+mkdir -p "$base/$SYSML_PILOT_VERSION"
+(
+    flock 9
+    # Another caller may have finished while this one waited for the lock.
+    if [ ! -f "$cached/model.json" ]; then
+        # The one place that fetches the pilot, safe in parallel (PM-007). It
+        # also gives the library its aliases for GAP-002.
+        pilot="$("$root/mise-tasks/model/fetch")"
+        jar="$pilot/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
+        lib="$pilot/sysml.library"
 
-mkdir -p "$base" "$base/$SYSML_PILOT_VERSION"
-out="$(mktemp -d "$base/run.XXXXXX")"
-trap 'rm -rf "$out"' EXIT
-cp "$input" "$out/model.sysml"
-cd "$out"
-if ! timeout 300 java -cp "$jar" org.omg.sysml.xtext.util.SysML2JSON \
-        -l "$lib" model.sysml \
-        "Kernel Libraries" "Systems Library" "Domain Libraries" \
-        > "$out/output.txt" 2>&1 || [ ! -f "$out/model.json" ]; then
-    grep -v '^log4j' "$out/output.txt" >&2
-    echo "model:export: the pilot implementation did not produce the JSON" >&2
-    exit 1
-fi
-# `mv -T` onto an existing non-empty directory fails; the trap then removes ours.
-mv -T "$out" "$cached" 2>/dev/null || [ -f "$cached/model.json" ]
+        out="$(mktemp -d "$base/run.XXXXXX")"
+        trap 'rm -rf "$out"' EXIT
+        cp "$input" "$out/model.sysml"
+        cd "$out"
+        if ! timeout 300 java -cp "$jar" org.omg.sysml.xtext.util.SysML2JSON \
+                -l "$lib" model.sysml \
+                "Kernel Libraries" "Systems Library" "Domain Libraries" \
+                > "$out/output.txt" 2>&1 || [ ! -f "$out/model.json" ]; then
+            grep -v '^log4j' "$out/output.txt" >&2
+            echo "model:export: the pilot implementation did not produce the JSON" >&2
+            exit 1
+        fi
+        mv -T "$out" "$cached"
+    fi
+) 9>"$base/$SYSML_PILOT_VERSION/.$hash.lock"
 echo "$cached/model.json"
