@@ -20,9 +20,52 @@ CONFIGURE = ROOT / "engine" / "configure"
 DECLARATIONS = CONFIGURE / "declarations"
 
 
+class DataLoader(yaml.SafeLoader):
+    """The safe loader, stricter in two ways that matter for a file of names.
+
+    A mapping key stated twice is refused, with its position, instead of the
+    last one winning. Only `true` and `false` are booleans: `no`, `on`, `off`
+    and `yes` stay text, so that a name is never silently turned into one.
+    No object is constructed (it is still the safe loader)."""
+
+
+DataLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:bool"
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+DataLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|false|True|False|TRUE|FALSE)$"),
+    list("tTfF"),
+)
+
+
+def _construct_mapping(loader, node, deep=False):
+    seen = set()
+    for key_node, _ in node.value:
+        if key_node.tag == "tag:yaml.org,2002:merge":
+            continue
+        key = loader.construct_object(key_node, deep=True)
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None,
+                None,
+                f"duplicate key at line {key_node.start_mark.line + 1}, "
+                f"column {key_node.start_mark.column + 1}",
+                key_node.start_mark,
+            )
+        seen.add(key)
+    return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+
+DataLoader.add_constructor("tag:yaml.org,2002:map", _construct_mapping)
+
+
 def read_yaml_file(path):
-    """A data file, read with the YAML library: safe, no object is constructed."""
-    return yaml.safe_load(Path(path).read_text())
+    """A data file, read with the YAML library through `DataLoader`."""
+    return yaml.load(Path(path).read_text(), Loader=DataLoader)  # noqa: S506
 
 
 # ---- The declaration of the fixed roles ---------------------------------------

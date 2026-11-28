@@ -101,6 +101,29 @@ def test_data_reader_refuses_a_malformed_file(tmp_path):
         read_text(tmp_path, "roles: [unclosed\nother: 1\n")
 
 
+def test_data_reader_refuses_a_duplicated_key(tmp_path):
+    """A key stated twice is not read as last-one-wins: a file of identities that declares
+    one twice is refused, with the position of the second."""
+    with pytest.raises(yaml.YAMLError, match=r"line 3"):
+        read_text(tmp_path, "roles:\n  admin: 1\n  admin: 2\n")
+    with pytest.raises(yaml.YAMLError, match=r"duplicate"):
+        read_text(tmp_path, "people:\n  - name: a\n    name: b\n")
+
+
+def test_data_reader_reads_only_true_and_false_as_booleans(tmp_path):
+    """A name such as `no`, `on` or `off` stays text; it is not one of the booleans of YAML 1.1."""
+    document = read_text(
+        tmp_path,
+        "no: [on, off, yes]\nflag: true\nother: false\nname: no\n",
+    )
+    assert document == {
+        "no": ["on", "off", "yes"],
+        "flag": True,
+        "other": False,
+        "name": "no",
+    }
+
+
 # The library is imported by the module and no reader of YAML is written in it.
 HAND_WRITTEN_READER = ("read_yaml", "_scalar", "_logical_lines", "_block")
 
