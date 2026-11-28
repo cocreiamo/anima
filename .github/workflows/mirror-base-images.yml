@@ -1,0 +1,166 @@
+name: Mirror base images
+
+# Copies every image of the register (`components.toml`: the entries with an
+# `image`) into the organization's mirror, so that a pinned digest cannot vanish
+# when the upstream registry deletes its manifest (GAP-060, TASK-43). For each
+# image it copies the pinned digest and the digest that the upstream tag names
+# now, whole (every platform) and with the digest preserved: a copy that cannot
+# keep the digest, or whose result differs, fails the job. Each copy is reachable
+# by two tags that are never moved: `sha256-<hex>` is the digest itself, and
+# `<tag>-<UTC date>` is the day's copy of the upstream tag. Nothing is deleted.
+#
+# The list of images is read from the register, never written here. The jobs are
+# split so that the one that may write packages runs none of the repository's
+# code: it receives the list as data and runs a pinned image of the copy tool.
+# The builds do not pull from the mirror yet (anima-adopting-a-component).
+#
+# The upstream rebuild of the engine's base happens around 11:30 UTC (observed
+# on 2026-11-28), so the copy runs after it.
+#
+# Unverified: this workflow has never run. A package is created private by the
+# first push; its visibility, and that this repository may write to it, are the
+# founder's to settle before and after the first run.
+
+on:
+  schedule:
+    - cron: "17 13 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mirror-base-images
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.register.outputs.images }}
+      skopeo: ${{ steps.register.outputs.skopeo }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
+          install_args: python
+          cache: false
+      - id: register
+        name: Read the images and the copy tool from the register
+        run: |
+          mise exec python -- python -I - <<'PY'
+          import json
+          import os
+          import tomllib
+
+          with open("components.toml", "rb") as f:
+              register = tomllib.load(f)
+          entries = [
+              c
+              for c in register["component"] + register.get("tool_image", [])
+              if "image" in c
+          ]
+          fields = (
+              ("name", "name"),
+              ("image", "image"),
+              ("tag", "version"),
+              ("digest", "digest"),
+              ("mirror", "mirror"),
+          )
+          images = [{key: c[source] for key, source in fields} for c in entries]
+          skopeo = next(c for c in entries if c["name"] == "skopeo")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("images=" + json.dumps({"include": images}) + "\n")
+              out.write("skopeo=" + skopeo["image"] + "@" + skopeo["digest"] + "\n")
+          PY
+
+  mirror:
+    name: Mirror ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.plan.outputs.images) }}
+    env:
+      SKOPEO: ${{ needs.plan.outputs.skopeo }}
+      NAME: ${{ matrix.name }}
+      IMAGE: ${{ matrix.image }}
+      TAG: ${{ matrix.tag }}
+      DIGEST: ${{ matrix.digest }}
+      MIRROR: ${{ matrix.mirror }}
+    steps:
+      - name: Copy the digest that the upstream tag names now, then the pinned digest
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          auth="$RUNNER_TEMP/auth.json"
+          echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin --authfile "$auth"
+
+          # The copy tool is a pinned image; only the credentials file reaches it,
+          # read only, and only the destination is given it.
+          sk() { podman run --rm --volume "$auth:/auth.json:ro" "$SKOPEO" "$@"; }
+
+          die() { echo "::error::$*" >&2; exit 1; }
+
+          # The digest (hex) of the manifest that a reference names: empty when the
+          # registry says there is none, a failure on any other answer. The raw
+          # manifest is what a digest is the hash of.
+          manifest_hex() {
+            local ref="$1"; shift
+            local err="$RUNNER_TEMP/answer.err" hex="$RUNNER_TEMP/answer.hex"
+            if sk inspect --raw "$@" "docker://$ref" 2>"$err" | sha256sum | cut -d ' ' -f 1 >"$hex"; then
+              cat "$hex"
+            elif grep -Eq 'manifest unknown|name unknown|not found|404' "$err"; then
+              echo ""
+            else
+              cat "$err" >&2
+              die "cannot read $ref"
+            fi
+          }
+
+          # Puts a source (a reference by digest) into the mirror under a tag, whole
+          # and with its digest, and reads the result back. A tag that exists is
+          # never moved or deleted: a day's tag that names another digest is kept,
+          # a digest tag that does (it cannot) is a fault.
+          put() {
+            local source="$1" tag="$2" hex="$3" held
+            held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
+            if [ "$held" = "$hex" ]; then
+              echo "$MIRROR:$tag already holds sha256:$hex."
+              return 0
+            elif [ -n "$held" ]; then
+              case "$tag" in
+                sha256-*) die "$MIRROR:$tag holds sha256:$held, not the digest it is named for" ;;
+              esac
+              echo "::warning::$MIRROR:$tag holds sha256:$held, not sha256:$hex: left as it is, a tag is never moved."
+              return 0
+            fi
+            sk copy --all --preserve-digests --retry-times 3 --src-no-creds --dest-authfile /auth.json "docker://$source" "docker://$MIRROR:$tag"
+            held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
+            [ "$held" = "$hex" ] || die "$MIRROR:$tag holds sha256:$held after the copy, not sha256:$hex: the digest was not preserved"
+            echo "$MIRROR:$tag now holds sha256:$hex."
+          }
+
+          today="$(date -u +%Y%m%d)"
+          current="$(manifest_hex "$IMAGE:$TAG" --no-creds)"
+          [ -n "$current" ] || die "$IMAGE:$TAG does not exist upstream any more"
+          put "$IMAGE@sha256:$current" "sha256-$current" "$current"
+          put "$IMAGE@sha256:$current" "$TAG-$today" "$current"
+
+          pinned="${DIGEST#sha256:}"
+          put "$IMAGE@sha256:$pinned" "sha256-$pinned" "$pinned"
+
+          {
+            echo "- $NAME: $TAG is sha256:$current upstream today, pinned sha256:$pinned; both are in $MIRROR."
+          } >> "$GITHUB_STEP_SUMMARY"
