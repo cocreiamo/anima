@@ -1,7 +1,10 @@
 name: Promote
 
-# Moves main-green to the newest commit of main that passes every suite, and
-# releases the version that commit carries (`anima-branching-and-releasing`).
+# Verifies the newest commit of main with every suite, builds the engine image
+# and passes the system tests on it, moves main-green to that commit, and
+# releases the version that commit carries: the image that was built and tested
+# here is the one published, by digest, never rebuilt
+# (`anima-branching-and-releasing`).
 
 on:
   schedule:
@@ -17,15 +20,20 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
     permissions:
       contents: read
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+      publish: ${{ steps.release.outputs.publish }}
+      image-id: ${{ steps.archive.outputs.image-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
+          submodules: true
           persist-credentials: false
       - id: commit
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -38,16 +46,97 @@ jobs:
         with:
           path: .cache/sysml-pilot
           key: sysml-pilot-${{ steps.pilot.outputs.sha256 }}
+      # Every check, then the engine image built cold (no image is restored from
+      # a cache here) and the system tests run on it.
       - run: mise run promote:verify
+      - id: release
+        name: Decide whether this commit carries a version to publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(jq -r '."."' .github/release-please-manifest.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$version" = "0.0.0" ]; then
+            echo "No version prepared yet: nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v$version is already released: nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: archive
+        name: Archive the image that passed
+        if: steps.release.outputs.publish == 'true'
+        run: |
+          podman save --output "$RUNNER_TEMP/engine-image.tar" "$(cat .cache/engine/engine.ref)"
+          echo "image-id=$(cat .cache/engine/engine.id)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.release.outputs.publish == 'true'
+        with:
+          name: engine-image
+          path: ${{ runner.temp }}/engine-image.tar
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: engine-logs
+          path: .cache/engine/logs
+          if-no-files-found: ignore
+
+  publish:
+    needs: verify
+    if: needs.verify.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    outputs:
+      reference: ${{ steps.push.outputs.reference }}
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      IMAGE_ID: ${{ needs.verify.outputs.image-id }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: engine-image
+          path: ${{ runner.temp }}/image
+      - id: load
+        name: Load the archive and check that it is the image that passed
+        run: |
+          ref="$(podman load --quiet --input "$RUNNER_TEMP/image/engine-image.tar" | tail -n 1)"
+          actual="$(podman image inspect --format '{{.Id}}' "$ref")"
+          if [ "$actual" != "$IMAGE_ID" ]; then
+            echo "The archive holds $actual, not the image that passed ($IMAGE_ID)." >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - id: push
+        name: Push the image under its version
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REF: ${{ steps.load.outputs.ref }}
+        run: |
+          echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin
+          if podman manifest inspect "docker://ghcr.io/cocreiamo/anima:$VERSION" >/dev/null 2>&1; then
+            echo "ghcr.io/cocreiamo/anima:$VERSION exists: a published tag is never moved." >&2
+            exit 1
+          fi
+          podman push --digestfile "$RUNNER_TEMP/digest" "$REF" "docker://ghcr.io/cocreiamo/anima:$VERSION"
+          echo "reference=ghcr.io/cocreiamo/anima@$(cat "$RUNNER_TEMP/digest")" >> "$GITHUB_OUTPUT"
 
   promote:
-    needs: verify
+    needs: [verify, publish]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ needs.verify.outputs.sha }}
+      IMAGE: ${{ needs.publish.outputs.reference }}
     steps:
       - name: Fast-forward main-green
         run: |
@@ -66,7 +155,10 @@ jobs:
             echo "No version prepared yet."
           elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "v$version is already released."
-          else
+          elif [ -n "$IMAGE" ]; then
             gh release create "v$version" --repo "$GITHUB_REPOSITORY" \
-              --target "$SHA" --generate-notes
+              --target "$SHA" --generate-notes --notes "Engine image: \`$IMAGE\`"
+          else
+            echo "v$version has no published image: not releasing it." >&2
+            exit 1
           fi
