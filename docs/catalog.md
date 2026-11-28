@@ -138,6 +138,8 @@ Look here before building something. Each section is derived from its source; th
 | R110 | releases stay patch only | written |
 | R112 | format and test exclude each other | written |
 | R113 | data files read with yaml library | written |
+| R118 | certificate renewed before expiry | written |
+| R119 | failed renewal leaves engine not ready | written |
 
 ## Components
 

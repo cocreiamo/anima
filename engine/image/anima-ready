@@ -1,0 +1,20 @@
+#!/usr/bin/bash
+# The engine's readiness answer (R41): succeeds when the readiness target is active.
+# When it is not, says so and says why: for each part the target is bound to that
+# is not active, its state and the last lines of its journal, which hold the
+# message of a failure (R119). The output is what the container engine reports.
+set -uo pipefail
+
+target=${1:-anima-ready.target}
+systemctl is-active --quiet "$target" && exit 0
+echo "not ready: $target is $(systemctl is-active "$target")"
+for unit in $(systemctl show "$target" --property=BindsTo --value); do
+    state=$(systemctl is-active "$unit")
+    [ "$state" = active ] && continue
+    echo "$unit: $state (result: $(systemctl show "$unit" --property=Result --value))"
+    # What the part itself said (its container logs under the unit's own name), not
+    # what systemd or the container engine said about it.
+    journalctl --no-pager --output cat --unit "$unit" --identifier "${unit%.service}" --lines 12 2>/dev/null |
+        grep -v '^$' | tail -n 5 | sed 's/^/    /'
+done
+exit 1

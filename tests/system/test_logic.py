@@ -5,7 +5,13 @@ No container is started: each feeds the pure decision a recorded wrong input.
 
 import json
 
-from engine_logic import container_phase, regress_tests_passed
+from engine_logic import (
+    certificate_facts,
+    container_phase,
+    regress_tests_passed,
+    renewal_failure_faults,
+    renewal_faults,
+)
 
 PASSED_LOG = (
     "ok 1\n=====================\n All 215 tests passed.\n=====================\n"
@@ -37,3 +43,37 @@ def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     assert container_phase("Error: no such container") == "unknown"
     created = json.dumps({"Status": "created", "Running": False})
     assert container_phase(created) == "unknown"
+
+
+CERTIFICATE = "serial=0A1B\nnotAfter=Nov 28 12:00:00 2026 GMT\n"
+FIRST = {"serial": "0A1B", "not_after": 1000.0}
+SECOND = {"serial": "0C2D", "not_after": 1600.0}
+
+
+def test_R118_certificate_renewed_before_expiry_detects_violation():
+    """A renewal counts only when the certificate is another one, outliving the
+    first, taken before the first expired, with no restart of the server."""
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t1") == []
+    assert renewal_faults(FIRST, FIRST, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, {**SECOND, "not_after": 900.0}, 900.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 1000.0, "t1", "t1")
+    assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t2")
+    assert certificate_facts(CERTIFICATE) == {
+        "serial": "0A1B",
+        "not_after": 1795867200.0,
+    }
+    assert certificate_facts("") is None
+    assert certificate_facts("serial=0A1B\nnotAfter=never\n") is None
+    assert certificate_facts("notAfter=Nov 28 12:00:00 2026 GMT\n") is None
+
+
+def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
+    """The answer after a failed renewal must be negative and say why: a ready
+    answer, a silent one and one that names another fault are not."""
+    said = (
+        "not ready\ndatabase-tls.service: failed\ncertificate renewal failed: refused"
+    )
+    assert renewal_failure_faults("unhealthy", said) == []
+    assert renewal_failure_faults("healthy", said)
+    assert renewal_failure_faults("unhealthy", "")
+    assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")

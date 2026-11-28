@@ -6,6 +6,7 @@ Each is a function of text or of a recorded state, so that it runs in every
 
 import json
 import re
+from datetime import UTC, datetime
 
 PASSED = re.compile(r"All (\d+) tests passed")
 
@@ -35,3 +36,50 @@ def container_phase(inspected_state: str) -> str:
     if state.get("Running") is False and state.get("Status") in ("exited", "stopped"):
         return "stopped"
     return "unknown"
+
+
+def certificate_facts(openssl_output: str) -> dict | None:
+    """The serial and the end of validity (seconds since the epoch) of a certificate,
+    from `openssl x509 -noout -serial -enddate`; None when either is missing."""
+    serial = re.search(r"^serial=(\S+)", openssl_output, re.MULTILINE)
+    end = re.search(r"^notAfter=(.+?)\s*$", openssl_output, re.MULTILINE)
+    if not serial or not end:
+        return None
+    try:
+        stamp = datetime.strptime(end.group(1), "%b %d %H:%M:%S %Y GMT")
+    except ValueError:
+        return None
+    return {
+        "serial": serial.group(1),
+        "not_after": stamp.replace(tzinfo=UTC).timestamp(),
+    }
+
+
+def renewal_faults(
+    before: dict, after: dict, now: float, start_before: str, start_after: str
+) -> list[str]:
+    """What is wrong with a renewal seen from outside (R118): the certificate must
+    be another one, that outlives the first, taken while the first was still valid,
+    by a server that was not restarted (its start time is the same)."""
+    faults = []
+    if after["serial"] == before["serial"]:
+        faults.append("the certificate presented is still the first one")
+    if after["not_after"] <= before["not_after"]:
+        faults.append("the new certificate does not outlive the first")
+    if now >= before["not_after"]:
+        faults.append("the first certificate had already expired")
+    if start_after != start_before:
+        faults.append("the database server was restarted")
+    return faults
+
+
+def renewal_failure_faults(status: str, output: str) -> list[str]:
+    """What is wrong with the readiness answer after a failed renewal (R119): it
+    must be negative (not `healthy`) and its text must say that the certificate
+    could not be renewed."""
+    faults = []
+    if status == "healthy":
+        faults.append("the engine still answers ready")
+    if "certificate renewal failed" not in output:
+        faults.append("the answer does not say that the renewal failed")
+    return faults

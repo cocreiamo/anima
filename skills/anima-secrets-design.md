@@ -91,6 +91,8 @@ ADR 0003 (secret management). Who may connect and as what is
     local key is the only one built, and no installation yet needs the
     protection the production adapter gives.
 
+14. **The database server's certificate is renewed by its own unit, before it expires, and taken by a reload.** `engine/database/tls-enable` stays up after the first issue, asks the authority for a new certificate once the share of the lifetime given by the thresholds of R118 has passed, and reloads the server; the server is never restarted and nobody restarts anything for a renewal that succeeds. A renewal that fails ends the unit with the message "certificate renewal failed", the unit fails and the readiness target leaves the active state, so the engine is not ready and says why (R119); the unit is started again and tries again for as long as it fails, and the old certificate keeps serving until it expires. The lifetime and the share are thresholds of R118, mirrored in the unit and compared by the test; the role's ceiling in `engine/secrets/openbao.hcl` must stay at or above the lifetime. Observed on 2026-11-28 by the system tests (R118, R119). Not: a timer that polls, or a renewal that restarts the unit and so the readiness target, which would flicker at every renewal.
+
 ## Questions to answer before proposing
 
 - Where is the new secret kept, who rotates it, and who reloads it?
