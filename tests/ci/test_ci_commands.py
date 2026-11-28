@@ -18,7 +18,14 @@ import re
 import subprocess
 import tomllib
 
-from ci_support import FIXTURES, ROOT, register_entry, stub_command, task
+from ci_support import (
+    FIXTURES,
+    ROOT,
+    recorder_command,
+    register_entry,
+    stub_command,
+    task,
+)
 
 RECORDED = json.loads((FIXTURES / "compare-recorded.json").read_text())
 NULL = "0" * 40
@@ -310,16 +317,14 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
     fork, the upstream and the branch reach the tool in the right places and that
     the command ends with the tool's own status."""
     log = tmp_path / "log"
-    env = stub_command(
-        tmp_path / "bin", "gh", f'echo "$@ token=$GH_TOKEN" >> "{log}"\n'
-    )
-    # The token is the installation token of the fork-sync App that the step gave.
+    env = recorder_command(tmp_path / "bin", "gh", log)
+    # What the step gave is the installation token of the fork-sync App.
     env["GH_TOKEN"] = "fork-sync-app-token"
     result = task("sync-fork", "org/fork", "up/stream", "release/1.2", env=env)
     assert result.returncode == 0, result.stderr
     assert log.read_text() == (
         "repo sync org/fork --source up/stream --branch release/1.2 "
-        "token=fork-sync-app-token\n"
+        "credential=fork-sync-app-token\n"
     )
 
 
