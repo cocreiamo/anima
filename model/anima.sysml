@@ -22,6 +22,7 @@ package Anima {
     part def Toolchain {
         // The time the checks that need only the repository take.
         attribute checkTime : ISQ::DurationValue;
+        attribute systemTestTime : ISQ::DurationValue;
     }
     part def ContainerRuntime;
 

@@ -1,11 +1,11 @@
 """System tests of what the parts of the engine do together once it is ready."""
 
 import json
+import secrets
 import subprocess
-import sys
 import time
 
-from conftest import CACHE, ROOT
+from conftest import CACHE, ROOT, model_thresholds
 from engine_logic import certificate_facts, renewal_failure_faults, renewal_faults
 
 
@@ -81,16 +81,6 @@ SHORT_LIFETIME = 180
 LONGER_LIFETIME = 240
 
 
-def model_thresholds(requirement: str) -> dict:
-    """The thresholds of a requirement, read from the model (the one place of a limit)."""
-    sys.path.insert(0, str(ROOT / "tests/repository"))
-    try:
-        from sysml_model import export_model, thresholds
-    finally:
-        sys.path.remove(str(ROOT / "tests/repository"))
-    return thresholds(export_model())[requirement]
-
-
 def short_lived_certificate(tmp_path, seconds: int) -> dict[str, str]:
     """A drop-in of the certificate unit that sets its lifetime, as a bind mount."""
     dropin = tmp_path / "database-tls-lifetime.conf"
@@ -156,7 +146,7 @@ def test_R118_certificate_renewed_before_expiry(own_engine, tmp_path):
     assert engine.inner_container_started_at("database") == container
     assert engine.active("anima-ready.target")
     # The shipped unit carries the thresholds of the model, and nothing else does.
-    limits = model_thresholds("R118")
+    limits, _ = model_thresholds("R118")
     assert limits["certificateLifetime"][1] == "s"
     unit = unit_environment(TLS_UNIT)
     assert unit["ANIMA_TLS_LIFETIME_SECONDS"] == str(limits["certificateLifetime"][0])
@@ -360,8 +350,9 @@ def test_R30_listen_address_follows_the_way_of_starting(engine, tmp_path):
 # ---- R64 ---------------------------------------------------------------------
 
 
-def smtp_and_read(engine) -> str:
-    """Send one message to the stand-in's SMTP port and return its API's list."""
+def smtp_and_read(engine, subject: str) -> str:
+    """Send one message with `subject` to the stand-in's SMTP port and return its
+    API's list."""
     script = r"""
 set -e
 exec 3<>/dev/tcp/127.0.0.1/1025
@@ -372,7 +363,7 @@ while read -r -t 1 -u 3 line; do :; done
 say 'MAIL FROM:<anima@example.org>'
 say 'RCPT TO:<person@example.org>'
 say 'DATA'
-printf 'Subject: anima-system-test-message\r\nFrom: anima@example.org\r\nTo: person@example.org\r\n\r\nbody\r\n.\r\n' >&3
+printf 'Subject: __SUBJECT__\r\nFrom: anima@example.org\r\nTo: person@example.org\r\n\r\nbody\r\n.\r\n' >&3
 read -r -u 3 line
 say 'QUIT'
 exec 3<&-
@@ -380,23 +371,20 @@ exec 4<>/dev/tcp/127.0.0.1/8025
 printf 'GET /api/v1/messages HTTP/1.0\r\n\r\n' >&4
 cat <&4
 """
-    code, out = engine.exec("bash", "-c", script)
+    code, out = engine.exec("bash", "-c", script.replace("__SUBJECT__", subject))
     assert code == 0, out
     return out
 
 
-def test_R64_mail_delivered_through_configured_service(own_engine):
+def test_R64_mail_delivered_through_configured_service(engine):
     """The local profile selects the mail catcher: a message sent to the
-    configured service is readable from it, as data."""
-    engine = own_engine(
-        "r64",
-        binds={str(ROOT / "config"): "/etc/anima/config"},
-        env={"ANIMA_PROFILE": "local"},
-    )
-    engine.wait_ready()
+    configured service is readable from it, as data. The engine is the one of the
+    session, so the message carries a subject of its own and the list is read
+    for that."""
     assert engine.active("mail.service")
-    out = smtp_and_read(engine)
+    subject = f"anima-system-test-message-{secrets.token_hex(8)}"
+    out = smtp_and_read(engine, subject)
     body = out[out.index("{") :]
-    messages = json.loads(body)["messages"]
-    assert [m["Subject"] for m in messages] == ["anima-system-test-message"], out
-    assert messages[0]["To"][0]["Address"] == "person@example.org"
+    ours = [m for m in json.loads(body)["messages"] if m["Subject"] == subject]
+    assert len(ours) == 1, out
+    assert ours[0]["To"][0]["Address"] == "person@example.org"

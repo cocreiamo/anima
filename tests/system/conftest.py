@@ -14,11 +14,12 @@ starts with `anima-system-test-`).
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pytest
-from engine_logic import container_phase
+from engine_logic import container_phase, inner_start_times, shared_engine_faults
 
 ROOT = Path(__file__).resolve().parents[2]
 CACHE = ROOT / ".cache" / "engine"
@@ -35,8 +36,34 @@ OFFLINE_MODULES = {
 }
 
 
+# The clock of R180 starts when this file is loaded, at collection: the session
+# starts after `mise run engine:test` has built the images, so a build is not counted.
+STARTED = time.monotonic()
+# The test that reads the clock runs last, so that it sees the whole session.
+LAST = "test_R180_system_tests_stay_fast"
+
+
+@pytest.fixture
+def seconds_in_session():
+    """A function that returns the seconds elapsed since the session started."""
+    return lambda: time.monotonic() - STARTED
+
+
+def model_thresholds(requirement: str) -> tuple[dict, str]:
+    """The thresholds of a requirement and its text, read from the model (the one
+    place of a limit)."""
+    sys.path.insert(0, str(ROOT / "tests/repository"))
+    try:
+        from sysml_model import export_model, requirement_docs, thresholds
+    finally:
+        sys.path.remove(str(ROOT / "tests/repository"))
+    model = export_model()
+    return thresholds(model)[requirement], requirement_docs(model)[requirement]
+
+
 def pytest_collection_modifyitems(config, items):
     """System tests start the engine: run them only through `mise run engine:test`."""
+    items.sort(key=lambda item: item.originalname == LAST)  # stable: others keep order
     if os.environ.get("ANIMA_SYSTEM_TESTS") == "1":
         return
     skip = pytest.mark.skip(reason="system test: run `mise run engine:test`")
@@ -256,6 +283,33 @@ class Engine:
         self.started_at = time.monotonic()
         self.ready_after = None
 
+    def snapshot(self) -> dict | None:
+        """What the guard compares (R181): the outer container's id and start, its
+        readiness answer, the start of every running inner container and whether
+        the readiness target is active. None when the engine cannot be read."""
+        code, out = self.exec_host(
+            "podman",
+            "inspect",
+            "--format",
+            "{{.Id}} {{.State.StartedAt}}|{{.State.Health.Status}}",
+            self.name,
+        )
+        if code != 0 or "|" not in out:
+            return None
+        identity, _, health = out.strip().partition("|")
+        code, listing = self.exec(
+            "podman", "ps", "--format", "{{.Names}} {{.StartedAt}}"
+        )
+        if code != 0:
+            return None
+        return {
+            "container": identity.split(" ", 1)[0],
+            "started": identity.split(" ", 1)[-1],
+            "health": health,
+            "ready": self.active("anima-ready.target"),
+            "inner": inner_start_times(listing),
+        }
+
     def logs(self) -> str:
         return self.exec_host("podman", "logs", "--tail", "40", self.name)[1]
 
@@ -327,3 +381,26 @@ def own_engine(podman_service, request):
     yield make
     for running in started:
         running.remove()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    """Guard of the shared engine (R181): a test that used it and left it
+    restarted, replaced or not ready fails, named as the one that disturbed it, so
+    that a test that belongs on an engine of its own is caught at once and not
+    blamed on the next one."""
+    shared = getattr(item, "funcargs", {}).get("engine")
+    before = shared.snapshot() if shared else None
+    try:
+        return (yield)
+    finally:
+        if shared:
+            faults = shared_engine_faults(before, shared.snapshot())
+            if faults:
+                pytest.fail(
+                    f"{item.nodeid} disturbed the engine that the session shares: "
+                    + "; ".join(faults)
+                    + ". A test that kills, stops, restarts or reconfigures the "
+                    "engine takes `own_engine`.",
+                    pytrace=False,
+                )

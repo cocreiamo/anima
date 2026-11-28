@@ -157,6 +157,7 @@ Look here before building something. Each section is derived from its source; th
 | R7 | secrets generated | pending |
 | R61 | server serves without secret store | written |
 | R40 | serves only when converged | pending |
+| R181 | shared engine stays undisturbed | written |
 | R9 | single command start | written |
 | R81 | size limits kept | written |
 | R74 | skill paths match something | written |
@@ -167,6 +168,7 @@ Look here before building something. Each section is derived from its source; th
 | R12 | superuser local only | written |
 | R133 | supplied certificate selected by one parameter | pending |
 | R114 | system tests report on every change | written |
+| R180 | system tests stay fast | written |
 | R3.1 | tampered token rejected | written |
 | R80 | task acceptance names verifications | written |
 | R57 | texts do not age | written |
@@ -375,6 +377,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
 - R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
+- R181, shared engine stays undisturbed, when an image is promoted: `test_R181_shared_engine_stays_undisturbed` (written).
 - R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
 - R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
 - R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
@@ -382,6 +385,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R167, spike brief states why no test answers, at every commit: `test_R167_spike_brief_states_why_no_test_answers` (written).
 - R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
+- R180, system tests stay fast, when an image is promoted: `test_R180_system_tests_stay_fast` (written).
 - R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
 - R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
 - R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
