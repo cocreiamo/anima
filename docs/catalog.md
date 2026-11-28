@@ -23,7 +23,7 @@ Look here before building something. Each section is derived from its source; th
 
 ## Requirements and their verification
 
-| Id | Name | Verification |
+| Alias | Name | Verification |
 | --- | --- | --- |
 | R95 | absent setting takes production default | written |
 | R130 | administration console route off by default | pending |
@@ -122,6 +122,7 @@ Look here before building something. Each section is derived from its source; th
 | R162 | mirror never deletes or moves atag | written |
 | R175 | mirror plan comes from the register | written |
 | R161 | mirror preserves digests | written |
+|  | new requirements carry no number | written |
 | R91 | no bytecode outside cache | written |
 | R4 | no password access | pending |
 | R53 | no product in requirement | written |
@@ -355,6 +356,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
 - R175, mirror plan comes from the register, at every commit: `test_R175_mirror_plan_comes_from_the_register` (written).
 - R161, mirror preserves digests, at every commit: `test_R161_mirror_preserves_digests` (written).
+- new requirements carry no number, at every commit: `test_new_requirements_carry_no_number` (written).
 - R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
 - R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).

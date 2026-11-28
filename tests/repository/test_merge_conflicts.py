@@ -63,37 +63,35 @@ def git(repo, *args, check=True):
     )
 
 
-def requirement_text(short, name, indent):
+def requirement_text(name, indent):
     pad = " " * indent
     return (
-        f"{pad}requirement <'R{short}'> {name} {{\n"
+        f"{pad}requirement {name} {{\n"
         f"{pad}    doc /* The {name} shall hold. */\n"
         f"{pad}    subject tools : Toolchain;\n"
         f"{pad}}}\n"
     )
 
 
-def add_requirement_to_model(repo, short, name):
+def add_requirement_to_model(repo, name):
     """Add a requirement the way the layout of the model says. With a directory
     of requirements it is a new file there; with one file it is inserted at the
     end of the first group, where the next id goes."""
     directory = repo / "model" / "requirements"
     if directory.is_dir():
-        path = directory / "day0" / f"R{short}-{name}.sysml"
+        kebab = re.sub(r"(?<=[a-z0-9])([A-Z])", r"-\1", name).lower()
+        path = directory / "day0" / f"{kebab}.sysml"
         path.parent.mkdir(exist_ok=True)
         path.write_text(
-            f"package R{short} {{\n    private import Anima::*;\n\n"
-            + requirement_text(short, name, 4)
-            + "}\n"
+            f"package {name[0].upper() + name[1:]} {{\n"
+            "    private import Anima::*;\n\n" + requirement_text(name, 4) + "}\n"
         )
     else:
         path = repo / "model" / "anima.sysml"
         marker = "    }\n\n    // ---- Day 1"
         text = path.read_text()
         assert marker in text, "the end of the first group is not where it was"
-        path.write_text(
-            text.replace(marker, requirement_text(short, name, 8) + marker, 1)
-        )
+        path.write_text(text.replace(marker, requirement_text(name, 8) + marker, 1))
 
 
 def merged_model_conflicts(tmp_path, source, first, second):
@@ -104,9 +102,9 @@ def merged_model_conflicts(tmp_path, source, first, second):
     git(repo, "init", "-q", "-b", "main")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "base")
-    for branch, (short, name) in (("first", first), ("second", second)):
+    for branch, name in (("first", first), ("second", second)):
         git(repo, "switch", "-q", "-c", branch, "main")
-        add_requirement_to_model(repo, short, name)
+        add_requirement_to_model(repo, name)
         git(repo, "add", "-A")
         git(repo, "commit", "-q", "-m", name)
     git(repo, "switch", "-q", "first")
@@ -148,7 +146,7 @@ class State:
 
     def add_requirement(self, short, name, test_written=True, fitness=True):
         """A requirement with its verification, and its test if written."""
-        test = f"test_{short}_" + name.replace(" ", "_")
+        test = (f"test_{short}_" if short else "test_") + name.replace(" ", "_")
         added = self.copy()
         added.rows.append([short, name, "written" if test_written else "pending"])
         added.verifications.add(test)
@@ -192,11 +190,11 @@ def render(state, by_name=True, with_total=False):
     else:
         fitness = "\n".join(
             f"- {s}, {w}, {t}: `{n}` ({x})."
-            for s, w, t, n, x in sorted(entries, key=lambda e: int(e[0][1:]))
+            for s, w, t, n, x in sorted(entries, key=lambda e: int(e[0][1:] or 0))
         )
         names = sorted(
             state.verifications - state.tests,
-            key=lambda n: int(n.split("_")[1][1:]),
+            key=lambda n: int((re.findall(r"^test_R(\d+)", n) or ["0"])[0]),
         )
         pending = "pending = [\n" + "".join(f'  "{n}",\n' for n in names) + "]\n"
     skills = sorted(state.skills, key=lambda s: s.name)
@@ -228,7 +226,7 @@ def render_padded_routing(state):
 
 
 def base_state(model):
-    tests = sysml_model.names_of_tests()
+    tests = sysml_model.names_of_tests(model)
     return State(
         al.requirement_rows(model, tests),
         generators.fitness_entries(model, tests),
@@ -271,12 +269,16 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files(model, tm
     ours = base.add_requirement("R9003", "backup restores twice", test_written=False)
     theirs = base.add_requirement("R9004", "tests report coverage", test_written=False)
     assert merge_faults(base, ours, theirs, tmp_path) == []
+    # Two requirements with no number (the names are their identifiers).
+    ours = base.add_requirement("", "images carry provenance")
+    theirs = base.add_requirement("", "update bot groups patches")
+    assert merge_faults(base, ours, theirs, tmp_path) == []
     # Two requirements added to the model itself, on two branches of git.
     assert not merged_model_conflicts(
         tmp_path,
         MODEL,
-        (9001, "imagesCarryProvenance"),
-        (9002, "updateBotGroupsPatches"),
+        "imagesCarryProvenance",
+        "updateBotGroupsPatches",
     )
 
 
@@ -319,12 +321,12 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files_detects_v
     (one_file).mkdir()
     (one_file / "anima.sysml").write_text(
         "package Anima {\n    part def Toolchain;\n    package Day0 {\n"
-        + requirement_text(1, "first", 8)
+        + requirement_text("firstRule", 8)
         + "    }\n\n    // ---- Day 1\n}\n"
     )
     assert merged_model_conflicts(
         tmp_path / "single",
         one_file,
-        (9001, "imagesCarryProvenance"),
-        (9002, "updateBotGroupsPatches"),
+        "imagesCarryProvenance",
+        "updateBotGroupsPatches",
     )

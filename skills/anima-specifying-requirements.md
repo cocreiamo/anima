@@ -22,15 +22,21 @@ How behaviour is specified and verified in `model/` and `tests/`.
 1. **The model is SysML v2 textual notation**, a directory read as one model:
    the root file `model/anima.sysml` (package `Anima`: the ports, the parts, the
    triggers; no requirement) and **one file for each requirement**,
-   `model/requirements/<group>/R<id>-<name>.sysml`, with `<name>` the
-   requirement's own name in kebab case. The groups `day0`, `day1`, `runtime`
+   `model/requirements/<group>/<name>.sysml`, with `<name>` the requirement's
+   own name in kebab case. **The name is the identifier**: no number is
+   allocated, so two branches cannot take the same one; two that pick the same
+   name create the same file, which git reports as a conflict, the collision
+   that must stop them. The groups `day0`, `day1`, `runtime`
    and `day2` say when the rule must hold: before the system starts, at first
    start, in service, when a running system changes. The file holds a package
-   `R<id>` that imports `Anima::*` and, in it, the requirement (a sub-requirement
-   such as R3.1 is nested in its parent and stays in its file), its `satisfy`
-   line and its `verification def`s. To add a requirement, add that one file
-   and change no other: the coordinator assigns the id in the brief (R190). Two
-   additions are two files, so they cannot conflict (R150, PM-019). A package
+   named like the requirement with a capital that imports `Anima::*` and, in it,
+   the requirement (a sub-requirement is nested in its parent and stays in its
+   file), its `satisfy` line and its `verification def`s. **To add a
+   requirement, write that one file and change no other, with no number** (R190,
+   R150, PM-019). A requirement that had a number before the names became the
+   identifiers keeps it as its alias, `requirement <'R55'> checksStayFast`, in
+   `R55-checks-stay-fast.sysml` and a package `R55`; no new one is numbered
+   (the check names the highest, `newRequirementsCarryNoNumber`). A package
    declared in two files is not merged, which is why each file has its own; a
    file refers to the root and the library, not to another requirement file.
 2. **A requirement never names a product.** It states what the system shall
@@ -51,10 +57,13 @@ How behaviour is specified and verified in `model/` and `tests/`.
 5. **Each requirement has at least one verification** (R10), and each
    verification is a `verification def` whose objective is `verify <name>;`.
 6. **Naming.** A verification is named exactly like its test:
-   `test_<id>_<what>`, with the dot of a sub-requirement written as an
-   underscore. Example: R3.1 is `test_R3_1_tampered_token_rejected`.
-7. **Ids are stable and never reused.** A removed requirement leaves its id
-   unused. New requirements take the next number.
+   `test_<name in snake case>`, then its `_detects_violation` companion.
+   Example: `test_checks_stay_fast`. A requirement with an alias keeps
+   `test_R<n>_<what>`, the dot of a sub-requirement written as an underscore:
+   R3.1 is `test_R3_1_tampered_token_rejected`. The traceability check accepts
+   both forms.
+7. **Names are stable and never reused.** A removed requirement leaves its name
+   and its alias unused; a renamed one is a removal and an addition.
 8. **`tests/pending.toml` only shrinks, and is generated.** It lists the
    verifications whose test is not written, computed from the model's export
    and the names of the tests by `mise run generate`; never edit it. It grows
@@ -125,6 +134,6 @@ How behaviour is specified and verified in `model/` and `tests/`.
 ## Where the result goes
 
 The requirement, its `verification def` and its `satisfy` line go to one new
-file, `model/requirements/<group>/R<id>-<name>.sysml`; the test to `tests/repository/` or `tests/system/`; an
+file, `model/requirements/<group>/<name>.sysml`; the test to `tests/repository/` or `tests/system/`; an
 unwritten test appears in `tests/pending.toml` by generation. If the requirement follows from a
-decision, the ADR cites its id (R-number).
+decision, the ADR cites its name.

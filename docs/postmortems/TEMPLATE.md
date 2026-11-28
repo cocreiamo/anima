@@ -16,7 +16,9 @@ Timeline and How did we do are kept; the meeting, the call recording, the
 responders and the messaging are removed (a postmortem here records an event of
 the repository's work, not an outage); the action items become Guards, and the
 page is closed only by a guard that exists. Copy this file to
-docs/postmortems/PM-<next number>-<slug>.md; ids are never reused.
+docs/postmortems/PM-<date>-<slug>.md (the date of the event, YYYY-MM-DD, and a short
+slug; never the next number, which two branches take at once). The id is the file name
+without .md; the older numbered ids stay as they are, and ids are never reused.
 
 Front matter
 - status, strongest first: closed-by-design (it cannot happen again; a guard of

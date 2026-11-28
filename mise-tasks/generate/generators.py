@@ -105,7 +105,7 @@ def pending_toml(model=None):
 
     model = model or sysml_model.export_model()
     return render_pending(
-        sysml_model.verifications(model), sysml_model.names_of_tests()
+        sysml_model.verifications(model), sysml_model.names_of_tests(model)
     )
 
 
@@ -130,21 +130,22 @@ def fitness_entries(model, tests):
 
     markers = sysml_model.fitness_functions(model)
     by_name = {
-        e["declaredShortName"]: e
+        e["declaredName"]: e
         for e in model.values()
         if sysml_model.is_requirement(model, e)
     }
     verifications = sysml_model.verifications(model)
     entries = []
-    for short in markers:
-        requirement = by_name[short]
+    for name in markers:
+        requirement = by_name[name]
+        short = sysml_model.alias(requirement) or ""
         words = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", requirement["declaredName"]).lower()
         names = sorted(
             n for n, targets in verifications.items() if requirement["@id"] in targets
         )
         test = names[0] if names else "no verification"
         state = "written" if test in tests else "pending"
-        entries.append((short, words, TRIGGER_TEXT[markers[short]], test, state))
+        entries.append((short, words, TRIGGER_TEXT[markers[name]], test, state))
     return entries
 
 
@@ -154,7 +155,7 @@ def render_fitness(entries):
         entries, key=lambda e: (e[1], [int(n) for n in re.findall(r"\d+", e[0])])
     )
     return "\n".join(
-        f"- {short}, {words}, {trigger}: `{test}` ({state})."
+        f"- {short + ', ' if short else ''}{words}, {trigger}: `{test}` ({state})."
         for short, words, trigger, test, state in ordered
     )
 
@@ -188,7 +189,7 @@ def outputs():
     import sysml_model
 
     model = sysml_model.export_model()
-    tests = sysml_model.names_of_tests()
+    tests = sysml_model.names_of_tests(model)
     all_skills = al.skills()
     all_roles = al.roles()
     components = load_components()
