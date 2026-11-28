@@ -76,8 +76,9 @@ def adr_index():
 
 
 def _order(name):
-    match = re.match(r"test_R(\d+)(?:_(\d+)(?=_))?", name)
-    return int(match[1]), int(match[2] or 0), name
+    """By what the test is about, not by id: new verifications take the next id,
+    so by id every branch that adds one inserts at the end and they conflict (R150)."""
+    return re.sub(r"^test_R\d+(?:_\d+(?=_))?_", "", name), name
 
 
 def render_pending(verifications, tests):
@@ -120,6 +121,11 @@ TRIGGER_TEXT = {
 def fitness_list(model, tests):
     """One line per requirement marked `@FitnessFunction` in the model: its id,
     its name, when it runs, and its test (written or pending)."""
+    return render_fitness(fitness_entries(model, tests))
+
+
+def fitness_entries(model, tests):
+    """(id, name, trigger text, test, state) of each marked requirement."""
     import sysml_model
 
     markers = sysml_model.fitness_functions(model)
@@ -129,8 +135,8 @@ def fitness_list(model, tests):
         if sysml_model.is_requirement(model, e)
     }
     verifications = sysml_model.verifications(model)
-    lines = []
-    for short in sorted(markers, key=lambda s: int(s[1:])):
+    entries = []
+    for short in markers:
         requirement = by_name[short]
         words = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", requirement["declaredName"]).lower()
         names = sorted(
@@ -138,10 +144,19 @@ def fitness_list(model, tests):
         )
         test = names[0] if names else "no verification"
         state = "written" if test in tests else "pending"
-        lines.append(
-            f"- {short}, {words}, {TRIGGER_TEXT[markers[short]]}: `{test}` ({state})."
-        )
-    return "\n".join(lines)
+        entries.append((short, words, TRIGGER_TEXT[markers[short]], test, state))
+    return entries
+
+
+def render_fitness(entries):
+    """By name, then id, for the reason given at `_order` (R150)."""
+    ordered = sorted(
+        entries, key=lambda e: (e[1], [int(n) for n in re.findall(r"\d+", e[0])])
+    )
+    return "\n".join(
+        f"- {short}, {words}, {trigger}: `{test}` ({state})."
+        for short, words, trigger, test, state in ordered
+    )
 
 
 # ---- All of them --------------------------------------------------------

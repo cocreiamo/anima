@@ -130,12 +130,10 @@ def index_faults(index, texts):
             faults.append(f"{name} is not in the index")
         elif f"({expected} unverified)" not in line:
             faults.append(f"{name}: the index does not state {expected}")
-    total = sum(
-        len(re.findall(r"^\d+\.\s+Unverified:", t, re.MULTILINE))
-        for t in texts.values()
-    )
-    if f"Unverified rules in all skills: {total}." not in index:
-        faults.append(f"the total {total} is not stated")
+    # No total: a sum changes with every skill, so two branches that each change
+    # a count would conflict on it (R150).
+    if "in all skills" in index:
+        faults.append("the index states a total, which every change of a count edits")
     return faults
 
 
@@ -147,13 +145,10 @@ def test_R73_unverified_rules_counted():
 
 def test_R73_unverified_rules_counted_detects_violation():
     texts = {"anima-tech-sample": SAMPLE}
-    index = (
-        "- [`anima-tech-sample`](x.md) (1 unverified): d\n"
-        "Unverified rules in all skills: 1.\n"
-    )
+    index = "- [`anima-tech-sample`](x.md) (1 unverified): d\n"
     assert index_faults(index, texts) == []
     assert index_faults(index.replace("(1 unverified)", "(0 unverified)"), texts)
-    assert index_faults(index.replace("in all skills: 1", "in all skills: 2"), texts)
+    assert index_faults(index + "Unverified rules in all skills: 1.\n", texts)
     assert index_faults("", texts)
     assert al.unverified_count(SAMPLE.split("# Sample", 1)[1]) == 1
 

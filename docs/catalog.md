@@ -2,7 +2,7 @@
 
 # Catalog of what exists
 
-Look here before building something. Each section is derived from its source; the words that help to find an entry are in `docs/catalog-synonyms.toml`.
+Look here before building something. Each section is derived from its source; the words that help to find an entry are in `docs/catalog-synonyms.toml`. Requirements and fitness functions are listed by name, not by id (R150).
 
 ## Ports, their default adapter and their stand-in
 
@@ -24,130 +24,131 @@ Look here before building something. Each section is derived from its source; th
 
 | Id | Name | Verification |
 | --- | --- | --- |
-| R1 | engine built from pinned sources | written |
-| R2 | valid token opens session | written |
-| R3 | invalid token rejected | see its parts |
-| R3.1 | tampered token rejected | written |
-| R3.2 | expired token rejected | pending |
-| R3.3 | foreign issuer token rejected | pending |
-| R4 | no password access | pending |
-| R5 | identity maps to role | written |
-| R6 | identities declared | written |
-| R7 | secrets generated | pending |
-| R8 | database server depends on standard issuer only | pending |
-| R9 | single command start | written |
-| R10 | every requirement verified | written |
-| R11 | every dependency pinned | written |
-| R12 | superuser local only | written |
-| R13 | database server starts without identity provider | written |
-| R14 | identities reapplied | written |
-| R15 | encrypted connections only | written |
-| R16 | published images attested | pending |
-| R17 | component licenses allowed | written |
-| R18 | every file licensed | written |
-| R19 | vector search in every database | pending |
+| R95 | absent setting takes production default | written |
+| R103 | adopter secrets arrive as files | written |
+| R92 | advisory hook never blocks | written |
+| R88 | agent layer evaluated at promotion | pending |
+| R86 | agent settings refuse generated files | written |
+| R60 | all state in one store | pending |
 | R20 | backup restores into empty system | pending |
-| R21 | passes upstream regression suite | written |
-| R22 | roles declared with identities | written |
-| R23 | images for both architectures | pending |
-| R24 | release only from verified commit | written |
-| R25 | every gap registered | written |
-| R26 | unattended start | pending |
-| R27 | idp role confined to its database | pending |
-| R28 | each port has one default adapter | written |
+| R107 | bare interpreter refused | written |
+| R51 | booted upgrade atomic and reversible | pending |
+| R47 | builds reproducible | pending |
+| R87 | catalog synonym keys exist | written |
+| R118 | certificate renewed before expiry | written |
+| R108 | checks pass from empty cache | written |
+| R55 | checks stay fast | written |
+| R17 | component licenses allowed | written |
+| R49 | configuration names no adapter | written |
+| R48 | configuration validated before ready | written |
+| R100 | configuration without administrator refused | written |
+| R45 | contractions register well formed | written |
+| R140 | contributor agreement links privacy notice | written |
+| R113 | data files read with yaml library | written |
+| R8 | database server depends on standard issuer only | pending |
+| R13 | database server starts without identity provider | written |
+| R105 | declarations follow provider guards | written |
+| R63 | declared identity credential never in file | written |
+| R96 | declared identity receives credential link | pending |
 | R29 | depends on container engine only | written |
-| R30 | nothing reachable by default | written |
-| R31 | roles authenticate by kind | pending |
+| R38 | derived files generated | written |
+| R54 | directories named by capability | written |
+| R39 | each fact declared once | written |
+| R28 | each port has one default adapter | written |
+| R15 | encrypted connections only | written |
+| R1 | engine built from pinned sources | written |
+| R125 | engine image cache refreshed | written |
+| R52 | engine parts validated without starting | written |
+| R67 | every adapter is part of the engine | written |
+| R58 | every adapter passes its contract suite | pending |
+| R75 | every capability directory covered | written |
+| R56 | every check seen to fail | written |
+| R11 | every dependency pinned | written |
+| R18 | every file licensed | written |
+| R25 | every gap registered | written |
+| R79 | every open gap has task | written |
+| R10 | every requirement verified | written |
+| R65 | every setting has production default | pending |
+| R71 | every test verifies requirement | written |
+| R3.2 | expired token rejected | pending |
+| R90 | export writes nothing outside cache | written |
+| R36 | failed first start repeatable | pending |
+| R119 | failed renewal leaves engine not ready | written |
+| R97 | failing health check restarts container | written |
+| R69 | fitness markers complete | written |
+| R35 | fixed role names reserved | pending |
+| R3.3 | foreign issuer token rejected | pending |
+| R112 | format and test exclude each other | written |
+| R6 | identities declared | written |
+| R14 | identities reapplied | written |
+| R5 | identity maps to role | written |
 | R32 | idp database only for its role | pending |
+| R27 | idp role confined to its database | pending |
+| R50 | image boots as operating system | pending |
+| R99 | image rebuilt when any input changes | written |
+| R23 | images for both architectures | pending |
+| R150 | independent additions do not conflict in generated files | written |
+| R3 | invalid token rejected | see its parts |
+| R68 | limits held in model | written |
+| R64 | mail delivered through configured service | written |
+| R91 | no bytecode outside cache | written |
+| R4 | no password access | pending |
+| R53 | no product in requirement | written |
+| R94 | no reference to missing record | written |
+| R30 | nothing reachable by default | written |
+| R59 | one adapter active per port | pending |
+| R42 | one start path after crash | written |
+| R93 | only architecture records exist | written |
+| R21 | passes upstream regression suite | written |
+| R106 | plan guard refuses undeclared contraction | written |
+| R82 | postmortem guards exist | written |
+| R85 | postmortem not open too long | written |
+| R84 | postmortem recurrence needs stronger guard | written |
+| R83 | postmortem status agrees with guards | written |
+| R41 | probes and single readiness | written |
+| R66 | profile differs only in selection and data | pending |
+| R115 | publish only what was verified | written |
+| R16 | published images attested | pending |
+| R98 | readiness negative when configurator fails | written |
+| R24 | release only from verified commit | written |
+| R110 | releases stay patch only | written |
+| R77 | role files well formed | written |
+| R31 | roles authenticate by kind | pending |
+| R22 | roles declared with identities | written |
+| R76 | routing reaches every skill | written |
+| R104 | second run changes nothing | written |
+| R7 | secrets generated | pending |
+| R61 | server serves without secret store | written |
+| R40 | serves only when converged | pending |
+| R9 | single command start | written |
+| R81 | size limits kept | written |
+| R74 | skill paths match something | written |
+| R72 | skills have one schema | written |
+| R62 | storage connection uses no secret | written |
+| R89 | submodule working trees clean | written |
+| R12 | superuser local only | written |
+| R114 | system tests report on every change | written |
+| R3.1 | tampered token rejected | written |
+| R80 | task acceptance names verifications | written |
+| R57 | texts do not age | written |
 | R33 | token for other client refused | pending |
 | R34 | token rules require scope | written |
-| R35 | fixed role names reserved | pending |
-| R36 | failed first start repeatable | pending |
-| R37 | upgrade converges | pending |
-| R38 | derived files generated | written |
-| R39 | each fact declared once | written |
-| R40 | serves only when converged | pending |
-| R41 | probes and single readiness | written |
-| R42 | one start path after crash | written |
-| R43 | upgrade only expands | pending |
-| R44 | upgrade never destroys data | pending |
-| R45 | contractions register well formed | written |
-| R46 | upgrade paths tested | pending |
-| R47 | builds reproducible | pending |
-| R48 | configuration validated before ready | written |
-| R49 | configuration names no adapter | written |
-| R50 | image boots as operating system | pending |
-| R51 | booted upgrade atomic and reversible | pending |
-| R52 | engine parts validated without starting | written |
-| R53 | no product in requirement | written |
-| R54 | directories named by capability | written |
-| R55 | checks stay fast | written |
-| R56 | every check seen to fail | written |
-| R57 | texts do not age | written |
-| R58 | every adapter passes its contract suite | pending |
-| R59 | one adapter active per port | pending |
-| R60 | all state in one store | pending |
-| R61 | server serves without secret store | written |
-| R62 | storage connection uses no secret | written |
-| R63 | declared identity credential never in file | written |
-| R64 | mail delivered through configured service | written |
-| R65 | every setting has production default | pending |
-| R66 | profile differs only in selection and data | pending |
-| R67 | every adapter is part of the engine | written |
-| R68 | limits held in model | written |
-| R69 | fitness markers complete | written |
-| R70 | update bot finds every image | written |
-| R71 | every test verifies requirement | written |
-| R72 | skills have one schema | written |
-| R73 | unverified rules counted | written |
-| R74 | skill paths match something | written |
-| R75 | every capability directory covered | written |
-| R76 | routing reaches every skill | written |
-| R77 | role files well formed | written |
-| R78 | vendor roles limited to permissions | written |
-| R79 | every open gap has task | written |
-| R80 | task acceptance names verifications | written |
-| R81 | size limits kept | written |
-| R82 | postmortem guards exist | written |
-| R83 | postmortem status agrees with guards | written |
-| R84 | postmortem recurrence needs stronger guard | written |
-| R85 | postmortem not open too long | written |
-| R86 | agent settings refuse generated files | written |
-| R87 | catalog synonym keys exist | written |
-| R88 | agent layer evaluated at promotion | pending |
-| R89 | submodule working trees clean | written |
-| R90 | export writes nothing outside cache | written |
-| R91 | no bytecode outside cache | written |
-| R92 | advisory hook never blocks | written |
-| R93 | only architecture records exist | written |
-| R94 | no reference to missing record | written |
-| R95 | absent setting takes production default | written |
-| R96 | declared identity receives credential link | pending |
-| R97 | failing health check restarts container | written |
-| R98 | readiness negative when configurator fails | written |
-| R99 | image rebuilt when any input changes | written |
-| R100 | configuration without administrator refused | written |
-| R101 | undeclared identity never holds role scope | written |
+| R26 | unattended start | pending |
 | R102 | undeclared client gets no role scope | written |
-| R103 | adopter secrets arrive as files | written |
-| R104 | second run changes nothing | written |
-| R105 | declarations follow provider guards | written |
-| R106 | plan guard refuses undeclared contraction | written |
-| R107 | bare interpreter refused | written |
-| R108 | checks pass from empty cache | written |
-| R110 | releases stay patch only | written |
-| R112 | format and test exclude each other | written |
-| R113 | data files read with yaml library | written |
-| R114 | system tests report on every change | written |
-| R115 | publish only what was verified | written |
-| R118 | certificate renewed before expiry | written |
-| R119 | failed renewal leaves engine not ready | written |
+| R101 | undeclared identity never holds role scope | written |
+| R73 | unverified rules counted | written |
+| R70 | update bot finds every image | written |
 | R120 | update bot follows configurator releases | written |
 | R121 | update bot follows task runner everywhere | written |
 | R122 | update bot ignores build contexts | written |
 | R124 | update bot keeps jdk on lts line | written |
-| R125 | engine image cache refreshed | written |
-| R140 | contributor agreement links privacy notice | written |
+| R37 | upgrade converges | pending |
+| R44 | upgrade never destroys data | pending |
+| R43 | upgrade only expands | pending |
+| R46 | upgrade paths tested | pending |
+| R2 | valid token opens session | written |
+| R19 | vector search in every database | pending |
+| R78 | vendor roles limited to permissions | written |
 
 ## Components
 
@@ -234,81 +235,82 @@ Look here before building something. Each section is derived from its source; th
 
 Requirements marked as fitness functions in the model, when each runs and its test.
 
-- R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
-- R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
-- R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
-- R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
-- R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
-- R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
-- R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
-- R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
-- R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
-- R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
-- R37, upgrade converges, when an image is promoted: `test_R37_declared_state_is_applied` (written).
-- R38, derived files generated, at every commit: `test_R38_derived_files_generated` (written).
-- R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
-- R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
-- R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
-- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
-- R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
-- R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
-- R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
-- R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
-- R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (written).
-- R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
-- R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
-- R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
-- R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
-- R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
-- R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
-- R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
-- R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
-- R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
-- R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
-- R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
-- R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
-- R70, update bot finds every image, at every commit: `test_R70_update_bot_finds_every_image` (written).
-- R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
-- R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
-- R73, unverified rules counted, at every commit: `test_R73_unverified_rules_counted` (written).
-- R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
-- R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
-- R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
-- R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
-- R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
-- R79, every open gap has task, at every commit: `test_R79_every_open_gap_has_a_task` (written).
-- R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
-- R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
-- R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
-- R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
-- R84, postmortem recurrence needs stronger guard, at every commit: `test_R84_postmortem_recurrence_needs_stronger_guard` (written).
-- R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
-- R86, agent settings refuse generated files, at every commit: `test_R86_agent_settings_refuse_generated_files` (written).
-- R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
-- R88, agent layer evaluated at promotion, when an image is promoted: `test_R88_agent_layer_evaluated_at_promotion` (pending).
-- R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
-- R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
-- R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
 - R92, advisory hook never blocks, at every commit: `test_R92_advisory_hook_never_blocks` (written).
-- R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
-- R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
-- R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
-- R101, undeclared identity never holds role scope, when an image is promoted: `test_R101_undeclared_identity_never_holds_role_scope` (written).
-- R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
-- R105, declarations follow provider guards, at every commit: `test_R105_declarations_follow_the_guards` (written).
+- R88, agent layer evaluated at promotion, when an image is promoted: `test_R88_agent_layer_evaluated_at_promotion` (pending).
+- R86, agent settings refuse generated files, at every commit: `test_R86_agent_settings_refuse_generated_files` (written).
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
+- R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
+- R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
-- R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
-- R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
+- R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
+- R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
+- R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (written).
+- R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
+- R140, contributor agreement links privacy notice, at every commit: `test_R140_contributor_agreement_links_privacy_notice` (written).
 - R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
-- R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
+- R105, declarations follow provider guards, at every commit: `test_R105_declarations_follow_the_guards` (written).
+- R38, derived files generated, at every commit: `test_R38_derived_files_generated` (written).
+- R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
+- R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
+- R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
+- R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
+- R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
+- R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
+- R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
+- R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
+- R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
+- R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
+- R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
+- R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
+- R79, every open gap has task, at every commit: `test_R79_every_open_gap_has_a_task` (written).
+- R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
+- R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
+- R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
+- R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
+- R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
+- R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
+- R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
+- R150, independent additions do not conflict in generated files, at every commit: `test_R150_independent_additions_do_not_conflict_in_generated_files` (written).
+- R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
+- R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
+- R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
+- R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
+- R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
+- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
+- R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
+- R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
+- R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
+- R84, postmortem recurrence needs stronger guard, at every commit: `test_R84_postmortem_recurrence_needs_stronger_guard` (written).
+- R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
+- R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
+- R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
+- R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
+- R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
+- R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
+- R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
+- R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
+- R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
+- R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
+- R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
+- R72, skills have one schema, at every commit: `test_R72_skills_have_one_schema` (written).
+- R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
+- R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
+- R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
+- R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
+- R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
+- R101, undeclared identity never holds role scope, when an image is promoted: `test_R101_undeclared_identity_never_holds_role_scope` (written).
+- R73, unverified rules counted, at every commit: `test_R73_unverified_rules_counted` (written).
+- R70, update bot finds every image, at every commit: `test_R70_update_bot_finds_every_image` (written).
 - R120, update bot follows configurator releases, at every commit: `test_R120_update_bot_follows_the_configurators_releases` (written).
 - R121, update bot follows task runner everywhere, at every commit: `test_R121_update_bot_follows_the_task_runner_everywhere` (written).
 - R122, update bot ignores build contexts, at every commit: `test_R122_update_bot_ignores_build_contexts` (written).
 - R124, update bot keeps jdk on lts line, at every commit: `test_R124_update_bot_keeps_the_jdk_on_its_lts_line` (written).
-- R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
-- R140, contributor agreement links privacy notice, at every commit: `test_R140_contributor_agreement_links_privacy_notice` (written).
+- R37, upgrade converges, when an image is promoted: `test_R37_declared_state_is_applied` (written).
+- R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
+- R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
+- R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
 
 ## Skills
 

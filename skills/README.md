@@ -43,8 +43,6 @@ Three families, one schema: `## Use this when`, `## Rules`, `## Questions to ans
 - [`anima-tech-sysml-pilot`](anima-tech-sysml-pilot.md) (1 unverified): Use when writing, validating or reading SysML v2 textual notation in Anima with the OMG Pilot Implementation: satisfy and verify references, thresholds with units, marking requirements with metadata, running the pilot as a checker, reading its JSON export.
 - [`anima-tech-testcontainers-podman`](anima-tech-testcontainers-podman.md) (1 unverified): Use when writing or debugging a system test in Anima that starts containers with Testcontainers for Python on rootless podman: the API service, DOCKER_HOST, the reaper image, the socket path limit, cleanup.
 
-Unverified rules in all skills: 39.
-
 Globs of `paths` that match nothing yet, listed in `not-yet-present.toml` and in no other place: `third_party/opentofu/**`, `third_party/terraform-provider-postgresql/**`, `third_party/terraform-provider-vault/**`, `third_party/terraform-provider-keycloak/**`.
 
 The content lives here, in plain Markdown with no vendor syntax. For Claude Code, `.claude/skills/<name>/SKILL.md` is a thin pointer and `.claude/rules/<name>.md` names the skill to load for its paths; both are generated. Another agent vendor wires its own pointers the same way: create its native skill or rules entry, put the trigger description in it, and make it import or tell the agent to read `skills/<name>.md`, never copy the content.
