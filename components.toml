@@ -309,3 +309,16 @@ upstream = "https://github.com/containers/skopeo"
 image = "quay.io/skopeo/stable"
 digest = "sha256:9ce297b1309340cb31cf4cd7529a638b912da0bbe30894e210dbf9aae9d8a5d5"
 mirror = "ghcr.io/cocreiamo/anima-mirror/skopeo"
+
+# The registry that the integration tests of the commands that the workflows call
+# (`tests/ci/`) start on the machine, so that the copy into the mirror runs for
+# real against a registry that nothing else uses.
+[[tool_image]]
+name = "scratch-store"
+role = "throwaway store of images for the integration tests of the commands that the workflows call"
+version = "3.0.0"
+license = "Apache-2.0"
+upstream = "https://github.com/distribution/distribution"
+image = "ghcr.io/distribution/distribution"
+digest = "sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
+mirror = "ghcr.io/cocreiamo/anima-mirror/scratch-store"

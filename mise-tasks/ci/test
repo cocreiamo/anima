@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Run the integration tests of the commands that the workflows call (they start containers: podman and a throwaway registry); extra arguments go to pytest"
+#
+# Not part of `mise run check`: they need podman and take longer than its limit
+# (R55). The workflow of the system tests runs this task on every change to the
+# commands (`anima-branching-and-releasing`).
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+ANIMA_CI_TESTS=1 exec uv run --locked pytest tests/ci "$@"

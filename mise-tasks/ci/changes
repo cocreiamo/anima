@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#MISE description="Decide whether a change touches the paths that a check is about: compares the base and the head through the API, and appends relevant=true or relevant=false to GITHUB_OUTPUT"
+#
+# Environment: BASE and HEAD (commits), GITHUB_REPOSITORY, RELEVANT (an extended
+# regular expression), EVENT (only named in the message), GITHUB_OUTPUT (default:
+# standard output). No base, or the null commit, means no base to compare with: the
+# change counts as relevant. The one call to the platform is `gh api`; a failure of
+# it fails the task, it is never read as "nothing changed". A renamed file counts by
+# its old name too.
+set -euo pipefail
+
+out=${GITHUB_OUTPUT:-/dev/stdout}
+base=${BASE:-}
+head=${HEAD:?HEAD is not set}
+relevant=${RELEVANT:?RELEVANT is not set}
+
+if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+    echo "No base to compare with: the change counts as relevant."
+    echo "relevant=true" >>"$out"
+    exit 0
+fi
+
+changed=$(mktemp)
+trap 'rm -f "$changed"' EXIT
+# The answer is paged: --paginate writes one JSON document per page.
+gh api --paginate "repos/${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}/compare/$base...$head" |
+    jq -r '.files[] | .filename, (.previous_filename // empty)' >"$changed"
+
+if grep -Eq "$relevant" "$changed"; then
+    echo "The change touches the engine (${EVENT:-no event}):"
+    grep -E "$relevant" "$changed"
+    echo "relevant=true" >>"$out"
+else
+    echo "The change touches nothing of the engine: nothing to run."
+    echo "relevant=false" >>"$out"
+fi
