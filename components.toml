@@ -175,7 +175,7 @@ digest = "sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fc
 [[component]]
 name = "ubi9-micro"
 role = "base of the identity provider's image: the final stage (the upstream container file's own base)"
-version = "9.9"
+version = "9.9-1794478307"
 license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9-micro"
 image = "registry.access.redhat.com/ubi9-micro"
