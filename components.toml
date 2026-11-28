@@ -297,11 +297,11 @@ package_sha256 = "ff12ef5f9c46c3f3e815575a45b7598c68043b9eb101a9aab18ed3bd8c025a
 [[tool_image]]
 name = "maven"
 role = "build stage of the identity provider's image: Maven and the Java toolchain that compile it, so that the build downloads no build tool"
-version = "3.9.16-eclipse-temurin-21"
+version = "3.10.2-eclipse-temurin-21"
 license = "Apache-2.0 AND GPL-2.0-only WITH Classpath-exception-2.0"
 upstream = "https://github.com/carlossg/docker-maven"
 image = "docker.io/library/maven"
-digest = "sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320"
+digest = "sha256:451c216d03f7cb0a0a26f61bb037fe24dcebaf6aa4e3168789911619ff9aaea0"
 mirror = "ghcr.io/cocreiamo/anima-mirror/maven"
 
 [[tool_image]]
