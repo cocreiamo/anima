@@ -34,6 +34,8 @@ taken; their home is ADR 0005. How podman, Quadlet and bootc behave is
 10. Unverified: **state volumes are anonymous when the image runs as a container.** Removing the container loses the state (the database, the secret store's data); a named volume is not yet declared. There is a task for it in the backlog.
 11. Unverified: **services are held back until convergence when the image runs as a container.** Today the readiness target and the access rules gate; R40 is pending and has a task.
 
+12. **The readiness answer says why it is negative.** The engine's health check is `engine/image/anima-ready`: it succeeds when the target is active and otherwise prints each part that is not, with its state and its own last lines, so that a failed certificate renewal reads "certificate renewal failed" where readiness is reported (R119). Observed on 2026-11-28. Not: a health check that only exits non-zero.
+
 ## Questions to answer before proposing
 
 - Does the change work when the image is booted and when it is run as a container?

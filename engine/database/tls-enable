@@ -1,7 +1,16 @@
 #!/usr/bin/bash
-# Gets the database server's certificate from the secret store and turns TLS on
-# by a reload. The database server never needs this to start (R61): it starts
-# without TLS, and `ssl.conf` is included once it exists.
+# Gets the database server's certificate from the secret store, turns TLS on by a
+# reload, and renews the certificate before it expires, taking it by a reload again:
+# the server is never restarted (R118). The database server never needs this to
+# start (R61): it starts without TLS, and `ssl.conf` is included once it exists.
+#
+# The process stays up between renewals; its container is healthy once TLS is on and
+# the certificate in place has not expired (`tls-enable check`). A renewal that
+# fails ends the process with a message that says so, the unit fails, and the
+# engine is not ready (R119); the unit is started again and tries once more.
+#
+# The lifetime and the share of it after which the certificate is renewed are the
+# thresholds of R118, set by the unit.
 #
 # The private key is made here, in memory (a tmpfs), and never leaves this
 # container: only a signing request goes to the secret store. The secret store is
@@ -13,10 +22,18 @@ dir=/run/anima/pgtls
 api_host=127.0.0.1
 api_port=8200
 role=database-server
+psql_local=(psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --tuples-only)
+
+if [ "${1:-}" = check ]; then
+    [ "$("${psql_local[@]}" --command="show ssl" | tr -d ' ')" = on ] &&
+        openssl x509 -in "$dir/server.crt" -noout -checkend 0 >/dev/null
+    exit
+fi
+
+lifetime=${ANIMA_TLS_LIFETIME_SECONDS:?the unit sets the certificate lifetime}
+percent=${ANIMA_TLS_RENEW_AFTER_PERCENT:?the unit sets the share of it after which to renew}
 
 umask 0077
-openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout "$dir/server.key.new" -out "$dir/server.csr" 2>/dev/null
 
 # post <path> <json> [token]: the response body, for a request without a client library.
 post() {
@@ -25,7 +42,7 @@ post() {
     printf 'POST /v1/%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\n%sContent-Length: %d\r\n\r\n%s' \
         "$path" "$api_host" "${token:+X-Vault-Token: $token$'\r\n'}" "${#body}" "$body" >&3
     local response
-    response=$(cat <&3)
+    response=$(timeout 20 cat <&3)
     exec 3<&-
     case "$response" in
         "HTTP/1.0 200"* | "HTTP/1.1 200"*) printf '%s' "${response#*$'\r\n\r\n'}" ;;
@@ -40,20 +57,43 @@ post() {
 field() { sed -n "s/.*\"$1\":\"\\([^\"]*\\)\".*/\\1/p" <<<"$2"; }
 unescape() { printf '%b' "$1"; }
 
-login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
-token=$(field client_token "$login")
-[ -n "$token" ] || { echo "no token from the secret store" >&2; exit 1; }
+# issue: a new key in memory, a certificate signed for it, and a reload.
+issue() {
+    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+        -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout "$dir/server.key.new" -out "$dir/server.csr" 2>/dev/null
+    local login token csr signed
+    login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
+    token=$(field client_token "$login")
+    [ -n "$token" ] || { echo "no token from the secret store" >&2; return 1; }
+    csr=$(awk '{ printf "%s\\n", $0 }' "$dir/server.csr")
+    signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"localhost\",\"alt_names\":\"localhost\",\"ip_sans\":\"127.0.0.1\",\"ttl\":\"${lifetime}s\"}" "$token")
+    unescape "$(field certificate "$signed")" >"$dir/server.crt.new"
+    unescape "$(field issuing_ca "$signed")" >"$dir/ca.crt"
+    [ -s "$dir/server.crt.new" ] || { echo "no certificate in the answer" >&2; return 1; }
+    mv "$dir/server.key.new" "$dir/server.key"
+    mv "$dir/server.crt.new" "$dir/server.crt"
+    chmod 0644 "$dir/ca.crt"
+    printf "ssl = on\nssl_cert_file = '%s/server.crt'\nssl_key_file = '%s/server.key'\n" "$dir" "$dir" >"$dir/ssl.conf.new"
+    mv "$dir/ssl.conf.new" "$dir/ssl.conf"
+    "${psql_local[@]}" --command="select pg_reload_conf()"
+}
 
-csr=$(awk '{ printf "%s\\n", $0 }' "$dir/server.csr")
-signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"localhost\",\"alt_names\":\"localhost\",\"ip_sans\":\"127.0.0.1\"}" "$token")
-unescape "$(field certificate "$signed")" >"$dir/server.crt.new"
-unescape "$(field issuing_ca "$signed")" >"$dir/ca.crt"
-[ -s "$dir/server.crt.new" ] || { echo "no certificate in the answer" >&2; exit 1; }
+# A certificate already in place (the memory outlives this container) makes this
+# start a renewal: the word that a failure reports.
+what=issuance
+[ -s "$dir/server.crt" ] && what=renewal
 
-mv "$dir/server.key.new" "$dir/server.key"
-mv "$dir/server.crt.new" "$dir/server.crt"
-chmod 0644 "$dir/ca.crt"
-printf "ssl = on\nssl_cert_file = '%s/server.crt'\nssl_key_file = '%s/server.key'\n" "$dir" "$dir" >"$dir/ssl.conf.new"
-mv "$dir/ssl.conf.new" "$dir/ssl.conf"
-psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --tuples-only \
-    --command="select pg_reload_conf()"
+trap 'exit 0' TERM
+while true; do
+    # In a subshell, so that the exit of `post` ends the attempt and not this loop.
+    status=0
+    (issue) || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "certificate $what failed: the certificate in place is the last one the secret store signed" >&2
+        exit 1
+    fi
+    what=renewal
+    # Waits in the background so that a stop is taken at once.
+    sleep $((lifetime * percent / 100)) &
+    wait $!
+done

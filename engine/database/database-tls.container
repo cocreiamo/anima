@@ -1,10 +1,14 @@
 [Unit]
-Description=Anima database server: certificate from the secret store, TLS turned on by a reload
+Description=Anima database server: certificate from the secret store, TLS turned on and the certificate renewed by a reload
 # The database server starts without this (R61); the secret store must be up to
-# issue the certificate. Once done the unit stays active, and the certificate
-# stays in place across a restart of the database server.
+# issue the certificate. The unit stays up to renew the certificate before it
+# expires (R118) and takes it by a reload, so the database server is never
+# restarted. A renewal that fails fails this unit and so the readiness target
+# (R119); the certificate in memory stays in place across a restart of the unit.
 Requires=database.service secrets.service
 After=database.service secrets.service
+# Tried again for as long as it fails; the readiness target says why it is not ready.
+StartLimitIntervalSec=0
 
 [Container]
 ContainerName=database-tls
@@ -13,12 +17,25 @@ Pod=anima.pod
 Volume=/run/anima/pgsocket:/run/postgresql
 Volume=/run/anima/pgtls:/run/anima/pgtls
 ReadOnly=true
+# The thresholds of R118: the lifetime of the certificate in seconds, and the share
+# of it, in percent, after which it is renewed. The model holds them; a test
+# compares.
+Environment=ANIMA_TLS_LIFETIME_SECONDS=2592000
+Environment=ANIMA_TLS_RENEW_AFTER_PERCENT=66
 Exec=/usr/local/bin/tls-enable
+# Startup and liveness: TLS is on and the certificate in place has not expired.
+# A certificate that expired anyway kills the container, and the start renews it.
+HealthStartupCmd=/usr/local/bin/tls-enable check
+HealthStartupInterval=2s
+HealthStartupRetries=60
+HealthCmd=/usr/local/bin/tls-enable check
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=2
+HealthOnFailure=kill
+Notify=healthy
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-TimeoutStartSec=60
-# Same retry as the cluster creation: the statements are idempotent.
 Restart=on-failure
-RestartSec=2
+RestartSec=5
+TimeoutStartSec=180

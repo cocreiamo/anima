@@ -140,6 +140,8 @@ Look here before building something. Each section is derived from its source; th
 | R113 | data files read with yaml library | written |
 | R114 | system tests report on every change | written |
 | R115 | publish only what was verified | written |
+| R118 | certificate renewed before expiry | written |
+| R119 | failed renewal leaves engine not ready | written |
 
 ## Components
 
