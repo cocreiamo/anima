@@ -136,7 +136,7 @@ def system_test_faults(text):
     # Only what the decision needs comes before it, and runs no script of its own.
     if any("run:" in p for p in before):
         faults.append("a step that runs something comes before the decision")
-    if run_text(deciding).strip() != "mise run ci:changes":
+    if run_text(deciding).strip() != 'mise run --quiet ci:changes >> "$GITHUB_OUTPUT"':
         faults.append("the decision is not the command that is tested")
     gate = "steps.changes.outputs.relevant == 'true'"
     for part in after:
@@ -187,7 +187,7 @@ def test_R114_system_tests_report_under_one_name_detects_violation():
     )
     assert system_test_faults(good.replace("github.event_name == 'push'", "true"))
     assert system_test_faults(good.replace("actions/cache/restore@", "actions/other@"))
-    assert system_test_faults(good.replace("run: mise run ci:changes", "run: true"))
+    assert system_test_faults(good.replace("mise run --quiet ci:changes", "true"))
     assert system_test_faults(
         good.replace(
             "    steps:\n", "    steps:\n      - run: echo before the decision\n", 1
