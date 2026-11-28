@@ -13,6 +13,70 @@
                 "version = \"(?<currentValue>[^\"]+)\"\\n(?:[a-z_]+ = .*\\n)*?image = \"(?<depName>[^\"]+)\"\\ndigest = \"(?<currentDigest>sha256:[0-9a-f]+)\""
             ],
             "datasourceTemplate": "docker"
+        },
+        {
+            "customType": "regex",
+            "description": "The configurator's exact version constraint in its declarations: OpenTofu, not HashiCorp Terraform",
+            "managerFilePatterns": ["/^engine\\/configure\\/.+\\.tf$/"],
+            "matchStrings": [
+                "required_version = \"= (?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
+            ],
+            "depNameTemplate": "opentofu/opentofu",
+            "datasourceTemplate": "github-releases",
+            "extractVersionTemplate": "^v(?<version>.+)$"
+        },
+        {
+            "customType": "regex",
+            "description": "The task runner's version, where the built-in managers do not read it: the reusable workflow's input and the development container's feature",
+            "managerFilePatterns": [
+                "/^\\.github\\/workflows\\/ci\\.yml$/",
+                "/^\\.devcontainer\\/devcontainer\\.json$/"
+            ],
+            "matchStrings": [
+                "mise-version: (?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)",
+                "features/mise@sha256:[0-9a-f]+\": \\{\\s*\"version\": \"(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
+            ],
+            "depNameTemplate": "jdx/mise",
+            "datasourceTemplate": "github-releases",
+            "extractVersionTemplate": "^v(?<version>.+)$"
+        }
+    ],
+    "packageRules": [
+        {
+            "description": "The declarations require OpenTofu: the built-in manager would take the constraint for HashiCorp Terraform's and drop its exact pin",
+            "matchManagers": ["terraform"],
+            "matchDepTypes": ["required_version"],
+            "enabled": false
+        },
+        {
+            "description": "The configurator's version in the declarations, its register entry and its image move together",
+            "matchDepNames": ["opentofu/opentofu", "ghcr.io/opentofu/opentofu"],
+            "groupName": "opentofu"
+        },
+        {
+            "description": "The task runner's version is pinned in four files: one update changes them all",
+            "matchDepNames": ["jdx/mise"],
+            "groupName": "mise"
+        },
+        {
+            "description": "The JDK that builds the identity provider stays on its long-term-support line (21): no proposal of a later major",
+            "matchPackageNames": ["docker.io/library/eclipse-temurin"],
+            "allowedVersions": "/^21([.-]|$)/"
+        },
+        {
+            "description": "Names given at build time (--build-context) to the pinned sources, not images of a registry",
+            "matchManagers": ["dockerfile"],
+            "matchPackageNames": [
+                "images",
+                "keycloak",
+                "openbao",
+                "pg_oidc_validator",
+                "pgbackrest",
+                "pgvector",
+                "postgres",
+                "rules"
+            ],
+            "enabled": false
         }
     ]
 }
