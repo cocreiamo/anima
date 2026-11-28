@@ -84,7 +84,11 @@ jobs:
 
       - name: Load the restored images
         if: steps.changes.outputs.relevant == 'true' && steps.restore.outputs.cache-matched-key != ''
-        run: podman load --input ~/engine-cache/images.tar
+        run: |
+          podman load --input ~/engine-cache/images.tar
+          # `podman save` refuses to write over an existing archive, and a new one
+          # is saved when the key does not hold the current images.
+          rm -f ~/engine-cache/images.tar
 
       - name: Build the engine image
         if: steps.changes.outputs.relevant == 'true'

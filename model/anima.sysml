@@ -499,6 +499,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R125'> engineImageCacheRefreshed {
+            doc /* The cache of the engine's inner images, kept by the automated verification, shall hold the images of the latest change to `main` that changed them: a change of the inner images shall store a new cache, and a change that left them as they were shall store none. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R115'> publishOnlyWhatWasVerified {
             doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1527,6 +1532,10 @@ package Anima {
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;
             objective { verify Day0::systemTestsReportOnEveryChange; }
+        }
+        verification def test_R125_cache_of_inner_images_refreshed_when_they_changed {
+            subject tools : Toolchain;
+            objective { verify Day0::engineImageCacheRefreshed; }
         }
         verification def test_R115_promotion_publishes_only_what_it_verified {
             subject tools : Toolchain;

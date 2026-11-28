@@ -142,6 +142,7 @@ Look here before building something. Each section is derived from its source; th
 | R115 | publish only what was verified | written |
 | R118 | certificate renewed before expiry | written |
 | R119 | failed renewal leaves engine not ready | written |
+| R125 | engine image cache refreshed | written |
 
 ## Components
 
@@ -297,6 +298,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
 
 ## Skills
 
