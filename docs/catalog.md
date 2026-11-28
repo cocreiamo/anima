@@ -125,6 +125,7 @@ Look here before building something. Each section is derived from its source; th
 | R98 | readiness negative when configurator fails | written |
 | R145 | records made from shared template | written |
 | R24 | release only from verified commit | written |
+| R155 | release tool files not formatted and licensed | written |
 | R110 | releases stay patch only | written |
 | R77 | role files well formed | written |
 | R31 | roles authenticate by kind | pending |
@@ -304,6 +305,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
 - R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
+- R155, release tool files not formatted and licensed, at every commit: `test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
 - R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
