@@ -19,6 +19,7 @@ from sysml_model import (
     requirement_docs,
     threshold_types,
     thresholds,
+    verifications,
 )
 
 # ---- R53: no product in a requirement ---------------------------------------
@@ -167,8 +168,8 @@ def test_R55_checks_stay_fast(model, seconds_in_session):
     build), the start of `uv` and `mise`, the teardown, or a cold cache of the
     tools: the limit of the requirement is on the whole of the checks, this test
     bounds the part that is pytest."""
-    limits = thresholds(model)["R55"]
-    assert not limit_faults(limits, requirement_docs(model)["R55"])
+    limits = thresholds(model)["checksStayFast"]
+    assert not limit_faults(limits, requirement_docs(model)["checksStayFast"])
     budget = limits["maxCheckTime"][0]
     elapsed = seconds_in_session()
     assert not over_budget(elapsed, budget), (
@@ -225,8 +226,13 @@ def threshold_faults(all_limits, docs, types=None):
 
 def test_R68_limits_are_held_in_the_model(model):
     limits = thresholds(model)
-    assert {"R9", "R55", "R81", "R85"} <= set(limits), "the limits are in the model"
-    assert limits["R9"]["maxStartTime"] == (180, "s")
+    assert {
+        "singleCommandStart",
+        "checksStayFast",
+        "sizeLimitsKept",
+        "postmortemNotOpenTooLong",
+    } <= set(limits), "the limits are in the model"
+    assert limits["singleCommandStart"]["maxStartTime"] == (180, "s")
     assert not threshold_faults(limits, requirement_docs(model), threshold_types(model))
 
 
@@ -304,12 +310,15 @@ EXCEPTIONS = {
 }
 
 
-def checks_without_companion(names, exceptions):
+def checks_without_companion(names, exceptions, verified=()):
     """Faults of the pairing of checks and companions: a check without its
-    companion, a companion without its check, an exception that is not needed."""
-    checks = {
-        n for n in names if n.startswith("test_R") and not n.endswith(NEGATIVE_SUFFIX)
-    }
+    companion, a companion without its check, an exception that is not needed.
+    A check is a test named `test_R<n>_...` or the name of a verification."""
+
+    def is_check(name):
+        return name.startswith("test_R") or name in verified
+
+    checks = {n for n in names if is_check(n) and not n.endswith(NEGATIVE_SUFFIX)}
     companions = {n for n in names if n.endswith(NEGATIVE_SUFFIX)}
     faults = [
         f"{n} has no {n + NEGATIVE_SUFFIX}"
@@ -319,7 +328,8 @@ def checks_without_companion(names, exceptions):
     faults += [
         f"{c} has no check named {c.removesuffix(NEGATIVE_SUFFIX)}"
         for c in sorted(companions)
-        if c.startswith("test_R") and c.removesuffix(NEGATIVE_SUFFIX) not in checks
+        if is_check(c.removesuffix(NEGATIVE_SUFFIX))
+        and c.removesuffix(NEGATIVE_SUFFIX) not in checks
     ]
     faults += [
         f"exception {n} is not a check, or has a companion, or has no reason"
@@ -329,11 +339,11 @@ def checks_without_companion(names, exceptions):
     return faults
 
 
-def test_R56_every_check_seen_to_fail():
+def test_R56_every_check_seen_to_fail(model):
     names = set()
     for directory in ("repository", "configure", "system", "ci"):
         names |= defined_function_names(ROOT / "tests" / directory)
-    faults = checks_without_companion(names, EXCEPTIONS)
+    faults = checks_without_companion(names, EXCEPTIONS, set(verifications(model)))
     assert not faults, faults
 
 
@@ -353,3 +363,8 @@ def test_R56_every_check_seen_to_fail_detects_violation():
     }
     assert checks_without_companion({check}, {"test_R8_y": "why"})
     assert checks_without_companion({"test_helper_x"}, {}) == []
+    # A check named after its requirement, with no number, is a check too.
+    named = "test_some_rule"
+    assert checks_without_companion({named}, {}, {named})
+    assert checks_without_companion({named, named + NEGATIVE_SUFFIX}, {}, {named}) == []
+    assert checks_without_companion({named + NEGATIVE_SUFFIX}, {}, {named})

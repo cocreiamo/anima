@@ -26,7 +26,7 @@ Environment=KC_HTTP_MANAGEMENT_HOST=127.0.0.1
 # (the key set, the token endpoint) follow the request instead
 # (--hostname-backchannel-dynamic): a request that reaches it on the loopback gets
 # loopback addresses, which is how the database server's token validator reads
-# the keys without the entry (R182). A request through the entry gets the public
+# the keys without the entry (tokenValidatorReachesProviderOverLoopback). A request through the entry gets the public
 # ones, and no other address can reach the provider (R135).
 Environment=KC_HTTP_ENABLED=true
 Environment=KC_DB_URL=jdbc:postgresql://127.0.0.1:5432/idp

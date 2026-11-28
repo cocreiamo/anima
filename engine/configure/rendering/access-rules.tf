@@ -14,7 +14,7 @@ variable "identity_provider_url" {
 }
 
 # Where the database server's token validator reads the identity provider's
-# discovery document and keys (R182): the provider's own address on the pod's
+# discovery document and keys (tokenValidatorReachesProviderOverLoopback): the provider's own address on the pod's
 # loopback, never the public URL, which is the entry's and which the validator
 # cannot trust (it has no trust-anchor setting). The issuer it checks stays the
 # public one.
@@ -56,7 +56,7 @@ output "validator_settings" {
   value = <<-EOT
     # Generated from the declaration of the identity provider's addresses. Do not edit.
     # The validator reads the provider's discovery document and keys over the pod's
-    # loopback (R182); the issuer it checks is the public one of the access rules.
+    # loopback (tokenValidatorReachesProviderOverLoopback); the issuer it checks is the public one of the access rules.
     pg_oidc_validator.discovery_url_override = '${var.identity_provider_internal_url}/realms/${local.identity.realm}'
   EOT
 }

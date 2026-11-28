@@ -57,7 +57,7 @@ resource "vault_pki_secret_backend_role" "identity_provider" {
   key_bits           = 256
 }
 
-# The certificate of the HTTP entry point (R126, R184): a role of the authority that
+# The certificate of the HTTP entry point (R126, entryCertificateRenewedBeforeExpiry): a role of the authority that
 # signs a request (the key is made by the unit that asks and never leaves it), whose
 # names are `localhost`, its loopback address and the host of the public URL, and
 # the machine authentication of the one unit that asks for it, like the database

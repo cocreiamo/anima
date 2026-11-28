@@ -20,7 +20,7 @@ owns:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-GAP-061 (pg_oidc_validator): the validator has no setting for a certificate authority file; it uses its libcurl's compiled-in system store. Contribute a ca_file setting to the validator's fork, then the database server's validator may fetch the discovery document and keys over the entry again, with the engine authority trusted, and the internal channel (R182) becomes an option and not a necessity.
+GAP-061 (pg_oidc_validator): the validator has no setting for a certificate authority file; it uses its libcurl's compiled-in system store. Contribute a ca_file setting to the validator's fork, then the database server's validator may fetch the discovery document and keys over the entry again, with the engine authority trusted, and the internal channel (tokenValidatorReachesProviderOverLoopback) becomes an option and not a necessity.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -35,7 +35,7 @@ Task: TASK-97, GAP-061: Give the token validator a trust-anchor setting. Role: i
 
 ### Read first
 
-- `gaps.toml` entry GAP-061, `anima-tech-postgresql-oauth` and R182 of `model/anima.sysml`
+- `gaps.toml` entry GAP-061, `anima-tech-postgresql-oauth` and tokenValidatorReachesProviderOverLoopback of `model/anima.sysml`
 
 ### Load these skills
 

@@ -518,7 +518,7 @@ def test_R45_contractions_register_well_formed():
     assert not contraction_faults(load_toml("contractions.toml")["contraction"])
 
 
-# ---- R183: the public URL is declared once ---------------------------------------
+# ---- publicUrlDeclaredOnce: the public URL is declared once ---------------------------------------
 
 PUBLIC_URL_FILE = "engine/access/public-url.env"
 PUBLIC_URL_SURFACE = ("engine/", "config/", "mise-tasks/", "tests/system/")
@@ -544,7 +544,7 @@ def public_url_repeats(texts, declaration=PUBLIC_URL_FILE):
     ]
 
 
-def test_R183_public_url_declared_once():
+def test_public_url_declared_once():
     paths = [
         path
         for name, path in repository_files()
@@ -554,7 +554,7 @@ def test_R183_public_url_declared_once():
     assert not repeats, repeats
 
 
-def test_R183_public_url_declared_once_detects_violation():
+def test_public_url_declared_once_detects_violation():
     declaration = "ANIMA_IDENTITY_PROVIDER_URL=https://idp.example:8443\n"
     texts = {PUBLIC_URL_FILE: declaration, "a": "no url here", "b": "x"}
     assert public_url_repeats(texts) == []

@@ -1,10 +1,10 @@
 #!/usr/bin/bash
 # Gets the HTTP entry point's certificate from the secret store's certificate
 # authority, and renews it before it expires: the entry takes a renewed one without
-# a restart (R127, R184). The same mechanism as the database server's certificate
+# a restart (R127, entryCertificateRenewedBeforeExpiry). The same mechanism as the database server's certificate
 # (engine/database/tls-enable, R118, R119): the process stays up between renewals,
 # the lifetime and the share of it after which the certificate is renewed are set by
-# the unit (the thresholds of R184), and a renewal that fails ends the process with
+# the unit (the thresholds of entryCertificateRenewedBeforeExpiry), and a renewal that fails ends the process with
 # a message that says so: the unit fails, and the engine is not ready.
 #
 # The key and the certificate are ONE file, a PKCS#12 bundle (`server.pfx`), written

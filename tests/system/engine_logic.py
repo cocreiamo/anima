@@ -211,7 +211,7 @@ def internal_channel_faults(
     override: str, discovery: dict, internal_url: str, issuer: str
 ) -> list[str]:
     """What is wrong with the way the database server's token validator reaches the
-    identity provider (R182). `override` is its discovery setting, `discovery` the
+    identity provider (tokenValidatorReachesProviderOverLoopback). `override` is its discovery setting, `discovery` the
     document the provider answers at that address, `internal_url` the provider's
     address on the pod's loopback and `issuer` the public issuer. The setting must
     name the provider's own address and the realm of the issuer; the document must
@@ -238,7 +238,7 @@ def internal_channel_faults(
 
 
 def login_faults(code: int, output: str) -> list[str]:
-    """A token login (R182) counts only when the client exited 0 and said that the
+    """A token login (tokenValidatorReachesProviderOverLoopback) counts only when the client exited 0 and said that the
     connection succeeded."""
     faults = []
     if code != 0:

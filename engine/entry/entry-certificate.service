@@ -2,7 +2,7 @@
 Description=Anima HTTP entry point: its certificate from the engine's certificate authority, renewed before it expires
 # Signed by the secret store's authority through the role the configurator declares
 # for the entry (the public host of the installation is on it), so after both. The
-# unit stays up to renew the certificate before it expires (R184) and the entry takes
+# unit stays up to renew the certificate before it expires (entryCertificateRenewedBeforeExpiry) and the entry takes
 # the renewed one without a restart (R127). A renewal that fails fails this unit and
 # so the readiness target (anima-ready.target is bound to it); the certificate in
 # memory stays in place and is the one the entry keeps serving.
@@ -18,7 +18,7 @@ NotifyAccess=all
 # The installation parameter: the public URL (declared once), whose host is on the
 # certificate.
 EnvironmentFile=/usr/share/anima/public-url.env
-# The thresholds of R184, the same as the database server's certificate (R118): the
+# The thresholds of entryCertificateRenewedBeforeExpiry, the same as the database server's certificate (R118): the
 # lifetime of the certificate in seconds and the share of it, in percent, after
 # which it is renewed. The model holds them; a test compares.
 Environment=ANIMA_ENTRY_TLS_LIFETIME_SECONDS=2592000

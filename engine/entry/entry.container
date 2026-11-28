@@ -6,7 +6,7 @@ Description=Anima HTTP entry point: the one way in for HTTP, forwarding only the
 # `podman run` into one pod at the same moment were seen to hang each other).
 # The certificate is wanted, not required: a renewal that fails stops
 # entry-certificate.service, and the entry must keep serving the certificate in place
-# (the readiness target says the engine is not ready, R184), and it takes a renewed
+# (the readiness target says the engine is not ready, entryCertificateRenewedBeforeExpiry), and it takes a renewed
 # one without a restart (R127).
 Requires=anima-listen-container.service anima-listen-host.service
 Wants=entry-certificate.service

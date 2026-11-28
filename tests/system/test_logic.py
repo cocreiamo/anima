@@ -109,7 +109,7 @@ def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
     assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")
 
 
-def test_R184_entry_certificate_renewed_before_expiry_detects_violation():
+def test_entry_certificate_renewed_before_expiry_detects_violation():
     """The same decision as the database server's (R118), for the entry's
     certificate: another one, outliving the first, taken in time, no restart of
     the entry."""
@@ -119,7 +119,7 @@ def test_R184_entry_certificate_renewed_before_expiry_detects_violation():
     assert renewal_faults(FIRST, SECOND, 900.0, "t1", "t2")
 
 
-def test_R184_failed_entry_renewal_leaves_engine_not_ready_detects_violation():
+def test_entry_certificate_renewed_before_expiry_failure_leaves_engine_not_ready_detects_violation():
     """The answer after a failed renewal of the entry's certificate must be
     negative and say that the certificate could not be renewed."""
     said = "not ready\nentry-certificate.service: failed\nentry certificate renewal failed: refused"
@@ -129,7 +129,7 @@ def test_R184_failed_entry_renewal_leaves_engine_not_ready_detects_violation():
     assert renewal_failure_faults("unhealthy", "not ready\nentry.service: failed")
 
 
-def test_R182_token_login_does_not_need_the_entry_detects_violation():
+def test_token_validator_reaches_provider_over_loopback_without_the_entry_detects_violation():
     """A login that fails, or that does not say it succeeded, is a fault."""
     assert login_faults(0, "connection succeeded") == []
     assert login_faults(1, "connection succeeded")
@@ -198,7 +198,7 @@ def test_R116_issuer_is_the_configured_public_url_detects_violation():
     assert issuer_faults({}, url)
 
 
-def test_R182_token_validator_reaches_provider_over_loopback_detects_violation():
+def test_token_validator_reaches_provider_over_loopback_detects_violation():
     """The setting, the issuer of the document and the address of the key set must
     each be right. The last is the observed failure: a provider that is not told to
     follow the request publishes the key set at the public https address, which the

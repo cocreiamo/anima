@@ -1,5 +1,5 @@
 """The entry's certificate: renewed before it expires, and taken without a restart
-(R127, R184).
+(R127, entryCertificateRenewedBeforeExpiry).
 
 The first test of the task (written before the implementation) asked whether the
 key and the certificate could be replaced as two files one after the other without
@@ -159,7 +159,7 @@ def test_R127_entry_takes_renewed_certificate_without_restart(renewal):
     assert renewal.ready_after
 
 
-def test_R184_entry_certificate_renewed_before_expiry(renewal):
+def test_entry_certificate_renewed_before_expiry(renewal):
     """With a short lifetime, the certificate that the entry presents is replaced
     by another before the first expires, and the entry is not restarted; the
     shipped unit carries the thresholds of the model and nothing else does."""
@@ -171,7 +171,7 @@ def test_R184_entry_certificate_renewed_before_expiry(renewal):
         renewal.entry_after,
     )
     assert not faults, faults
-    limits, _ = model_thresholds("R184")
+    limits, _ = model_thresholds("entryCertificateRenewedBeforeExpiry")
     assert limits["certificateLifetime"][1] == "s"
     unit = unit_environment(ENTRY_UNIT)
     assert unit["ANIMA_ENTRY_TLS_LIFETIME_SECONDS"] == str(
@@ -181,12 +181,14 @@ def test_R184_entry_certificate_renewed_before_expiry(renewal):
         limits["renewAfterPercent"][0]
     )
     # The same lifetime and share as the database server's certificate (R118).
-    same, _ = model_thresholds("R118")
+    same, _ = model_thresholds("certificateRenewedBeforeExpiry")
     assert limits["certificateLifetime"] == same["certificateLifetime"]
     assert limits["renewAfterPercent"] == same["renewAfterPercent"]
 
 
-def test_R184_failed_entry_renewal_leaves_engine_not_ready(own_engine, tmp_path):
+def test_entry_certificate_renewed_before_expiry_failure_leaves_engine_not_ready(
+    own_engine, tmp_path
+):
     """The secret store refuses the entry's machine login once the engine is ready:
     when the renewal falls due it fails, the engine stops answering ready, its
     answer says that the certificate could not be renewed, and the entry keeps

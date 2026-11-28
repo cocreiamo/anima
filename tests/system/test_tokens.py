@@ -363,7 +363,7 @@ def test_R116_issuer_is_the_configured_public_url(engine):
     assert not faults, faults
 
 
-def test_R182_token_validator_reaches_provider_over_loopback(engine):
+def test_token_validator_reaches_provider_over_loopback(engine):
     """The issuer of the tokens is the public https URL, which the validator cannot
     trust (it has no trust-anchor setting), so it reads the provider's discovery
     document and keys over the pod's loopback, from the provider directly: its
@@ -392,7 +392,7 @@ def test_R182_token_validator_reaches_provider_over_loopback(engine):
     assert token_claims(token)["iss"] == ISSUER
 
 
-def test_R182_token_login_does_not_need_the_entry(own_engine):
+def test_token_validator_reaches_provider_over_loopback_without_the_entry(own_engine):
     """The entry is the only way in from outside; a token login does not use it:
     with the entry stopped, a token of the application still opens a session. On an
     engine of its own, because it stops a part."""

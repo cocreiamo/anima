@@ -94,7 +94,7 @@ def task_faults(tasks, verification_names):
             faults.append(f"{name}: no acceptance line")
         for line in task["acceptance"]:
             word = line.split()[0] if line.split() else ""
-            if word.startswith("test_R"):
+            if word.startswith("test_"):
                 if word not in verification_names:
                     faults.append(f"{name}: {word} is not a verification of the model")
             elif not line.startswith("Check: "):
@@ -129,6 +129,9 @@ def test_R80_task_acceptance_names_verifications_detects_violation():
 
 # ---- Postmortems --------------------------------------------------------------------------
 
+# `PM-<number>` for the postmortems that had a number before names became the
+# identifiers, `PM-<date>-<slug>` for the others: no number is allocated.
+PM_ID = r"PM-(\d{3}|\d{4}-\d{2}-\d{2}-[a-z0-9]+(-[a-z0-9]+)*)"
 PM_KEYS = {"id", "date", "title", "class", "status", "guards", "recurrences"}
 STATUSES = ("closed-by-design", "guarded", "mitigated", "open")
 # Strongest first: design, then test, then the mitigations.
@@ -161,8 +164,8 @@ def shape_faults(pms):
         if set(pm) - {"file", "body"} != PM_KEYS:
             faults.append(f"{name}: keys are not {sorted(PM_KEYS)}")
             continue
-        if not re.fullmatch(r"PM-\d{3}", pm["id"]) or not name.startswith(
-            pm["id"] + "-"
+        if not re.fullmatch(PM_ID, pm["id"]) or not (
+            name.startswith(pm["id"] + "-") or name == pm["id"] + ".md"
         ):
             faults.append(f"{name}: the id does not match the file name")
         if pm["status"] not in STATUSES:
@@ -288,6 +291,10 @@ def test_R82_postmortem_guards_exist_detects_violation():
     assert shape_faults([_pm(guards=[{"kind": "magic", "ref": "x", "added": "d"}])])
     assert shape_faults([_pm(guards=[{"kind": "rule", "ref": "x"}])])
     assert shape_faults([_pm()]) == []
+    dated = "PM-2026-11-28-two-branches-one-name"
+    assert shape_faults([_pm(id=dated, file=dated + ".md")]) == []
+    assert shape_faults([_pm(id=dated, file="PM-001-x.md")])
+    assert shape_faults([_pm(id="PM-2026-11-28", file="PM-2026-11-28-x.md")])
 
 
 def _pm(**change):
@@ -409,7 +416,7 @@ def limit_in_days(limits):
 
 
 def test_R85_postmortem_not_open_too_long(model):
-    limit = limit_in_days(thresholds(model)["R85"])
+    limit = limit_in_days(thresholds(model)["postmortemNotOpenTooLong"])
     wrong = open_too_long(read_postmortems(), date.today(), limit)
     assert not wrong, wrong
 
@@ -455,7 +462,9 @@ def rooted_faults(pms, first):
 
 
 def test_R166_postmortem_names_root_and_class_options(model):
-    first, _unit = thresholds(model)["R166"]["firstRootedPostmortem"]
+    first, _unit = thresholds(model)["postmortemNamesRootAndClassOptions"][
+        "firstRootedPostmortem"
+    ]
     faults = rooted_faults(read_postmortems(), int(first))
     assert not faults, faults
 

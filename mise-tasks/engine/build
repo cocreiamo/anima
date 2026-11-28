@@ -51,7 +51,7 @@ build_database() {
     # The access rules and the identity map are generated from the one declaration
     # of the roles by the configurator's own templating; they are inputs of the tag.
     # The identity provider's public URL is an installation parameter: the default
-    # is the one the installation declares (R183), never a copy of it.
+    # is the one the installation declares (publicUrlDeclaredOnce), never a copy of it.
     ANIMA_IDENTITY_PROVIDER_URL=${ANIMA_IDENTITY_PROVIDER_URL:-$(sed -n 's/^ANIMA_IDENTITY_PROVIDER_URL=//p' engine/access/public-url.env)} \
         mise run engine:configure-render >/dev/null
     mkdir -p "$out/rules"
