@@ -14,6 +14,7 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 SYSTEM_TESTS = WORKFLOWS / "system-tests.yml"
 PROMOTE = WORKFLOWS / "promote.yml"
 MISE = ROOT / "mise.toml"
+ENGINE_TEST = ROOT / "mise-tasks" / "engine" / "test"
 
 
 # ---- reading a workflow without a YAML library ------------------------------------------------
@@ -178,7 +179,7 @@ def promotion_jobs(text):
     return {name: found.get(name) for name in PROMOTE_FAULT_TARGETS}
 
 
-def release_path_faults(workflow, mise):
+def release_path_faults(workflow, mise, engine_test):
     """What would let a version be released, or main-green move, from a commit that
     did not pass every verification, system tests included (R24)."""
     faults = []
@@ -197,6 +198,12 @@ def release_path_faults(workflow, mise):
     )
     if not task or "engine:test" not in task.group(1):
         faults.append("promote:verify does not run the system tests")
+    # The system tests are skipped unless the task that runs them asks for them.
+    if (
+        "ANIMA_SYSTEM_TESTS=1" not in engine_test
+        or "pytest tests/system" not in engine_test
+    ):
+        faults.append("engine:test would skip the system tests or not run them")
     for name, job in jobs(workflow).items():
         moves = "git/refs" in job or "gh release create" in job
         if moves and (name == "verify" or "verify" not in needs(job)):
@@ -212,25 +219,33 @@ def test_R24_release_only_from_verified_commit():
     """Proves the text of the promotion workflow and of the task it runs: nothing
     moves main-green or releases before the job that runs every verification, system
     tests included. It does not prove a run: that is the first run on main."""
-    faults = release_path_faults(PROMOTE.read_text(), MISE.read_text())
+    faults = release_path_faults(
+        PROMOTE.read_text(), MISE.read_text(), ENGINE_TEST.read_text()
+    )
     assert faults == []
 
 
 def test_R24_release_only_from_verified_commit_detects_violation():
-    good, mise = PROMOTE.read_text(), MISE.read_text()
-    assert release_path_faults(good, mise) == []
-    assert release_path_faults(good.replace("mise run promote:verify", "true"), mise)
+    good, mise, task = PROMOTE.read_text(), MISE.read_text(), ENGINE_TEST.read_text()
+    assert release_path_faults(good, mise, task) == []
+    assert release_path_faults(good, mise, task.replace("ANIMA_SYSTEM_TESTS=1", ""))
     assert release_path_faults(
-        good.replace("    needs: [verify, publish]", "    needs: []"), mise
+        good, mise, task.replace("pytest tests/system", "pytest tests/repository")
     )
     assert release_path_faults(
-        good.replace("  workflow_dispatch:", "  pull_request:"), mise
+        good.replace("mise run promote:verify", "true"), mise, task
     )
-    assert release_path_faults(good, mise.replace("engine:test", "check"))
     assert release_path_faults(
-        good.replace("needs.verify.outputs.sha", "github.sha"), mise
+        good.replace("    needs: [verify, publish]", "    needs: []"), mise, task
     )
-    assert release_path_faults(good.replace("  publish:", "  other:"), mise)
+    assert release_path_faults(
+        good.replace("  workflow_dispatch:", "  pull_request:"), mise, task
+    )
+    assert release_path_faults(good, mise.replace("engine:test", "check"), task)
+    assert release_path_faults(
+        good.replace("needs.verify.outputs.sha", "github.sha"), mise, task
+    )
+    assert release_path_faults(good.replace("  publish:", "  other:"), mise, task)
 
 
 def publish_faults(workflow):
@@ -265,6 +280,20 @@ def publish_faults(workflow):
         faults.append("the image is not pushed with its digest recorded")
     if not re.search(r"ghcr\.io/cocreiamo/anima:\$\{?VERSION\}?", commands):
         faults.append("the image is not pushed under its version")
+    push = steps(publish)[-1]
+    if (
+        "existing=true" not in push
+        or "{{.Digest}}" not in push
+        or "exit 0" not in push
+        or push.index("exit 0") > push.index("podman push")
+    ):
+        faults.append(
+            "an existing tag is not left alone and released at its own digest"
+        )
+    if "EXISTING" not in found["promote"]:
+        faults.append(
+            "the release notes do not say that the image was published earlier"
+        )
     if "reference" not in publish or "@" not in commands:
         faults.append("the image is not identified by digest")
     verify_commands = "".join(run_text(s) for s in steps(verify))
@@ -303,6 +332,10 @@ def test_R115_promotion_publishes_only_what_it_verified_detects_violation():
         good.replace("needs.verify.outputs.image-id", "needs.verify.outputs.sha")
     )
     assert publish_faults(good.replace("--digestfile", "--quiet"))
+    assert publish_faults(good.replace("            exit 0\n", ""))
+    assert publish_faults(good.replace("existing=true", "existing=false"))
+    assert publish_faults(good.replace("{{.Digest}}", "{{.Id}}"))
+    assert publish_faults(good.replace("EXISTING", "OTHER"))
     assert publish_faults(good.replace("anima:$VERSION", "anima:main"))
     assert publish_faults(
         good.replace("needs.verify.outputs.publish == 'true'", "true")

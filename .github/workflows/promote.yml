@@ -94,6 +94,7 @@ jobs:
       packages: write
     outputs:
       reference: ${{ steps.push.outputs.reference }}
+      existing: ${{ steps.push.outputs.existing }}
     env:
       VERSION: ${{ needs.verify.outputs.version }}
       IMAGE_ID: ${{ needs.verify.outputs.image-id }}
@@ -121,8 +122,14 @@ jobs:
         run: |
           echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin
           if podman manifest inspect "docker://ghcr.io/cocreiamo/anima:$VERSION" >/dev/null 2>&1; then
-            echo "ghcr.io/cocreiamo/anima:$VERSION exists: a published tag is never moved." >&2
-            exit 1
+            # An earlier run pushed the tag and failed before the release: the tag
+            # is never moved; the release points at the digest it already holds.
+            echo "ghcr.io/cocreiamo/anima:$VERSION exists: not pushed again."
+            podman pull --quiet "docker://ghcr.io/cocreiamo/anima:$VERSION" >/dev/null
+            digest="$(podman image inspect --format '{{.Digest}}' "ghcr.io/cocreiamo/anima:$VERSION")"
+            echo "reference=ghcr.io/cocreiamo/anima@$digest" >> "$GITHUB_OUTPUT"
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           podman push --digestfile "$RUNNER_TEMP/digest" "$REF" "docker://ghcr.io/cocreiamo/anima:$VERSION"
           echo "reference=ghcr.io/cocreiamo/anima@$(cat "$RUNNER_TEMP/digest")" >> "$GITHUB_OUTPUT"
@@ -137,6 +144,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ needs.verify.outputs.sha }}
       IMAGE: ${{ needs.publish.outputs.reference }}
+      EXISTING: ${{ needs.publish.outputs.existing }}
     steps:
       - name: Fast-forward main-green
         run: |
@@ -156,8 +164,12 @@ jobs:
           elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "v$version is already released."
           elif [ -n "$IMAGE" ]; then
+            notes="Engine image: \`$IMAGE\`"
+            if [ "$EXISTING" = "true" ]; then
+              notes="$notes (published by an earlier run; the tag already existed and was not moved, this run's build was not pushed)"
+            fi
             gh release create "v$version" --repo "$GITHUB_REPOSITORY" \
-              --target "$SHA" --generate-notes --notes "Engine image: \`$IMAGE\`"
+              --target "$SHA" --generate-notes --notes "$notes"
           else
             echo "v$version has no published image: not releasing it." >&2
             exit 1

@@ -1,9 +1,10 @@
 ---
 id: TASK-72
 title: Read the configurator's data files with a YAML library
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-27T19:37:09Z'
+updated_date: '2026-11-28T04:19:29Z'
 labels:
   - engine
   - tooling
@@ -26,8 +27,8 @@ owns:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: the data files of the configurator are read with a YAML library and the hand-written reader is gone
-- [ ] #2 Check: the tests of the configurator still pass, with their companions
+- [x] #1 Check: the data files of the configurator are read with a YAML library and the hand-written reader is gone
+- [x] #2 Check: the tests of the configurator still pass, with their companions
 <!-- AC:END -->
 
 ## Brief

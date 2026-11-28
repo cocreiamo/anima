@@ -102,8 +102,11 @@ FROM server AS oauth-test-client
 COPY --from=oauth-test-client-build /out/oauth_hook_client /usr/local/bin/oauth_hook_client
 
 # PostgreSQL's regression suite against this build (R21): `make check` runs
-# a temporary instance as a non-root user. Fails the build when a test fails.
+# a temporary instance as a non-root user. Fails the build when a test fails: the
+# exit status of `make` is kept, a pipe to `tail` would hide it (PM-008). The whole
+# output stays in the image as /tmp/regress.log, the result that `engine:regress`
+# reads, so that a cached build gives the verdict of a fresh one.
 FROM postgres-build AS regress
 RUN useradd --create-home regress && chown -R regress /src/postgres
 USER regress
-RUN make check 2>&1 | tee /tmp/regress.log | tail -n 30
+RUN make check > /tmp/regress.log 2>&1; status=$?; tail -n 30 /tmp/regress.log; exit $status

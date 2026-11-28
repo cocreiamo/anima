@@ -137,6 +137,7 @@ Look here before building something. Each section is derived from its source; th
 | R108 | checks pass from empty cache | written |
 | R110 | releases stay patch only | written |
 | R112 | format and test exclude each other | written |
+| R113 | data files read with yaml library | written |
 | R114 | system tests report on every change | written |
 | R115 | publish only what was verified | written |
 
@@ -291,6 +292,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
 - R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
+- R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
 
