@@ -27,7 +27,12 @@ CACHE = ROOT / ".cache" / "engine"
 READY_LIMIT_SECONDS = 180
 
 
-OFFLINE_MODULES = {"test_inputs.py", "test_logic.py"}
+OFFLINE_MODULES = {
+    "test_inputs.py",
+    "test_logic.py",
+    "test_entry_static.py",
+    "test_logic_entry.py",
+}
 
 
 def pytest_collection_modifyitems(config, items):
@@ -275,7 +280,7 @@ def start_engine(
     )
     # Testcontainers types a published port as `int`; the API takes (address, port).
     container.ports["5432"] = (publish_address, None)  # type: ignore[assignment]
-    container.ports["8080"] = (publish_address, None)  # type: ignore[assignment]
+    container.ports["8443"] = (publish_address, None)  # type: ignore[assignment]
     # The example configuration of the repository with its local profile: the
     # configurator needs the adopter's identities, and the local profile selects
     # the stand-ins.

@@ -15,6 +15,9 @@ COPY engine/image/anima.pod /usr/share/containers/systemd/
 COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
 COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
 COPY engine/access/public-url.env /usr/share/anima/public-url.env
+COPY engine/entry/entry.image engine/entry/entry.container /usr/share/containers/systemd/
+COPY --chmod=555 engine/entry/entry-certificate /usr/libexec/anima/entry-certificate
+COPY engine/entry/entry-certificate.service /usr/lib/systemd/system/
 COPY engine/secrets/secrets.image engine/secrets/secrets.container /usr/share/containers/systemd/
 COPY engine/database/database-prepare.container engine/database/database-tls.container /usr/share/containers/systemd/
 COPY engine/secrets/secrets-root-of-trust.service engine/image/anima-ready.target /usr/lib/systemd/system/

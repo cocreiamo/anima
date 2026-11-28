@@ -1,0 +1,41 @@
+[Unit]
+Description=Anima HTTP entry point: the one way in for HTTP, forwarding only the declared prefixes of the identity provider (ADR 0008)
+# The listen address (written by anima-listen), the certificate (issued by the
+# secret store's authority, once: TASK-86), and the identity provider it forwards
+# to. The entry starts last of the pod's containers (two `podman run` into one
+# pod at the same moment were seen to hang each other).
+Requires=anima-listen-container.service anima-listen-host.service entry-certificate.service
+After=anima-listen-container.service anima-listen-host.service entry-certificate.service database.service secrets.service database-tls.service database-prepare.service access.service
+
+[Container]
+ContainerName=entry
+Image=entry.image
+Pod=anima.pod
+EnvironmentFile=/run/anima/listen/entry.env
+# Not the identity provider's: its own user, with nothing to write but memory, and
+# no capability. The certificate and its key are files of memory that this user owns.
+User=1011:1011
+ReadOnly=true
+DropCapability=ALL
+NoNewPrivileges=true
+Tmpfs=/tmp:rw,mode=1777
+Volume=/run/anima/entrytls:/run/anima/entrytls:ro
+# The listener and its certificate are configuration of the entry, not code of the
+# host program: the address is the one the way of starting gives (entry.env).
+Environment=Kestrel__Endpoints__Https__Certificate__Path=/run/anima/entrytls/server.crt
+Environment=Kestrel__Endpoints__Https__Certificate__KeyPath=/run/anima/entrytls/server.key
+# Startup, liveness and readiness: the listener accepts a connection.
+HealthStartupCmd=/usr/local/bin/entry-check
+HealthStartupInterval=2s
+HealthStartupRetries=60
+HealthCmd=/usr/local/bin/entry-check
+HealthInterval=5s
+HealthTimeout=4s
+HealthRetries=2
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=2
+TimeoutStartSec=180

@@ -214,3 +214,157 @@ def temporary_administrators(users: list[dict]) -> list[str]:
         for user in users
         if "true" in (user.get("attributes") or {}).get("is_temporary_admin", [])
     ]
+
+
+# ---- The HTTP entry point (ADR 0008) -----------------------------------------
+
+# Every forwarding header other than the standard one (RFC 7239) that a client can
+# send and that a backend could be made to trust (R132).
+OTHER_FORWARDING_HEADERS = (
+    "X-Forwarded-For",
+    "X-Forwarded-Host",
+    "X-Forwarded-Proto",
+    "X-Forwarded-Port",
+    "X-Forwarded-Prefix",
+    "X-Forwarded-Server",
+    "X-Forwarded-Ssl",
+    "X-Original-Forwarded-For",
+    "X-Real-IP",
+    "Front-End-Https",
+    "X-Url-Scheme",
+)
+
+
+def routing_faults(
+    answers: dict[str, int], forwarded: list[str], refused: list[str]
+) -> list[str]:
+    """What is wrong with the answers of the entry (R128, R129), by request path:
+    a path that must be forwarded and was not answered 200, and a path that must
+    be refused and was answered anything else than 404. Both lists must be
+    non-empty: a check that asked nothing proves nothing."""
+    faults = []
+    if not forwarded or not refused:
+        faults.append("the check asked for no forwarded path or for no refused path")
+    for path in forwarded:
+        if answers.get(path) != 200:
+            faults.append(f"{path} was answered {answers.get(path)}, not forwarded")
+    for path in refused:
+        if answers.get(path) != 404:
+            faults.append(f"{path} was answered {answers.get(path)}, not 404")
+    return faults
+
+
+def forwarding_faults(
+    received: list[tuple[str, str]], client: str, host: str, proto: str
+) -> list[str]:
+    """What is wrong with the headers a backend received after a client sent forged
+    forwarding headers (R132): exactly one `Forwarded` header, naming the client's
+    address, the host the client asked for and the scheme of the connection, with no
+    trace of the forged values, and none of the other forwarding headers."""
+    faults = []
+    forwarded = [v for k, v in received if k.lower() == "forwarded"]
+    if len(forwarded) != 1:
+        faults.append(f"{len(forwarded)} Forwarded headers received, one expected")
+    else:
+        value = forwarded[0]
+        pairs = {}
+        for part in value.split(";"):
+            key, _, text = part.partition("=")
+            pairs[key.strip().lower()] = text.strip().strip('"').strip("[]")
+        if pairs.get("for") != client:
+            faults.append(f"for is {pairs.get('for')!r}, not {client!r}")
+        if pairs.get("host") != host:
+            faults.append(f"host is {pairs.get('host')!r}, not {host!r}")
+        if pairs.get("proto") != proto:
+            faults.append(f"proto is {pairs.get('proto')!r}, not {proto!r}")
+        if "forged" in value.lower() or "6.6.6.6" in value:
+            faults.append("the forged value was passed on")
+    present = {k.lower() for k, _ in received}
+    for name in OTHER_FORWARDING_HEADERS:
+        if name.lower() in present:
+            faults.append(f"{name} was passed on")
+    return faults
+
+
+def listener_faults(listeners: list[str], loopback_only: list[int]) -> list[str]:
+    """What is wrong with the listening sockets of the engine (R135), from the lines
+    of `ss -Hltn` (`LISTEN 0 4096 <address>:<port> <peer>`): each port of
+    `loopback_only` must be listened on, and only on the loopback address."""
+    faults = []
+    for port in loopback_only:
+        addresses = []
+        for line in listeners:
+            fields = line.split()
+            if len(fields) >= 4:
+                address, _, number = fields[3].rpartition(":")
+                if number == str(port):
+                    addresses.append(address.strip("[]"))
+        if not addresses:
+            faults.append(f"port {port} is not listened on")
+        for address in addresses:
+            if address not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+                faults.append(f"port {port} is listened on at {address}")
+    return faults
+
+
+def published_faults(published: dict[str, list[str]], expected: set[str]) -> list[str]:
+    """What is wrong with the ports published to the outside (R135, R30): exactly the
+    expected ports, each on the loopback address of the host only."""
+    faults = []
+    if set(published) != expected:
+        faults.append(f"published {sorted(published)}, expected {sorted(expected)}")
+    for port, addresses in published.items():
+        if addresses != ["127.0.0.1"]:
+            faults.append(f"{port} is published on {addresses}")
+    return faults
+
+
+def certificate_chain_faults(text: str, authority: str, names: list[str]) -> list[str]:
+    """What is wrong with the certificate the entry presents (R126), from `openssl
+    x509 -noout -issuer -ext subjectAltName`: its issuer is the engine's
+    authority and every name of the public host is among its subject
+    alternative names."""
+    faults = []
+    issuer = re.search(r"^issuer\s*=\s*(.+)$", text, re.MULTILINE)
+    if not issuer or authority not in issuer.group(1):
+        faults.append(f"issuer is {issuer.group(1) if issuer else None!r}")
+    for name in names:
+        if not re.search(rf"(DNS|IP Address):{re.escape(name)}(,|\s|$)", text):
+            faults.append(f"{name} is not a name of the certificate")
+    return faults
+
+
+def entry_pin_faults(containerfile: str, components: list[dict]) -> list[str]:
+    """What is wrong with the pins of the entry's container file against the
+    register (GAP-057): the base image's digest, the library's version and the
+    SHA-256 of its package file, the versions of the distribution's packages,
+    the check of the package hash and the locked restore."""
+    faults = []
+    by_name = {c["name"]: c for c in components}
+    base = re.search(
+        r"^ARG BASE=\S+@(sha256:[0-9a-f]{64})", containerfile, re.MULTILINE
+    )
+    registered = by_name.get("fedora-minimal", {}).get("digest")
+    if not base or base.group(1) != registered:
+        faults.append("the base digest is not the registered one")
+    yarp = by_name.get("yarp", {})
+    sha = re.search(r"^ARG YARP_SHA256=([0-9a-f]{64})$", containerfile, re.MULTILINE)
+    if not sha or sha.group(1) != yarp.get("package_sha256"):
+        faults.append("the package hash of the library is not the registered one")
+    version = re.search(r"^ARG YARP_VERSION=(\S+)$", containerfile, re.MULTILINE)
+    if not version or version.group(1) != yarp.get("version"):
+        faults.append("the library version is not the registered one")
+    dotnet = by_name.get("dotnet", {})
+    packages = dotnet.get("packages", [])
+    for package in packages:
+        if not re.search(
+            rf"^ARG DOTNET_\w+={re.escape(package)}$", containerfile, re.MULTILINE
+        ):
+            faults.append(f"{package} is not pinned in the container file")
+    if len(packages) != 2:
+        faults.append("the register names no runtime package and SDK package")
+    if "sha256sum --check" not in containerfile:
+        faults.append("the build does not check the package hash")
+    if "--locked-mode" not in containerfile:
+        faults.append("the restore is not locked")
+    return faults

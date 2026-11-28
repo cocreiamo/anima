@@ -1,0 +1,68 @@
+#!/usr/bin/bash
+# Gets the HTTP entry point's certificate from the secret store's certificate
+# authority, once, at every start of the engine, into memory (/run is a tmpfs).
+#
+# This is the first build of the entry (TASK-86): the certificate is issued by the
+# same role and the same machine authentication as the database server's
+# (engine/database/tls-enable), for the same names (`localhost` and its loopback
+# address), and it is not renewed. Its renewal and its pickup without a restart,
+# and a role of its own with the public host of the installation, are TASK-87.
+#
+# The private key is made here and never leaves the machine: only a signing
+# request goes to the secret store, which is reached on the pod's loopback (plain
+# HTTP, never published) and authenticates this unit by a role that holds no
+# secret. Output, in $ANIMA_ENTRY_TLS_DIR (default /run/anima/entrytls), owned by
+# the entry's user: server.crt, server.key, ca.crt (the authority's certificate, a
+# public document).
+set -euo pipefail
+
+dir=${ANIMA_ENTRY_TLS_DIR:-/run/anima/entrytls}
+owner=${ANIMA_ENTRY_UID:-1011}
+api_host=127.0.0.1
+api_port=8200
+role=database-server
+lifetime=2592000
+
+umask 0077
+mkdir -p "$dir"
+
+# post <path> <json> [token]: the response body, for a request without a client library.
+post() {
+    local path=$1 body=$2 token=${3:-}
+    exec 3<>"/dev/tcp/$api_host/$api_port"
+    printf 'POST /v1/%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\n%sContent-Length: %d\r\n\r\n%s' \
+        "$path" "$api_host" "${token:+X-Vault-Token: $token$'\r\n'}" "${#body}" "$body" >&3
+    local response
+    response=$(timeout 20 cat <&3)
+    exec 3<&-
+    case "$response" in
+        "HTTP/1.0 200"* | "HTTP/1.1 200"*) printf '%s' "${response#*$'\r\n\r\n'}" ;;
+        *)
+            echo "entry certificate: the secret store refused /v1/$path: ${response%%$'\r\n'*}" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# field <name> <json>: the string value of a top-level-unique field, still escaped.
+field() { sed -n "s/.*\"$1\":\"\\([^\"]*\\)\".*/\\1/p" <<<"$2"; }
+unescape() { printf '%b' "$1"; }
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+    -keyout "$dir/server.key.new" -out "$dir/server.csr" 2>/dev/null
+login=$(post "auth/approle/login" "{\"role_id\":\"$role\"}")
+token=$(field client_token "$login")
+[ -n "$token" ] || { echo "entry certificate: no token from the secret store" >&2; exit 1; }
+csr=$(awk '{ printf "%s\\n", $0 }' "$dir/server.csr")
+signed=$(post "pki/sign/$role" "{\"csr\":\"$csr\",\"common_name\":\"localhost\",\"alt_names\":\"localhost\",\"ip_sans\":\"127.0.0.1\",\"ttl\":\"${lifetime}s\"}" "$token")
+unescape "$(field certificate "$signed")" >"$dir/server.crt.new"
+unescape "$(field issuing_ca "$signed")" >"$dir/ca.crt.new"
+[ -s "$dir/server.crt.new" ] || { echo "entry certificate: no certificate in the answer" >&2; exit 1; }
+[ -s "$dir/ca.crt.new" ] || { echo "entry certificate: no authority certificate in the answer" >&2; exit 1; }
+rm -f "$dir/server.csr"
+mv "$dir/server.key.new" "$dir/server.key"
+mv "$dir/server.crt.new" "$dir/server.crt"
+mv "$dir/ca.crt.new" "$dir/ca.crt"
+chmod 0644 "$dir/ca.crt"
+chown "$owner:$owner" "$dir/server.key" "$dir/server.crt" "$dir/ca.crt"
