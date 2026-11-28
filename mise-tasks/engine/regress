@@ -3,16 +3,25 @@
 #
 # Builds the `regress` target of engine/database/Containerfile, whose last step
 # is `make check` on the same build tree as the shipped server. The build fails
-# when a regression test fails. Log: .cache/engine/logs/regress.log
+# when `make` fails. The verdict is read from the result kept in the built image
+# (/tmp/regress.log), not from the build output: a build with every layer cached
+# does not run the step again and prints nothing of it (PM-008).
+# Logs: .cache/engine/logs/regress-build.log (the build), regress.log (the result).
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$root"
 mkdir -p .cache/engine/logs
+rm -f .cache/engine/logs/regress.log
+iid=".cache/engine/logs/regress.iid"
 podman build --format docker --file engine/database/Containerfile --target regress \
     --build-context "postgres=third_party/postgres" \
     --build-context "pgvector=third_party/pgvector" \
     --build-context "pg_oidc_validator=third_party/pg_oidc_validator" \
     --build-context "pgbackrest=third_party/pgbackrest" \
-    --tag localhost/anima/database-regress:regress . 2>&1 | tee .cache/engine/logs/regress.log | tail -n 40
+    --iidfile "$iid" \
+    --tag localhost/anima/database-regress:regress . 2>&1 | tee .cache/engine/logs/regress-build.log | tail -n 40
+# The pipe above hides the exit status of the build: the image id says it was made.
+test -s "$iid"
+podman run --rm --entrypoint cat "$(cat "$iid")" /tmp/regress.log > .cache/engine/logs/regress.log
 grep -q "All [0-9]* tests passed" .cache/engine/logs/regress.log
