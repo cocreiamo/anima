@@ -3,7 +3,7 @@
 The workflow that copies every image of the register into the organization's
 mirror, and the two commands it calls (`mise-tasks/ci/mirror-plan`, `mirror-copy`),
 are read as text here; that the commands do what the text says is run for real
-against a registry in `tests/ci/` (R172, R173, R165), and that the hosted registry
+against a registry in `tests/ci/` (R175, R176, R165), and that the hosted registry
 accepts the copy is shown only by the first run (`anima-branching-and-releasing`).
 Each check is a function of its inputs and has a `_detects_violation` companion
 that feeds it a deliberately wrong one. That the builds pull from the mirror is
@@ -251,7 +251,7 @@ def digest_faults(workflow):
 def test_R161_mirror_preserves_digests():
     """Proves the text of the copy command: every copy is whole and keeps the digest,
     is read back and compared, and both the pinned digest and the one the upstream
-    tag names are copied, by digest. That it does is run in R173."""
+    tag names are copied, by digest. That it does is run in R176."""
     assert digest_faults(COPY.read_text()) == []
 
 
@@ -304,7 +304,7 @@ def immutability_faults(workflow):
 def test_R162_mirror_never_deletes_or_moves_a_tag():
     """Proves the text of the copy command: one function writes the mirror, and only
     after it has found the tag absent; no command deletes. That a tag that exists is
-    left as it is is run in R173."""
+    left as it is is run in R176."""
     assert immutability_faults(COPY.read_text()) == []
 
 
@@ -341,7 +341,7 @@ def job_actions(job):
 def privilege_faults(workflow, copy):
     """What would give the mirror's credentials to code that is not the copy. The
     job that holds them runs the one command that copies, which a test runs for
-    real (R173); it is given the repository to read and the task runner without a
+    real (R176); it is given the repository to read and the task runner without a
     single tool installed, and nothing else."""
     faults = []
     if triggers(workflow) != {"schedule", "workflow_dispatch"}:

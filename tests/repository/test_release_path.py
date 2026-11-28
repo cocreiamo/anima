@@ -8,8 +8,6 @@ has a `_detects_violation` companion that feeds it a deliberately wrong one.
 
 import json
 import re
-import subprocess
-import textwrap
 import tomllib
 
 from sysml_model import ROOT
@@ -83,6 +81,9 @@ RELEVANT = [
     "mise-tasks/ci/mirror-copy",
     "tests/ci/test_ci_mirror.py",
     ".github/workflows/system-tests.yml",
+    ".github/workflows/promote.yml",
+    "mise-tasks/promote/publish",
+    "tests/promote/test_promote.py",
 ]
 IRRELEVANT = ["README.md", "skills/anima-image-design.md", "model/anima.sysml"]
 
@@ -329,7 +330,10 @@ def release_path_faults(workflow, mise, engine_test):
     ):
         faults.append("engine:test would skip the system tests or not run them")
     for name, job in jobs(workflow).items():
-        moves = "git/refs" in job or "gh release create" in job
+        moves = any(
+            call in job
+            for call in ("promote:green", "promote:release", "git/refs", "gh release")
+        )
         if moves and (name == "verify" or "verify" not in needs(job)):
             faults.append(
                 f"{name} moves main-green or releases without waiting for verify"
@@ -372,9 +376,18 @@ def test_R24_release_only_from_verified_commit_detects_violation():
     assert release_path_faults(good.replace("  publish:", "  other:"), mise, task)
 
 
-def publish_faults(workflow):
+PROMOTE_TASKS = ROOT / "mise-tasks" / "promote"
+PROMOTE_TESTS = ROOT / "tests" / "promote" / "test_promote.py"
+
+
+def promote_task_texts():
+    return {p.name: p.read_text() for p in PROMOTE_TASKS.iterdir() if p.is_file()}
+
+
+def publish_faults(workflow, tasks):
     """What would let the promotion publish something other than the image that was
-    built and passed in the same run, or under a moving name (R115)."""
+    built and passed in the same run, or under a moving name (R115). `tasks` is
+    {name: text} of the commands in `mise-tasks/promote/`."""
     faults = []
     found = promotion_jobs(workflow)
     if not all(found.values()):
@@ -393,35 +406,38 @@ def publish_faults(workflow):
     if writers != ["publish"] or job_permissions(publish).get("packages") != "write":
         faults.append(f"packages: write is held by {writers}, not by publish alone")
     commands = "".join(run_text(s) for s in steps(publish))
-    for forbidden in ("podman build", "mise run", "buildah", "git checkout"):
-        if forbidden in commands:
-            faults.append(f"publish builds or runs the repository: {forbidden}")
-    if "actions/checkout@" in publish or "actions/cache" in publish:
-        faults.append("publish checks out or restores a cache")
-    if "podman load" not in commands or "needs.verify.outputs.image-id" not in publish:
-        faults.append("publish does not load the archive and check its id")
-    if not re.search(r"podman push .*--digestfile", commands):
-        faults.append("the image is not pushed with its digest recorded")
-    if not re.search(r"ghcr\.io/cocreiamo/anima:\$\{?VERSION\}?", commands):
-        faults.append("the image is not pushed under its version")
-    push = steps(publish)[-1]
-    if (
-        "existing=true" not in push
-        or "{{.Digest}}" not in push
-        or "exit 0" not in push
-        or push.index("exit 0") > push.index("podman push")
+    for forbidden in (
+        "podman build",
+        "buildah",
+        "engine:",
+        "promote:verify",
+        "mise run check",
     ):
-        faults.append(
-            "an existing tag is not left alone and released at its own digest"
-        )
-    if "EXISTING" not in found["promote"]:
-        faults.append(
-            "the release notes do not say that the image was published earlier"
-        )
-    if "reference" not in publish or "@" not in commands:
+        if forbidden in commands:
+            faults.append(f"publish builds or verifies again: {forbidden}")
+    if "actions/cache" in publish:
+        faults.append("publish restores a cache")
+    checkouts = [s for s in steps(publish) if "actions/checkout@" in s]
+    if checkouts and not all(
+        "ref: ${{ needs.verify.outputs.sha }}" in s
+        and "persist-credentials: false" in s
+        for s in checkouts
+    ):
+        faults.append("publish checks out something other than the verified commit")
+    if (
+        "promote:load" not in commands
+        or "needs.verify.outputs.image-id" not in publish
+        or "promote:publish" not in commands
+    ):
+        faults.append("publish does not load the archive, check its id and publish")
+    if "needs.verify.outputs.version" not in publish:
+        faults.append("publish does not publish the version that was prepared")
+    if "EXISTING" not in found["promote"] or "promote:release" not in found["promote"]:
+        faults.append("the release does not learn that the image was published earlier")
+    if "reference" not in publish or "existing" not in publish:
         faults.append("the image is not identified by digest")
     verify_commands = "".join(run_text(s) for s in steps(verify))
-    if "podman save" not in verify_commands:
+    if "promote:archive" not in verify_commands:
         faults.append("verify does not archive the image it tested")
     if "podman load" in verify_commands or "engine-cache" in workflow:
         faults.append("the image is restored from a cache")
@@ -430,177 +446,170 @@ def publish_faults(workflow):
     )
     if "cache/restore" in workflow or any(p != ".cache/sysml-pilot" for p in caches):
         faults.append("the promotion restores a cache other than the model validator's")
+    # The commands themselves (what they do is run by tests/promote).
+    publishing = tasks.get("publish", "")
+    inspect = re.search(
+        r"^[^#\n]*podman manifest inspect[^\n]*",
+        tasks.get("tag-state", ""),
+        re.MULTILINE,
+    )
+    if not inspect or "docker://" in inspect.group(0):
+        faults.append("tag-state does not ask the registry with a bare reference")
+    if "--digestfile" not in publishing or "tag-state" not in publishing:
+        faults.append("publish does not ask the registry first and record the digest")
+    elif publishing.index("tag-state") > publishing.index("podman push"):
+        faults.append("publish pushes before it asks the registry")
+    if re.search(r"latest", publishing):
+        faults.append("publish names a moving tag")
     return faults
 
 
 def test_R115_promotion_publishes_only_what_it_verified():
-    """Proves the text of the workflow: one job holds the permission to write
-    packages, loads the archive that the verifying job made and compares its id,
-    pushes it under the version with its digest recorded, and names no moving tag.
-    It does not prove that the registry accepts it: that is the first release."""
-    assert publish_faults(PROMOTE.read_text()) == []
+    """Proves the text of the workflow and of the commands it calls: one job holds
+    the permission to write packages, loads the archive that the verifying job made
+    and compares its id, asks the registry before it pushes the image under its
+    version with its digest recorded, and names no moving tag. What the commands
+    do is run by `mise run promote:test`; that the registry accepts the push is the
+    first release."""
+    assert publish_faults(PROMOTE.read_text(), promote_task_texts()) == []
 
 
 def test_R115_promotion_publishes_only_what_it_verified_detects_violation():
-    good = PROMOTE.read_text()
-    assert publish_faults(good) == []
-    assert publish_faults(good + "      - run: echo " + "late" + "st\n")
-    assert publish_faults(good.replace("packages: write", "packages: read"))
-    assert publish_faults(
-        good.replace(
-            "      contents: read\n", "      contents: read\n      packages: write\n", 1
-        )
+    good, tasks = PROMOTE.read_text(), promote_task_texts()
+    assert publish_faults(good, tasks) == []
+
+    def bad(old, new):
+        assert old in good, old
+        return publish_faults(good.replace(old, new), tasks)
+
+    assert publish_faults(good + "      - run: echo " + "late" + "st\n", tasks)
+    assert bad("packages: write", "packages: read")
+    assert bad(
+        "      contents: read\n      packages: write\n", "      contents: read\n"
     )
-    assert publish_faults(good.replace("podman load", "podman build"))
-    assert publish_faults(
-        good.replace("needs.verify.outputs.image-id", "needs.verify.outputs.sha")
+    assert bad("mise run --quiet promote:load", "podman build")
+    assert bad("needs.verify.outputs.image-id", "needs.verify.outputs.sha")
+    assert bad("mise run --quiet promote:publish", "true")
+    assert bad("EXISTING", "OTHER")
+    assert bad("needs.verify.outputs.publish == 'true'", "true")
+    assert bad("promote:archive", "podman images")
+    assert bad(
+        "          ref: ${{ needs.verify.outputs.sha }}\n          persist-credentials: false\n      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0\n        with:\n          version: 2026.11.14\n      - uses: actions/download-artifact",
+        "          ref: main\n          persist-credentials: false\n      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0\n        with:\n          version: 2026.11.14\n      - uses: actions/download-artifact",
     )
-    assert publish_faults(good.replace("--digestfile", "--quiet"))
-    assert publish_faults(good.replace("            exit 0\n", ""))
-    assert publish_faults(good.replace("existing=true", "existing=false"))
-    assert publish_faults(good.replace("{{.Digest}}", "{{.Id}}"))
-    assert publish_faults(good.replace("EXISTING", "OTHER"))
-    assert publish_faults(good.replace("anima:$VERSION", "anima:main"))
-    assert publish_faults(
-        good.replace("needs.verify.outputs.publish == 'true'", "true")
-    )
-    assert publish_faults(good.replace("podman save", "podman images"))
-    cache = (
+    assert bad(
+        "      - uses: actions/download-artifact",
         "      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n"
         "        with:\n          path: ~/engine-cache\n          key: k\n"
+        "      - uses: actions/download-artifact",
     )
+    tag = tasks["tag-state"]
     assert publish_faults(
-        good.replace("      - id: pilot", cache + "      - id: pilot")
-    )
-
-
-# ---- R115: a published tag is never moved; the registry is asked, and "cannot tell" stops (PM-013)
-
-# What the pinned podman (4.9.3, as on the hosted runner) printed and returned, recorded on
-# 2026-11-28 against public images and unreachable names; the tag is stated as the workflow asks.
-RECORDED = {
-    "exists": (0, ""),
-    "absent": (
-        125,
-        'Error: reading image "docker://<ref>": reading manifest 0.0.1 in ghcr.io/cocreiamo/anima: manifest unknown',
-    ),
-    "unknown denied": (
-        125,
-        'Error: reading image "docker://<ref>": Requesting bearer token: invalid status code from registry 403 (Forbidden)',
-    ),
-    "unknown unauthorized": (
-        125,
-        'Error: reading image "docker://<ref>": reading manifest 0.0.1 in ghcr.io/cocreiamo/anima: unauthorized: authentication required',
-    ),
-    "unknown unreachable": (
-        125,
-        'Error: reading image "docker://<ref>": pinging container registry ghcr.io: Get "https://ghcr.io/v2/": dial tcp: lookup ghcr.io: no such host',
-    ),
-}
-# What the same podman answers to the prefixed form, whatever the registry holds.
-PREFIXED = (
-    125,
-    'Error: unsupported transport "docker" for looking up local images',
-)
-TAG_REF = "ghcr.io/cocreiamo/anima" + ":0.0.1"
-
-
-def tag_state_function(workflow):
-    """The shell function of the push step that classifies the tag, dedented."""
-    m = re.search(
-        r"^( +)tag_state\(\) \{\n.*?^\1\}\n", workflow, re.MULTILINE | re.DOTALL
-    )
-    if not m:
-        return None
-    return textwrap.dedent(m.group(0))
-
-
-def run_tag_state(function, recorded, tmp_path):
-    """Run the function with a `podman` that answers as recorded, and that answers
-    as the pinned podman does to a reference with the `docker://` prefix. Returns
-    (what it printed, its exit status)."""
-    stub = tmp_path / "podman"
-    stub.write_text(
-        "#!/bin/bash\n"
-        'case "$3" in docker://*)'
-        f" echo '{PREFIXED[1]}' >&2; exit {PREFIXED[0]};; esac\n"
-        'echo "$STUB_ERR" >&2; exit "$STUB_RC"\n'
-    )
-    stub.chmod(0o755)
-    rc, err = recorded
-    done = subprocess.run(
-        ["bash", "-c", f'{function}\ntag_state "$1"', "bash", TAG_REF],
-        check=False,
-        capture_output=True,
-        text=True,
-        env={
-            "PATH": f"{tmp_path}:/usr/bin:/bin",
-            "STUB_RC": str(rc),
-            "STUB_ERR": err.replace("<ref>", TAG_REF),
+        good,
+        {
+            **tasks,
+            "tag-state": tag.replace(
+                'manifest inspect "${flags[@]}" "$ref"',
+                'manifest inspect "${flags[@]}" "docker://$ref"',
+            ),
         },
     )
-    return done.stdout.strip(), done.returncode
+    publishing = tasks["publish"]
+    assert publish_faults(
+        good, {**tasks, "publish": publishing.replace("tag-state", "other")}
+    )
+    assert publish_faults(
+        good, {**tasks, "publish": publishing.replace("--digestfile", "--quiet")}
+    )
 
 
-def tag_check_faults(workflow, tmp_path):
-    """What would let a version tag be pushed over one that exists, or when the
-    registry could not say (R115, PM-013)."""
+# ---- R170: the steps of the promotion are calls to tested commands (PM-014) --------------------
+
+STEP_CALL = re.compile(
+    r"^mise run (--quiet )?promote:(?P<name>[a-z-]+)"
+    r'( "\$[A-Z_]+"| "\$RUNNER_TEMP/[\w./-]+")*'
+    r'( >> "\$GITHUB_OUTPUT")?$'
+)
+LOGIN = re.compile(
+    r'^echo "\$REGISTRY_TOKEN" \| podman login ghcr\.io --username "\$ACTOR" --password-stdin$'
+)
+
+
+def command_faults(workflow, tasks, tests, system_tests):
+    """What would put a decision or a command line of its own in the workflow, call
+    a command that does not exist, or one that no integration test runs (R170).
+    `tasks` is the names of the commands, `tests` the text of their tests,
+    `system_tests` the workflow that runs `mise run promote:test`."""
     faults = []
-    function = tag_state_function(workflow)
-    if function is None:
-        return ["the push step has no tag_state function"]
-    if re.search(r"manifest inspect[^\n]*docker://", workflow):
-        faults.append("manifest inspect is given the docker:// transport prefix")
-    for name, recorded in RECORDED.items():
-        want = name.split()[0]
-        got = run_tag_state(function, recorded, tmp_path)[0]
-        if got != want:
-            faults.append(f"{name}: classified as {got!r}, not {want!r}")
-    push = steps(promotion_jobs(workflow)["publish"])[-1]
-    if 'tag_state "ghcr.io/cocreiamo/anima:$VERSION"' not in push:
-        faults.append("the push step does not classify the version tag")
-    elif not re.search(
-        r'"\$state" = "unknown" \]; then\n\s+exit 1', push
-    ) or push.index("exit 1") > push.index("podman push"):
-        faults.append("an unknown state does not stop the push step before it pushes")
+    called = set()
+    for job_id, job in jobs(workflow).items():
+        for step in steps(job):
+            if "run:" not in step:
+                continue
+            body = run_text(step).strip()
+            if "\n" in body or body.startswith("|"):
+                faults.append(f"{job_id}: a step runs a script, not one command")
+                continue
+            call = STEP_CALL.match(body)
+            if call:
+                called.add(call.group("name"))
+            elif not LOGIN.match(body):
+                faults.append(f"{job_id}: the step runs `{body}`, not a command")
+    for name in sorted(called - {"verify"}):
+        if name not in tasks:
+            faults.append(f"{name} is called but is not a command of the repository")
+        elif f'"{name}"' not in tests:
+            faults.append(f"no integration test runs the command {name}")
+    if not called:
+        faults.append("the workflow calls no command")
+    if "mise run promote:test" not in system_tests:
+        faults.append("the integration tests are not run by the system tests workflow")
     return faults
 
 
-def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent(tmp_path):
-    """Proves the shell function of the push step against recorded outputs of the
-    pinned podman for the three answers (exists, absent, cannot tell) and that the
-    step stops on the third. It does not prove the registry's real answers for the
-    first release: that is the first publishing run."""
-    assert tag_check_faults(PROMOTE.read_text(), tmp_path) == []
+def test_R170_promotion_steps_are_calls_to_tested_commands():
+    """Proves the text of the workflows: every step that runs something is one call
+    to a command of `mise-tasks/promote/` that a test of `tests/promote/` runs, the
+    login being the one exception, and the workflow that runs `promote:test` runs it.
+    It does not prove that the commands are right: `mise run promote:test` does."""
+    assert (
+        command_faults(
+            PROMOTE.read_text(),
+            {p.name for p in PROMOTE_TASKS.iterdir()},
+            PROMOTE_TESTS.read_text(),
+            SYSTEM_TESTS.read_text(),
+        )
+        == []
+    )
 
 
-def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent_detects_violation(
-    tmp_path,
-):
-    good = PROMOTE.read_text()
-    assert tag_check_faults(good, tmp_path) == []
-    # The form that failed whatever the registry held.
-    assert tag_check_faults(
+def test_R170_promotion_steps_are_calls_to_tested_commands_detects_violation():
+    good, tests = PROMOTE.read_text(), PROMOTE_TESTS.read_text()
+    tasks = {p.name for p in PROMOTE_TASKS.iterdir()}
+    system = SYSTEM_TESTS.read_text()
+    assert command_faults(good, tasks, tests, system) == []
+    green = 'run: mise run --quiet promote:green "$SHA"'
+    # A decision in the workflow.
+    assert command_faults(
         good.replace(
-            'podman manifest inspect "$1"', 'podman manifest inspect "docker://$1"'
+            green,
+            'run: |\n          if [ -n "$SHA" ]; then mise run promote:green "$SHA"; fi',
         ),
-        tmp_path,
+        tasks,
+        tests,
+        system,
     )
-    # Any failure read as absent.
-    assert tag_check_faults(
-        good.replace("grep -Eiq 'manifest unknown|name unknown'", "true"), tmp_path
+    # A command line of its own.
+    assert command_faults(
+        good.replace(green, "run: gh release list"), tasks, tests, system
     )
-    # Any failure read as unknown, an absent tag included.
-    assert tag_check_faults(
-        good.replace("manifest unknown|name unknown", "never"), tmp_path
+    # A command that does not exist, or that no test runs.
+    assert command_faults(
+        good.replace("promote:green", "promote:blue"), tasks, tests, system
     )
-    # Unknown does not stop the step.
-    assert tag_check_faults(
-        good.replace('[ "$state" = "unknown" ]', '[ "$state" = "never" ]'), tmp_path
-    )
-    assert tag_check_faults(good.replace("tag_state()", "other()"), tmp_path)
-    # An existing tag read as absent.
-    assert tag_check_faults(good.replace("echo exists", "echo absent"), tmp_path)
+    assert command_faults(good, tasks, tests.replace('"green"', '"gren"'), system)
+    assert command_faults(good, tasks, tests, system.replace("promote:test", "other"))
+    assert command_faults("jobs:\n", tasks, tests, system)
 
 
 # ---- R155: what the release tool writes is not formatted by us and is licensed (PM-012) -------

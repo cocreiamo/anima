@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-#MISE description="Decide whether a change touches the paths that a check is about: compares the base and the head through the API, and appends relevant=true or relevant=false to GITHUB_OUTPUT"
+#MISE description="Decide whether a change touches the paths that a check is about: compares the base and the head through the API, and prints relevant=true or relevant=false"
 #
 # Environment: BASE and HEAD (commits), GITHUB_REPOSITORY, RELEVANT (an extended
-# regular expression), EVENT (only named in the message), GITHUB_OUTPUT (default:
-# standard output). No base, or the null commit, means no base to compare with: the
+# regular expression), EVENT (only named in the message). Standard output is the
+# line `relevant=true` or `relevant=false` that the step appends to GITHUB_OUTPUT;
+# what it says to people goes to standard error. No base, or the null commit, means no base to compare with: the
 # change counts as relevant. The one call to the platform is `gh api`; a failure of
 # it fails the task, it is never read as "nothing changed". A renamed file counts by
 # its old name too.
 set -euo pipefail
 
-out=${GITHUB_OUTPUT:-/dev/stdout}
 base=${BASE:-}
 head=${HEAD:?HEAD is not set}
 relevant=${RELEVANT:?RELEVANT is not set}
 
 if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
-    echo "No base to compare with: the change counts as relevant."
-    echo "relevant=true" >>"$out"
+    echo "No base to compare with: the change counts as relevant." >&2
+    echo "relevant=true"
     exit 0
 fi
 
@@ -27,10 +27,10 @@ gh api --paginate "repos/${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}/comp
     jq -r '.files[] | .filename, (.previous_filename // empty)' >"$changed"
 
 if grep -Eq "$relevant" "$changed"; then
-    echo "The change touches the engine (${EVENT:-no event}):"
-    grep -E "$relevant" "$changed"
-    echo "relevant=true" >>"$out"
+    echo "The change touches the engine (${EVENT:-no event}):" >&2
+    grep -E "$relevant" "$changed" >&2
+    echo "relevant=true"
 else
-    echo "The change touches nothing of the engine: nothing to run."
-    echo "relevant=false" >>"$out"
+    echo "The change touches nothing of the engine: nothing to run." >&2
+    echo "relevant=false"
 fi

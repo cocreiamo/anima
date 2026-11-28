@@ -296,6 +296,18 @@ image = "docker.io/library/golang"
 digest = "sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666"
 mirror = "ghcr.io/cocreiamo/anima-mirror/golang"
 
+# The registry that the tests of the promotion start on a local port, to run its
+# commands against a real one (`tests/promote/`, R115).
+[[tool_image]]
+name = "distribution"
+role = "throwaway registry of the promotion's integration tests: the commands push to it and read it back"
+version = "3.1.2"
+license = "Apache-2.0"
+upstream = "https://github.com/distribution/distribution"
+image = "ghcr.io/distribution/distribution"
+digest = "sha256:d106962e6fe3fa69c178cec77eeeee5edb626b8df6535b7bd6b95e658a0a5ca9"
+mirror = "ghcr.io/cocreiamo/anima-mirror/distribution"
+
 # The tool that copies the images above into the mirror. The mirror workflow
 # (`.github/workflows/mirror-base-images.yml`) runs it with podman and takes
 # this entry's reference from here, so that it is pinned and updated like every
@@ -309,16 +321,3 @@ upstream = "https://github.com/containers/skopeo"
 image = "quay.io/skopeo/stable"
 digest = "sha256:9ce297b1309340cb31cf4cd7529a638b912da0bbe30894e210dbf9aae9d8a5d5"
 mirror = "ghcr.io/cocreiamo/anima-mirror/skopeo"
-
-# The registry that the integration tests of the commands that the workflows call
-# (`tests/ci/`) start on the machine, so that the copy into the mirror runs for
-# real against a registry that nothing else uses.
-[[tool_image]]
-name = "scratch-store"
-role = "throwaway store of images for the integration tests of the commands that the workflows call"
-version = "3.0.0"
-license = "Apache-2.0"
-upstream = "https://github.com/distribution/distribution"
-image = "ghcr.io/distribution/distribution"
-digest = "sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
-mirror = "ghcr.io/cocreiamo/anima-mirror/scratch-store"

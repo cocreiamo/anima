@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Print the key of the inner images' cache: a hash of the submodule status and of the files that the images are made of; also appended to GITHUB_OUTPUT as value=<key>"
+#MISE description="Print value=<key>, the key of the inner images' cache: a hash of the submodule status and of the files that the images are made of"
 #
 # Usage: mise run ci:cache-key [directory]
 # The directory (default: the repository) is where the status and the files are
@@ -14,7 +14,4 @@ key=$(
         find engine mise-tasks/engine config -type f | LC_ALL=C sort | xargs sha256sum
     } | sha256sum | cut -c1-16
 )
-echo "$key"
-if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "value=$key" >>"$GITHUB_OUTPUT"
-fi
+echo "value=$key"

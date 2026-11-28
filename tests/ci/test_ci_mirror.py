@@ -1,4 +1,4 @@
-"""The copy of an image into the mirror, run for real. R173, R165. Run through
+"""The copy of an image into the mirror, run for real. R176, R165. Run through
 `mise run ci:test`.
 
 Upstream and mirror are two repositories of one throwaway registry started from its
@@ -52,7 +52,7 @@ def today():
     return time.strftime("%Y%m%d", time.gmtime())
 
 
-def test_R173_mirror_copy_keeps_digests_and_never_moves_a_tag(scenario, tmp_path):
+def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag(scenario, tmp_path):
     """Proves, against a real registry, that the digest that the upstream tag names
     now and the pinned digest are both in the mirror under the digest they have
     upstream, reachable by the digest tag and by the day's tag, that a second run
@@ -85,7 +85,7 @@ def test_R173_mirror_copy_keeps_digests_and_never_moves_a_tag(scenario, tmp_path
     assert "left as it is" in moved.stdout
 
 
-def test_R173_mirror_copy_keeps_digests_and_never_moves_a_tag_detects_violation(
+def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag_detects_violation(
     scenario,
 ):
     """What must stop the copy does: a tag that upstream no longer has, a pinned

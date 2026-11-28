@@ -1,5 +1,5 @@
 """The cache of the inner images, run with podman: save them as one archive, load
-them back. R171. Run through `mise run ci:test`.
+them back. R174. Run through `mise run ci:test`.
 
 Tiny images built from nothing stand for the inner images; their references are
 written the way `engine:build` writes them (`<name>.ref`).
@@ -43,7 +43,7 @@ def environment(refs):
     return {"ANIMA_ENGINE_REFS": str(refs), "ANIMA_INNER_IMAGES": NAMES}
 
 
-def test_R171_inner_images_survive_a_round_trip_through_the_cache(images, tmp_path):
+def test_R174_inner_images_survive_a_round_trip_through_the_cache(images, tmp_path):
     """Proves that the images are saved as one archive, that a second save writes
     over the first (PM-010: the tool refuses to), and that loading brings them back
     after they were removed and leaves no archive behind."""
@@ -69,7 +69,7 @@ def test_R171_inner_images_survive_a_round_trip_through_the_cache(images, tmp_pa
     assert not archive.exists()
 
 
-def test_R171_inner_images_survive_a_round_trip_through_the_cache_detects_violation(
+def test_R174_inner_images_survive_a_round_trip_through_the_cache_detects_violation(
     images, tmp_path
 ):
     """An image that was not built, a reference file that is empty, a cache without

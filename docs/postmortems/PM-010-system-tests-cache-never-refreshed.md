@@ -9,7 +9,7 @@ guards:
     ref: test_R125_cache_of_inner_images_refreshed_when_they_changed
     added: 2026-11-28
   - kind: test
-    ref: test_R168_workflow_steps_call_tested_commands
+    ref: test_R170_workflow_steps_call_tested_commands
     added: 2026-11-28
 recurrences: []
 ---

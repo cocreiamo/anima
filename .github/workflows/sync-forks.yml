@@ -3,7 +3,7 @@ name: Sync forks
 # Fast-forwards the upstream branches mirrored in each fork (`anima-maintaining-a-fork`).
 # Needs the secret FORK_SYNC_TOKEN: a token that can write to the forks. The one
 # step calls a command of the repository that has a test that runs it
-# (`mise-tasks/ci/`, `tests/ci/`, R168); no tool is installed in the job.
+# (`mise-tasks/ci/`, `tests/ci/`, R170); no tool is installed in the job.
 
 on:
   schedule:

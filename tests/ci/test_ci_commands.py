@@ -1,6 +1,6 @@
 """The commands that the workflows call, run for real: the path filter, the key of
-the inner images, the plan of the mirror and the sync of a fork. R169, R170, R172,
-R174.
+the inner images, the plan of the mirror and the sync of a fork. R172, R173, R175,
+R177.
 
 Run through `mise run ci:test`. `gh` is the one tool without a stand-in here: the
 tests of `ci:changes` and `ci:sync-fork` put a stub first on the PATH. The stub of
@@ -47,8 +47,6 @@ def gh_stub(tmp_path, pages, status=0, stderr=""):
 
 
 def changes(tmp_path, env, base="a" * 40, relevant=RELEVANT):
-    output = tmp_path / "github-output"
-    output.write_text("")
     result = task(
         "changes",
         env={
@@ -58,20 +56,19 @@ def changes(tmp_path, env, base="a" * 40, relevant=RELEVANT):
             "GITHUB_REPOSITORY": "org/repo",
             "RELEVANT": relevant,
             "EVENT": "pull_request",
-            "GITHUB_OUTPUT": str(output),
         },
     )
-    return result, output.read_text()
+    return result, result.stdout
 
 
 def with_files(*names):
     return {"files": [{"filename": n, "status": "modified"} for n in names]}
 
 
-# ---- R169: the change filter decides from the comparison, and a failure is not "no change" ----
+# ---- R172: the change filter decides from the comparison, and a failure is not "no change" ----
 
 
-def test_R169_change_filter_decides_from_the_comparison(tmp_path):
+def test_R172_change_filter_decides_from_the_comparison(tmp_path):
     """Proves, with the recorded response of the compare API, that a change of the
     engine counts, that one of the documents does not, that a renamed file counts
     by its old name, that the answer is read across pages, and that without a base
@@ -90,7 +87,7 @@ def test_R169_change_filter_decides_from_the_comparison(tmp_path):
     env, _ = gh_stub(tmp_path / "t", [touched])
     result, written = changes(tmp_path / "t", env)
     assert written == "relevant=true\n"
-    assert "engine/x" in result.stdout
+    assert "engine/x" in result.stderr
 
     # A file moved out of the engine counts by its old name (the response shape of
     # a renamed file is the documented one; the history has none to record).
@@ -119,7 +116,7 @@ def test_R169_change_filter_decides_from_the_comparison(tmp_path):
         assert not log.exists()
 
 
-def test_R169_change_filter_decides_from_the_comparison_detects_violation(tmp_path):
+def test_R172_change_filter_decides_from_the_comparison_detects_violation(tmp_path):
     """Wrong answers of the platform fail the command and write nothing: "cannot
     tell" is never "nothing changed"."""
     # The call fails.
@@ -143,7 +140,7 @@ def test_R169_change_filter_decides_from_the_comparison_detects_violation(tmp_pa
     assert changes(tmp_path / "i", env, relevant="^model/")[1] == "relevant=true\n"
 
 
-# ---- R170: the key of the inner images follows what they are made of ------------------------
+# ---- R173: the key of the inner images follows what they are made of ------------------------
 
 
 def git(*arguments, cwd):
@@ -190,19 +187,18 @@ def repository_with_submodule(tmp_path):
 def key(repo, **env):
     result = task("cache-key", str(repo), env=env)
     assert result.returncode == 0, result.stderr
-    return result.stdout.strip().splitlines()[-1]
+    assert re.fullmatch(r"value=[0-9a-f]{16}\n", result.stdout), result.stdout
+    return result.stdout.strip().removeprefix("value=")
 
 
-def test_R170_cache_key_follows_what_the_inner_images_are_made_of(tmp_path):
+def test_R173_cache_key_follows_what_the_inner_images_are_made_of(tmp_path):
     """Proves, on a throwaway repository with a submodule, that the key is the same
     for the same inputs, changes with a file of the engine, of its tasks or of the
     configuration and with the commit a submodule is pinned to, and does not change
     with a file that the images are not made of."""
     repo, upstream = repository_with_submodule(tmp_path)
-    output = tmp_path / "output"
-    first = key(repo, GITHUB_OUTPUT=str(output))
+    first = key(repo)
     assert re.fullmatch(r"[0-9a-f]{16}", first)
-    assert output.read_text() == f"value={first}\n"
     assert key(repo) == first
 
     for unrelated in ("README.md", "mise-tasks/ci/other"):
@@ -227,7 +223,7 @@ def test_R170_cache_key_follows_what_the_inner_images_are_made_of(tmp_path):
     assert key(repo) not in seen
 
 
-def test_R170_cache_key_follows_what_the_inner_images_are_made_of_detects_violation(
+def test_R173_cache_key_follows_what_the_inner_images_are_made_of_detects_violation(
     tmp_path,
 ):
     """Inputs that are not there make the command fail instead of giving a key
@@ -241,23 +237,20 @@ def test_R170_cache_key_follows_what_the_inner_images_are_made_of_detects_violat
     assert task("cache-key", str(repo)).returncode != 0
 
 
-# ---- R172: the plan of the mirror is the register's ------------------------------------------
+# ---- R175: the plan of the mirror is the register's ------------------------------------------
 
 
-def plan(register=None, output=None):
-    env = {"GITHUB_OUTPUT": str(output)} if output else {}
+def plan(register=None):
     arguments = [str(register)] if register else []
-    return task("mirror-plan", *arguments, env=env)
+    return task("mirror-plan", *arguments)
 
 
-def test_R172_mirror_plan_comes_from_the_register(tmp_path):
+def test_R175_mirror_plan_comes_from_the_register(tmp_path):
     """Proves that the plan lists every image of the register with the fields the
     copy reads, and names the copy tool by its digest, from the register itself."""
-    output = tmp_path / "output"
-    output.write_text("")
-    result = plan(output=output)
+    result = plan()
     assert result.returncode == 0, result.stderr
-    lines = output.read_text().splitlines()
+    lines = result.stdout.splitlines()
     assert [line.split("=", 1)[0] for line in lines] == ["images", "skopeo"]
     matrix = json.loads(lines[0].split("=", 1)[1])
     register = tomllib.loads((ROOT / "components.toml").read_text())
@@ -281,12 +274,8 @@ def test_R172_mirror_plan_comes_from_the_register(tmp_path):
     skopeo = register_entry("skopeo")
     assert lines[1] == f"skopeo={skopeo['image']}@{skopeo['digest']}"
 
-    # Without GITHUB_OUTPUT the same lines are printed.
-    printed = plan().stdout
-    assert printed == "\n".join(lines) + "\n"
 
-
-def test_R172_mirror_plan_comes_from_the_register_detects_violation(tmp_path):
+def test_R175_mirror_plan_comes_from_the_register_detects_violation(tmp_path):
     """A register without the copy tool, or without a file, is a failure, and a
     register with one image plans one."""
     register = tmp_path / "register.toml"
@@ -313,10 +302,10 @@ def register_text_of(name):
     return "[[tool_image]]\n" + "".join(f'{k} = "{entry[k]}"\n' for k in fields)
 
 
-# ---- R174: the sync of a fork passes its arguments and does not hide a failure -----------------
+# ---- R177: the sync of a fork passes its arguments and does not hide a failure -----------------
 
 
-def test_R174_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
+def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
     """Proves, with a stub of `gh` (no stand-in exists for the platform), that the
     fork, the upstream and the branch reach the tool in the right places and that
     the command ends with the tool's own status."""
@@ -330,7 +319,7 @@ def test_R174_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
     )
 
 
-def test_R174_fork_sync_passes_its_arguments_to_the_platform_tool_detects_violation(
+def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool_detects_violation(
     tmp_path,
 ):
     """A refusal of the tool (a branch that diverged) fails the command with the

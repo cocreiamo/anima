@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# MISE description="Read the images to mirror and the copy tool from the register, and append images= and skopeo= to GITHUB_OUTPUT"
+# MISE description="Read the images to mirror and the copy tool from the register, and print the lines images= and skopeo="
 #
 # Usage: mise run ci:mirror-plan [register (default: components.toml)]
-# Environment: GITHUB_OUTPUT (default: standard output).
+# Standard output is what the step appends to GITHUB_OUTPUT.
 # The list is read from the register and written nowhere else. Every entry of
 # `component` and `tool_image` that has an `image` is mirrored; the copy tool is
 # the entry named skopeo, and a register without it is a failure.
@@ -42,12 +42,7 @@ def main():
         register = tomllib.load(f)
     images, skopeo = plan(register)
     lines = "images=" + json.dumps(images) + "\n" + "skopeo=" + skopeo + "\n"
-    target = os.environ.get("GITHUB_OUTPUT")
-    if target:
-        with open(target, "a") as out:
-            out.write(lines)
-    else:
-        sys.stdout.write(lines)
+    sys.stdout.write(lines)
 
 
 if __name__ == "__main__":

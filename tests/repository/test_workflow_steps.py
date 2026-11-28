@@ -1,4 +1,4 @@
-"""Every step of a workflow calls a command that has a test. R168.
+"""Every step of a workflow calls a command that has a test. R170.
 
 A workflow is run by the platform, so shell written inside it first runs in
 production: three times in one day (2026-11-28) it failed there for a reason that
@@ -33,31 +33,31 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 THIS_FILE = "test_workflow_steps.py"
 
 # One invocation of a task of the repository, with literal or environment arguments.
+ARGUMENT = r'(?:"\$[A-Z][A-Z0-9_]*(?:/[A-Za-z0-9_.-]+)*"|[A-Za-z0-9_./=@:+-]+)'
 CALL = re.compile(
-    r'mise run (?P<task>[a-z][a-z0-9:_-]*)(?: (?:"\$[A-Z][A-Z0-9_]*"|[A-Za-z0-9_./=@:+-]+))*'
+    rf"mise run (?:--quiet )?(?P<task>[a-z][a-z0-9:_-]*)(?: {ARGUMENT})*"
+    r'(?: >> "\$GITHUB_OUTPUT")?'
+)
+# The one line that is not a call: the login to the registry reads the token from
+# the environment and hands it to the tool on standard input.
+LOGIN = (
+    'echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin'
 )
 
 # Commands that have no test that names them, each with the reason. A command
 # that a workflow no longer calls is removed from here (the check says so).
 VERIFIED_THROUGH = {
     "ci:test": "is the integration tests of the commands that the workflows call",
+    "promote:test": "is the integration tests of the commands of the promotion",
     "engine:test": "is the system tests",
     "engine:image": "builds the image that the system tests start and fail without",
     "engine:build": "builds the inner images that the system tests start",
     "promote:verify": "runs every check and the system tests: it is the verification",
 }
 
-# A workflow that still holds shell, with the reason. Dated 2026-11-28; the change
-# that converts it removes the entry (the check fails on an entry that it no
-# longer needs). The founder approved the rule on the day; the conversion of the
-# promotion is under way in another change.
-UNCONVERTED = {
-    "promote.yml": (
-        "2026-11-28: the promotion's shell (the commit to promote, the archive of "
-        "the image, the publish, the move of the branch, the release) is being "
-        "moved into `mise-tasks/promote/` by another change, which removes this entry"
-    ),
-}
+# A workflow that still holds shell, with the reason, to be removed by the change
+# that converts it (the check fails on an entry that is not needed any more). None.
+UNCONVERTED = {}
 
 
 def run_steps(workflow):
@@ -80,6 +80,8 @@ def step_faults(workflow):
             faults.append(f"{job_id} / {name}: an empty step")
         for line in lines:
             call = CALL.fullmatch(line)
+            if line == LOGIN:
+                continue
             if call:
                 commands.append(call["task"])
             else:
@@ -101,13 +103,20 @@ def defined_tasks():
 
 
 def named_by_a_test(command, test_texts):
-    """Whether a test runs the command: it names `<area>:<name>`, its path
-    `mise-tasks/<area>/<name>`, or, for the commands of `ci`, `task("<name>"`."""
-    path = "mise-tasks/" + command.replace(":", "/")
-    needles = [command, path]
-    if command.startswith("ci:"):
-        needles.append(f'task("{command.removeprefix("ci:")}"')
-    return any(n in text for text in test_texts for n in needles)
+    """Whether a test runs the command: a test names `<area>:<name>` or its path
+    `mise-tasks/<area>/<name>`, or, for the commands of `ci`, `task("<name>"`, or a
+    test of `tests/<area>/` names it in quotes (a list of commands that it runs).
+    `test_texts` is {path of the test: text}."""
+    area, _, name = command.partition(":")
+    needles = [command, "mise-tasks/" + command.replace(":", "/")]
+    if area == "ci":
+        needles.append(f'task("{name}"')
+    for path, text in test_texts.items():
+        if any(n in text for n in needles):
+            return True
+        if path.startswith(f"tests/{area}/") and f'"{name}"' in text:
+            return True
+    return False
 
 
 def command_faults(commands, defined, test_texts, through, also_called=()):
@@ -156,18 +165,18 @@ def read_workflows():
 
 
 def read_tests():
-    return [
-        p.read_text()
+    return {
+        str(p.relative_to(ROOT)): p.read_text()
         for p in sorted((ROOT / "tests").rglob("*.py"))
         if p.name != THIS_FILE
-    ]
+    }
 
 
-def test_R168_workflow_steps_call_tested_commands():
+def test_R170_workflow_steps_call_tested_commands():
     """Proves, from the text of every workflow, that each `run:` is one call of a
     command of the repository with literal or environment arguments, that each
     command exists, and that a test of `tests/` runs it, or it is a verification
-    itself. The tests of the commands are R169 to R174 and R165 (`tests/ci/`).
+    itself. The tests of the commands are R172 to R177 and R165 (`tests/ci/`).
     The shared workflows of the organization are not read here."""
     workflows = read_workflows()
     assert workflows, "no workflow found"
@@ -183,7 +192,7 @@ def parse(text):
     return yaml.safe_load(text)
 
 
-def test_R168_workflow_steps_call_tested_commands_detects_violation():
+def test_R170_workflow_steps_call_tested_commands_detects_violation():
     def one(script):
         return {
             "w.yml": parse(
@@ -193,7 +202,7 @@ def test_R168_workflow_steps_call_tested_commands_detects_violation():
         }
 
     defined = {"ci:a", "ci:b", "check"}
-    tests = ['task("a")']
+    tests = {"tests/ci/t.py": 'task("a")'}
     through = {"check": "is the verification"}
 
     def faults(script, **override):
@@ -209,6 +218,11 @@ def test_R168_workflow_steps_call_tested_commands_detects_violation():
     # The allowed glue: one call, or several, one per line; literal and environment arguments.
     assert faults("mise run ci:a") == ["check is excused but no workflow calls it"]
     assert faults('mise run ci:a "$FORK" --flag=1 path/x\nmise run check') == []
+    assert (
+        faults('mise run --quiet ci:a "$DIR/x.tar" >> "$GITHUB_OUTPUT"\nmise run check')
+        == []
+    )
+    assert faults(LOGIN + "\nmise run ci:a\nmise run check") == []
     # Everything else is logic.
     for script in (
         "echo hello",
@@ -216,6 +230,9 @@ def test_R168_workflow_steps_call_tested_commands_detects_violation():
         "mise run ci:a && mise run check",
         "mise run ci:a; mise run check",
         "mise run ci:a > out",
+        "mise run ci:a >> out",
+        'mise run ci:a >> "$GITHUB_OUTPUT" | tee x',
+        LOGIN + " | tee x",
         "mise run ci:a $(date)",
         "mise run ci:a `date`",
         "mise run ci:a ${{ github.sha }}",
@@ -234,12 +251,29 @@ def test_R168_workflow_steps_call_tested_commands_detects_violation():
     # A command that does not exist, or that no test runs, or an excuse that is stale.
     assert faults("mise run ci:missing\nmise run check")
     assert faults("mise run ci:b\nmise run check")
-    assert faults("mise run ci:a\nmise run check", test_texts=[])
+    assert faults("mise run ci:a\nmise run check", test_texts={})
     assert faults("mise run ci:a\nmise run check", through={"check": ""})
     assert faults("mise run ci:a", through={"check": "x", "ci:old": "x"})
     # Another form of naming that a test runs the command.
-    assert faults("mise run ci:b\nmise run check", test_texts=["mise run ci:b"]) == []
-    assert faults("mise run ci:b\nmise run check", test_texts=["mise-tasks/ci/b"]) == []
+    assert (
+        faults(
+            "mise run ci:b\nmise run check", test_texts={"tests/x.py": "mise run ci:b"}
+        )
+        == []
+    )
+    assert (
+        faults(
+            "mise run ci:b\nmise run check",
+            test_texts={"tests/x.py": "mise-tasks/ci/b"},
+        )
+        == []
+    )
+    # A test of the area that names the command in quotes, and one of another area.
+    assert (
+        faults("mise run ci:b\nmise run check", test_texts={"tests/ci/t.py": '"b"'})
+        == []
+    )
+    assert faults("mise run ci:b\nmise run check", test_texts={"tests/x/t.py": '"b"'})
     # The exception of an unconverted workflow: needed, with a reason, and not stale.
     shell = one("echo shell")
     kept = {"w.yml": "why"}

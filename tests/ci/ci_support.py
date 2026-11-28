@@ -3,7 +3,7 @@
 Each command is run as a workflow runs it, `mise run ci:<name>`, against the real
 tool that it drives: podman, git, jq, the copy tool in its pinned image, and a
 throwaway registry started on this machine from its pinned image
-(`components.toml`, the entry `scratch-store`). Only the platform's own API (`gh`)
+(`components.toml`, the entry `distribution`). Only the platform's own API (`gh`)
 has no stand-in: its tests put a stub `gh` first on the PATH, which says so where
 it is used.
 """
@@ -60,7 +60,9 @@ def task(name, *arguments, env=None, cwd=None):
     for own in ("GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY", "GITHUB_ENV", "GITHUB_PATH"):
         merged.pop(own, None)
     merged.update(env or {})
-    return run(["mise", "run", f"ci:{name}", *arguments], env=merged, cwd=cwd)
+    return run(
+        ["mise", "run", "--quiet", f"ci:{name}", *arguments], env=merged, cwd=cwd
+    )
 
 
 def stub_command(directory, name, script):
@@ -92,7 +94,7 @@ class Store:
                 self.name,
                 "--publish",
                 "127.0.0.1::5000",
-                reference("scratch-store"),
+                reference("distribution"),
             ],
             check=True,
         )

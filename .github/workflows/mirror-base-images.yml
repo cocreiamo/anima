@@ -11,7 +11,7 @@ name: Mirror base images
 #
 # The list of images is read from the register, never written here. Every step
 # is one call to a command of the repository that has a test that runs it
-# (`mise-tasks/ci/`, `tests/ci/`, R168): the plan is `ci:mirror-plan`, the copy
+# (`mise-tasks/ci/`, `tests/ci/`, R170): the plan is `ci:mirror-plan`, the copy
 # of one image is `ci:mirror-copy`. The job that may write packages holds nothing
 # else, runs no tool of the repository (none is installed) and no code but that
 # one command, and runs a pinned image of the copy tool (R163).
@@ -57,7 +57,7 @@ jobs:
         name: Read the images and the copy tool from the register
         env:
           MISE_TASK_RUN_AUTO_INSTALL: "false"
-        run: mise run ci:mirror-plan
+        run: mise run --quiet ci:mirror-plan >> "$GITHUB_OUTPUT"
 
   mirror:
     name: Mirror ${{ matrix.name }}
