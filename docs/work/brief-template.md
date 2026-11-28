@@ -27,6 +27,10 @@ Task: TASK-<n>, <title>. Role: <implementer | reviewer | spike | explorer>.
 
 - <the verification names or explicit checks of the task, copied from its acceptance>
 
+### Unknowns and the test that resolves each
+
+- <each thing the design rests on that is not known, and the first acceptance check that resolves it, written before anything is built; none if none>
+
 ### Done when
 
 - The review checklist (`docs/work/review-checklist.md`) passes.
@@ -35,6 +39,7 @@ Task: TASK-<n>, <title>. Role: <implementer | reviewer | spike | explorer>.
 ### Decision this serves (spike only)
 
 - <the open decision, and what answer would change it>
+- Why a test inside the task cannot answer it: <one line>
 ```
 
 Rules for the coordinator:
