@@ -64,6 +64,7 @@ def presented(engine, authority: str) -> bytes | str:
     `FAILED ...` when the connection does not complete."""
     port = int(engine.container.get_exposed_port(ENTRY_PORT))
     context = ssl.create_default_context(cadata=authority)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     try:
         with (
             socket.create_connection(("127.0.0.1", port), timeout=10) as raw,
