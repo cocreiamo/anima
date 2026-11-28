@@ -1,4 +1,4 @@
-"""The workflows that verify the engine image and release it. R24, R114 and R115.
+"""The workflows that verify the engine image and release it. R24, R114, R115 and R125.
 
 The checks read the text of the workflows (a workflow cannot be run here); that
 GitHub runs them as written is shown only by their first runs on `main`
@@ -167,6 +167,69 @@ def test_R114_system_tests_report_under_one_name_detects_violation():
     )
     assert system_test_faults(good.replace("github.event_name == 'push'", "true"))
     assert system_test_faults(good.replace("actions/cache/restore@", "actions/other@"))
+
+
+# ---- R125: the cache of the inner images is refreshed when they changed, and only then -------
+
+
+def cache_faults(text):
+    """What would keep the cache of the inner images from being refreshed when the
+    inner images changed (a cache is immutable: only a new key stores a new one), or
+    would refresh it when they did not, or would make the save fail."""
+    faults = []
+    parts = steps(jobs(text).get("system-tests", ""))
+    by_id = {m.group(1): p for p in parts if (m := re.search(r"id: (\w+)", p))}
+    restore, pack = by_id.get("restore", ""), by_id.get("pack", "")
+    saves = [p for p in parts if "actions/cache/save@" in p]
+    if not restore or not pack or len(saves) != 1:
+        return ["the restore, pack or save step is missing"]
+    key = "key: system-tests-engine-${{ steps.key.outputs.value }}"
+    if key not in restore or key not in saves[0]:
+        faults.append("restore and save do not use the key of the inner images")
+    if not re.search(
+        r"restore-keys:\s*system-tests-engine-\s*$", restore, re.MULTILINE
+    ):
+        faults.append(
+            "a changed set of inner images does not restore the nearest cache"
+        )
+    if "steps.restore.outputs.cache-hit != 'true'" not in pack:
+        faults.append("the archive is saved although the key already holds it")
+    if "steps.pack.outcome == 'success'" not in saves[0]:
+        faults.append("the cache is saved without a new archive")
+    loads = [p for p in parts if "podman load" in run_text(p)]
+    if len(loads) != 1 or not re.search(
+        r"^\s*rm -f ~/engine-cache/images\.tar\s*$", run_text(loads[0]), re.MULTILINE
+    ):
+        faults.append(
+            "the restored archive is not removed after loading: podman save refuses to"
+            " write over an existing archive"
+        )
+    elif parts.index(loads[0]) > parts.index(pack):
+        faults.append("the restored archive is removed after the new one is saved")
+    return faults
+
+
+def test_R125_cache_of_inner_images_refreshed_when_they_changed():
+    """(PM-010) Proves the text of the workflow. That the cache is refreshed is shown only by
+    the first push to `main` that changes the inner images after it was merged."""
+    assert cache_faults(SYSTEM_TESTS.read_text()) == []
+
+
+def test_R125_cache_of_inner_images_refreshed_when_they_changed_detects_violation():
+    good = SYSTEM_TESTS.read_text()
+    assert cache_faults(good) == []
+    assert cache_faults(good.replace("          rm -f ~/engine-cache/images.tar\n", ""))
+    assert cache_faults(good.replace("cache-hit != 'true'", "cache-hit == 'true'"))
+    assert cache_faults(good.replace("steps.pack.outcome == 'success'", "true"))
+    assert cache_faults(
+        good.replace("          restore-keys: system-tests-engine-\n", "")
+    )
+    assert cache_faults(
+        good.replace(
+            "key: system-tests-engine-${{ steps.key.outputs.value }}\n          restore-keys",
+            "key: system-tests-engine\n          restore-keys",
+        )
+    )
 
 
 # ---- R24 and R115: the promotion verifies, then publishes what it verified -------------------

@@ -4,6 +4,7 @@ paths:
   - "LICENSE"
   - "LICENSES/**"
   - "CLA.md"
+  - "PRIVACY.md"
   - "PLUGIN-EXCEPTION.md"
   - "TRADEMARKS.md"
   - "REUSE.toml"

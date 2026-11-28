@@ -157,7 +157,10 @@ other on the loopback. The rules:
 
 1. **Nothing is reachable from outside the host unless configured.** Two
    installation parameters configure it (R30):
-   - the full public URL of the identity provider: scheme, host and port;
+   - the full public URL of the identity provider: scheme, host and port,
+     which is the URL of the HTTP entry point, the one listener published to
+     the outside; the identity provider itself listens on the pod's loopback
+     ([ADR-0008](0008-the-http-entry-point-of-the-engine.md));
    - the address the system listens on, by default `127.0.0.1`.
 
    Not built, and not yet decided in full: the address must hold in both ways
@@ -170,11 +173,14 @@ other on the loopback. The rules:
    everything that repeats it is derived from it (`anima-product-principles`).
 
 2. **The public URL is the issuer.** The identity provider uses it as its
-   fixed hostname and its certificate carries it. Inside the pod the same name
+   fixed hostname and the certificate of the HTTP entry point carries it
+   ([ADR-0008](0008-the-http-entry-point-of-the-engine.md)). Inside the pod the same name
    resolves to the pod itself, by a host alias that is a setting of the units,
    so a container validates the same issuer as a client outside does. A spike
-   of 2026-11-27 verified this for the earlier design; for the units it is not
-   yet verified by a test of this repository.
+   of 2026-11-27 verified this for the earlier design. Observed on 2026-11-28 in the
+   engine, with the identity provider in its production mode: whatever name a request
+   used, the issuer was the configured public URL (R116). Not observed: the host alias
+   inside the pod, nor the certificate of the entry point.
 3. **From outside the pod the database server accepts only TLS connections
    authenticated by token.** Password authentication exists only on the pod's
    loopback and only for service roles ([ADR-0004](0004-roles-and-access.md)).

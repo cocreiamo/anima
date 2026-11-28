@@ -65,6 +65,7 @@ package Anima {
     part def VectorSearch :> Port;
     part def Backup :> Port;
     part def OutgoingMail :> Port;
+    part def HttpEntry :> Port;
 
     // The stand-ins of the root of trust and of outgoing mail.
     part def LocalKey :> RootOfTrust, StandIn;
@@ -134,6 +135,15 @@ package Anima {
                 doc /* The stand-in of outgoing mail, which the local profile
                      * selects: a local mail catcher that keeps the messages
                      * and delivers none. */
+            }
+            part httpEntry : HttpEntry {
+                doc /* The default adapter of the HTTP entry point: the one
+                     * listener published to the outside, in its own
+                     * container. It terminates TLS with a certificate of the
+                     * engine's certificate authority, or one that the
+                     * adopter supplies, and forwards only the declared path
+                     * prefixes to declared backends on the pod's loopback.
+                     * Decided, not built. */
             }
             part keyManagementService : RootOfTrust {
                 doc /* The production adapter of the root of trust: the
@@ -208,6 +218,16 @@ package Anima {
         requirement <'R18'> everyFileLicensed {
             doc /* Every file in the repository shall carry copyright and
                  * licence information. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R140'> contributorAgreementLinksPrivacyNotice {
+            doc /* The contributor agreement and the contributing guide shall link a privacy notice that exists in the repository. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R150'> independentAdditionsDoNotConflictInGeneratedFiles {
+            doc /* Two branches that each add a requirement, a verification or a skill shall not conflict in any generated file that is committed. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -360,6 +380,26 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R120'> updateBotFollowsConfiguratorReleases {
+            doc /* The configuration of the update bot shall make the exact version constraint of the configurator in its declarations follow the releases of the configurator and no other tool's, with its exact pin kept. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R121'> updateBotFollowsTaskRunnerEverywhere {
+            doc /* The configuration of the update bot shall find the version of the task runner in every file that pins it and shall update them together. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R122'> updateBotIgnoresBuildContexts {
+            doc /* The configuration of the update bot shall not take for an image of a registry a name that a container file copies from and that is given at build time. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R124'> updateBotKeepsJdkOnLtsLine {
+            doc /* The configuration of the update bot shall propose no version of the Java toolchain image that builds the identity provider beyond the long-term-support line of its register entry. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R71'> everyTestVerifiesRequirement {
             doc /* Every automated check of the repository shall verify a requirement of the model or be the negative case of one. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -499,6 +539,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R125'> engineImageCacheRefreshed {
+            doc /* The cache of the engine's inner images, kept by the automated verification, shall hold the images of the latest change to `main` that changed them: a change of the inner images shall store a new cache, and a change that left them as they were shall store none. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R115'> publishOnlyWhatWasVerified {
             doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -511,6 +556,11 @@ package Anima {
         }
         requirement <'R93'> onlyArchitectureRecordsExist {
             doc /* Every decision record shall carry the category architecture, its number shall be the one in its file name, and the directory of the records shall hold nothing but records and their generated index. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R145'> recordsMadeFromSharedTemplate {
+            doc /* The configuration of the decision-record tool shall name the template of the organization's shared repository, and a record made from it shall be listed by the tool. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -783,6 +833,71 @@ package Anima {
             doc /* The identity provider shall run in its production mode, with its state kept in its own database of the database server. */
             subject engine : Engine;
         }
+        requirement <'R126'> entryTerminatesTlsWithEngineCertificate {
+            doc /* The HTTP entry point shall terminate TLS with a certificate
+                 * that the engine's certificate authority issued and that
+                 * names the public host of the installation. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R127'> entryTakesRenewedCertificateWithoutRestart {
+            doc /* The HTTP entry point shall present a renewed certificate
+                 * as soon as it is in place, with no restart of the entry,
+                 * and shall never present a certificate with another's key. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R128'> entryForwardsOnlyDeclaredPrefixes {
+            doc /* The HTTP entry point shall forward a request only when its
+                 * path begins with a declared prefix, and only to the
+                 * loopback backend declared for that prefix; it shall answer
+                 * every other request with 404. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R129'> entryNeverForwardsManagement {
+            doc /* The HTTP entry point shall never forward the health,
+                 * metrics or management endpoints of a backend, whatever the
+                 * configuration declares. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R130'> administrationConsoleRouteOffByDefault {
+            doc /* The route to the identity provider's administration
+                 * console shall be off unless the installation turns it on:
+                 * a request for it through the entry shall answer 404. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R131'> administrationConsoleRouteOnByConfiguration {
+            doc /* When the installation turns the administration console
+                 * route on by its one setting, a request for the console
+                 * through the entry shall reach it, and the configurator
+                 * shall not need that route to apply the declared state. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R132'> entryOverwritesForwardedHeader {
+            doc /* The HTTP entry point shall set the Forwarded header of
+                 * RFC 7239 from the connection it terminates, replacing any
+                 * value a client sent, and shall remove every other
+                 * forwarding header a client supplied. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R133'> suppliedCertificateSelectedByOneParameter {
+            doc /* An installation shall be able to make the HTTP entry point
+                 * present a certificate that the adopter supplies instead of
+                 * the engine's, by one installation parameter and no other
+                 * change, the supplied certificate and its key reaching the
+                 * entry as files of a supplied secret. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R134'> engineAuthorityCertificateObtainable {
+            doc /* A client shall be able to obtain the certificate of the
+                 * engine's certificate authority, with no credential, in
+                 * order to trust the certificate of the HTTP entry point. */
+            subject engine : Engine;
+        }
+        requirement <'R135'> identityProviderReachableOnlyThroughEntry {
+            doc /* From outside the pod, the identity provider shall be
+                 * reachable only through the HTTP entry point, and by no
+                 * port of its own. */
+            subject engine : Engine;
+        }
         requirement <'R30'> nothingReachableByDefault {
             doc /* Unless the configuration declares otherwise, no service of
                  * the engine shall be reachable from outside the machine. */
@@ -978,6 +1093,7 @@ package Anima {
     satisfy Day0::publishOnlyWhatWasVerified by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
+    satisfy Day0::recordsMadeFromSharedTemplate by toolchain;
     satisfy Day0::noReferenceToMissingRecord by toolchain;
 
     satisfy Day1::identitiesDeclared by anima.engine.opentofu;
@@ -1016,6 +1132,16 @@ package Anima {
     satisfy Runtime::issuerIsTheConfiguredPublicUrl by anima.engine;
     satisfy Runtime::noTemporaryAdministratorRemains by anima.engine;
     satisfy Runtime::identityProviderRunsInProductionMode by anima.engine;
+    satisfy Runtime::entryTerminatesTlsWithEngineCertificate by anima.engine.httpEntry;
+    satisfy Runtime::entryTakesRenewedCertificateWithoutRestart by anima.engine.httpEntry;
+    satisfy Runtime::entryForwardsOnlyDeclaredPrefixes by anima.engine.httpEntry;
+    satisfy Runtime::entryNeverForwardsManagement by anima.engine.httpEntry;
+    satisfy Runtime::administrationConsoleRouteOffByDefault by anima.engine.httpEntry;
+    satisfy Runtime::administrationConsoleRouteOnByConfiguration by anima.engine.httpEntry;
+    satisfy Runtime::entryOverwritesForwardedHeader by anima.engine.httpEntry;
+    satisfy Runtime::suppliedCertificateSelectedByOneParameter by anima.engine.httpEntry;
+    satisfy Runtime::engineAuthorityCertificateObtainable by anima.engine;
+    satisfy Runtime::identityProviderReachableOnlyThroughEntry by anima.engine;
     satisfy Runtime::passesUpstreamRegressionSuite by anima.engine.postgresql;
     satisfy Runtime::rolesDeclaredWithIdentities by anima;
     satisfy Runtime::nothingReachableByDefault by anima.engine;
@@ -1162,6 +1288,46 @@ package Anima {
         verification def test_R123_identity_provider_runs_in_production_mode {
             subject sys : System;
             objective { verify Runtime::identityProviderRunsInProductionMode; }
+        }
+        verification def test_R126_entry_terminates_tls_with_engine_certificate {
+            subject sys : System;
+            objective { verify Runtime::entryTerminatesTlsWithEngineCertificate; }
+        }
+        verification def test_R127_entry_takes_renewed_certificate_without_restart {
+            subject sys : System;
+            objective { verify Runtime::entryTakesRenewedCertificateWithoutRestart; }
+        }
+        verification def test_R128_entry_forwards_only_declared_prefixes {
+            subject sys : System;
+            objective { verify Runtime::entryForwardsOnlyDeclaredPrefixes; }
+        }
+        verification def test_R129_entry_never_forwards_management {
+            subject sys : System;
+            objective { verify Runtime::entryNeverForwardsManagement; }
+        }
+        verification def test_R130_administration_console_route_off_by_default {
+            subject sys : System;
+            objective { verify Runtime::administrationConsoleRouteOffByDefault; }
+        }
+        verification def test_R131_administration_console_route_on_by_configuration {
+            subject sys : System;
+            objective { verify Runtime::administrationConsoleRouteOnByConfiguration; }
+        }
+        verification def test_R132_entry_overwrites_forwarded_header {
+            subject sys : System;
+            objective { verify Runtime::entryOverwritesForwardedHeader; }
+        }
+        verification def test_R133_supplied_certificate_selected_by_one_parameter {
+            subject sys : System;
+            objective { verify Runtime::suppliedCertificateSelectedByOneParameter; }
+        }
+        verification def test_R134_engine_authority_certificate_obtainable {
+            subject sys : System;
+            objective { verify Runtime::engineAuthorityCertificateObtainable; }
+        }
+        verification def test_R135_identity_provider_reachable_only_through_entry {
+            subject sys : System;
+            objective { verify Runtime::identityProviderReachableOnlyThroughEntry; }
         }
         verification def test_R16_published_images_attested {
             subject tools : Toolchain;
@@ -1451,6 +1617,10 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::onlyArchitectureRecordsExist; }
         }
+        verification def test_R145_records_made_from_the_shared_template {
+            subject tools : Toolchain;
+            objective { verify Day0::recordsMadeFromSharedTemplate; }
+        }
         verification def test_R94_no_reference_to_a_record_that_does_not_exist {
             subject tools : Toolchain;
             objective { verify Day0::noReferenceToMissingRecord; }
@@ -1555,6 +1725,10 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::systemTestsReportOnEveryChange; }
         }
+        verification def test_R125_cache_of_inner_images_refreshed_when_they_changed {
+            subject tools : Toolchain;
+            objective { verify Day0::engineImageCacheRefreshed; }
+        }
         verification def test_R115_promotion_publishes_only_what_it_verified {
             subject tools : Toolchain;
             objective { verify Day0::publishOnlyWhatWasVerified; }
@@ -1574,6 +1748,30 @@ package Anima {
         verification def test_R113_data_files_read_with_a_yaml_library {
             subject tools : Toolchain;
             objective { verify Day0::dataFilesReadWithYamlLibrary; }
+        }
+        verification def test_R120_update_bot_follows_the_configurators_releases {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotFollowsConfiguratorReleases; }
+        }
+        verification def test_R121_update_bot_follows_the_task_runner_everywhere {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotFollowsTaskRunnerEverywhere; }
+        }
+        verification def test_R122_update_bot_ignores_build_contexts {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotIgnoresBuildContexts; }
+        }
+        verification def test_R124_update_bot_keeps_the_jdk_on_its_lts_line {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotKeepsJdkOnLtsLine; }
+        }
+        verification def test_R140_contributor_agreement_links_privacy_notice {
+            subject tools : Toolchain;
+            objective { verify Day0::contributorAgreementLinksPrivacyNotice; }
+        }
+        verification def test_R150_independent_additions_do_not_conflict_in_generated_files {
+            subject tools : Toolchain;
+            objective { verify Day0::independentAdditionsDoNotConflictInGeneratedFiles; }
         }
         verification def test_R99_image_tag_depends_on_every_input {
             subject tools : Toolchain;

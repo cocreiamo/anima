@@ -8,6 +8,7 @@ Each check is a function of its inputs; its companion test
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import agent_layer as al
 import generators
@@ -130,12 +131,10 @@ def index_faults(index, texts):
             faults.append(f"{name} is not in the index")
         elif f"({expected} unverified)" not in line:
             faults.append(f"{name}: the index does not state {expected}")
-    total = sum(
-        len(re.findall(r"^\d+\.\s+Unverified:", t, re.MULTILINE))
-        for t in texts.values()
-    )
-    if f"Unverified rules in all skills: {total}." not in index:
-        faults.append(f"the total {total} is not stated")
+    # No total: a sum changes with every skill, so two branches that each change
+    # a count would conflict on it (R150).
+    if "in all skills" in index:
+        faults.append("the index states a total, which every change of a count edits")
     return faults
 
 
@@ -147,13 +146,10 @@ def test_R73_unverified_rules_counted():
 
 def test_R73_unverified_rules_counted_detects_violation():
     texts = {"anima-tech-sample": SAMPLE}
-    index = (
-        "- [`anima-tech-sample`](x.md) (1 unverified): d\n"
-        "Unverified rules in all skills: 1.\n"
-    )
+    index = "- [`anima-tech-sample`](x.md) (1 unverified): d\n"
     assert index_faults(index, texts) == []
     assert index_faults(index.replace("(1 unverified)", "(0 unverified)"), texts)
-    assert index_faults(index.replace("in all skills: 1", "in all skills: 2"), texts)
+    assert index_faults(index + "Unverified rules in all skills: 1.\n", texts)
     assert index_faults("", texts)
     assert al.unverified_count(SAMPLE.split("# Sample", 1)[1]) == 1
 
@@ -631,11 +627,19 @@ def run_hook(script, stdin):
 
 def hook_faults(script):
     """The hook names the command for each file it knows, says nothing for another
-    file, and exits 0 with whatever input."""
+    file, and exits 0 with whatever input. The runs are independent processes that
+    mostly wait for the machine: they go together."""
     faults = []
-    for path, command in HOOK_CASES:
-        stdin = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path}})
-        done = run_hook(script, stdin)
+    known = [
+        json.dumps({"tool_name": "Write", "tool_input": {"file_path": path}})
+        for path, _command in HOOK_CASES
+    ]
+    other = json.dumps({"tool_input": {"file_path": "/w/README.md"}})
+    odd = (other, "", "not json", "{", '{"tool_input": null}')
+    with ThreadPoolExecutor() as pool:
+        done_known = list(pool.map(lambda stdin: run_hook(script, stdin), known))
+        done_odd = list(pool.map(lambda stdin: run_hook(script, stdin), odd))
+    for (path, command), done in zip(HOOK_CASES, done_known, strict=True):
         try:
             context = json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
         except (ValueError, KeyError):
@@ -644,9 +648,7 @@ def hook_faults(script):
             faults.append(f"{path}: the reminder does not name {command!r}")
         if done.returncode != 0:
             faults.append(f"{path}: exit status {done.returncode}")
-    other = json.dumps({"tool_input": {"file_path": "/w/README.md"}})
-    for stdin in (other, "", "not json", "{", '{"tool_input": null}'):
-        done = run_hook(script, stdin)
+    for stdin, done in zip(odd, done_odd, strict=True):
         if done.returncode != 0:
             faults.append(f"input {stdin!r}: exit status {done.returncode}")
         if stdin == other and done.stdout.strip():

@@ -47,7 +47,8 @@ The full text of the license is in [LICENSE](LICENSE).
 
 Contributions are accepted only under the
 [Contributor License Agreement](CLA.md). The agreement lets Cocreiamo offer
-commercial licenses as well as the AGPL.
+commercial licenses as well as the AGPL. Signing records some personal data:
+see the [privacy notice](PRIVACY.md).
 
 ## Trademarks
 

@@ -266,8 +266,8 @@ def fake_export_root(tmp_path, script_text, fail_first=False):
     return export, env, model, runs
 
 
-def run_exports(export, env, model, count):
-    procs = [
+def start_exports(export, env, model, count):
+    return [
         subprocess.Popen(
             [str(export), str(model)],
             env=env,
@@ -276,7 +276,14 @@ def run_exports(export, env, model, count):
         )
         for _ in range(count)
     ]
+
+
+def finish(procs):
     return [(p.wait(), *p.communicate()) for p in procs]
+
+
+def run_exports(export, env, model, count):
+    return finish(start_exports(export, env, model, count))
 
 
 def test_R108_export_runs_once_for_one_input(tmp_path):
@@ -286,6 +293,12 @@ def test_R108_export_runs_once_for_one_input(tmp_path):
     first run fails the next tries for itself and succeeds. It does not prove
     the real exporter."""
     assert export_faults(EXPORT.read_text()) == []
+    # The scenario of the failing first run is independent of the first: its
+    # callers start now, in a root of their own, and are looked at last.
+    other = tmp_path / "other"
+    other.mkdir()
+    o_export, o_env, o_model, o_runs = fake_export_root(other, EXPORT.read_text(), True)
+    failing = start_exports(o_export, o_env, o_model, 3)
     export, env, model, runs = fake_export_root(tmp_path, EXPORT.read_text())
     results = run_exports(export, env, model, 6)
     assert [code for code, _o, _e in results] == [0] * 6, results
@@ -298,12 +311,9 @@ def test_R108_export_runs_once_for_one_input(tmp_path):
     assert run_exports(export, env, model, 1)[0][0] == 0
     assert len(runs.read_text().splitlines()) == 1  # the fast path
     # The first run fails: one of the waiting callers runs it again.
-    other = tmp_path / "other"
-    other.mkdir()
-    export, env, model, runs = fake_export_root(other, EXPORT.read_text(), True)
-    results = run_exports(export, env, model, 3)
+    results = finish(failing)
     assert sorted(code for code, _o, _e in results) == [0, 0, 1], results
-    assert len(runs.read_text().splitlines()) == 2
+    assert len(o_runs.read_text().splitlines()) == 2
 
 
 def test_R108_export_runs_once_for_one_input_detects_violation(tmp_path):

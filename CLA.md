@@ -3,8 +3,9 @@
 This Agreement is the Apache Software Foundation Individual Contributor
 License Agreement, version 2.2, with these changes only: "the Foundation"
 is replaced by "Cocreiamo", the signature form is removed, the
-sentence binding the Foundation to its nonprofit status is removed, and
-section 9 (successors and assigns) is added.
+sentence binding the Foundation to its nonprofit status is removed,
+section 9 (successors and assigns) is added, and a closing note links the
+privacy notice.
 
 "Cocreiamo" means Cocreiamo di Bilotta Francesco, a sole proprietorship
 (ditta individuale) established in Montecchio Emilia (RE), Italy,
@@ -120,3 +121,9 @@ and to Your Contributions.
    Cocreiamo in the ownership or management of the Work. This
    Agreement is binding on, and benefits, the successors and assigns
    of Cocreiamo.
+
+Privacy notice: Cocreiamo records your GitHub user name and the date you
+signed as proof of this Agreement. How that data is handled, and your rights
+over it, are in the privacy notice at
+https://github.com/cocreiamo/anima/blob/main/PRIVACY.md. The notice is not
+part of the terms above.

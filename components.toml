@@ -166,7 +166,7 @@ digest = "sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a
 [[component]]
 name = "ubi9"
 role = "base of the identity provider's image: the stage that installs its packages (the upstream container file's own base)"
-version = "9.9"
+version = "9.9-1795197514"
 license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9"
 image = "registry.access.redhat.com/ubi9"
@@ -175,7 +175,7 @@ digest = "sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fc
 [[component]]
 name = "ubi9-micro"
 role = "base of the identity provider's image: the final stage (the upstream container file's own base)"
-version = "9.9"
+version = "9.9-1794478307"
 license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9-micro"
 image = "registry.access.redhat.com/ubi9-micro"
@@ -215,6 +215,43 @@ license = "MIT"
 upstream = "https://github.com/axllent/mailpit"
 image = "docker.io/axllent/mailpit"
 digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e"
+
+# The HTTP entry point (ADR 0008). Two entries, both recorded as exceptions to
+# building from source in a fork (GAP-057), pinned the way a fork that is not yet
+# a submodule is: by the commit of the upstream release tag, looked up with
+# `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+#
+# The runtime and SDK of the host program come from a distribution's packages
+# (the distribution builds .NET from source), not from a fork of ours. The
+# commit is the release tag of the source that the package version is built
+# from. Unverified: that the distribution's package of this version is built
+# from exactly this tag; and the package's own pin, the digest of the
+# distribution image that the entry's container file starts from, is added with
+# that container file (TASK-86), because no image has been chosen and
+# digested yet.
+[[component]]
+name = "dotnet"
+role = "runtime and SDK of the entry's host program: the distribution's packages, built by it from source (not a fork of ours)"
+version = "10.0.15"
+license = "MIT"
+upstream = "https://github.com/dotnet/dotnet"
+commit = "8e0f8ed2312954727f8919d7d1c2f78b483b4ee7"
+
+# The library that forwards requests. Pinned by version and by the content hash
+# of the package, which is the SHA-256 of the file
+# https://api.nuget.org/v3-flatcontainer/yarp.reverseproxy/2.3.0/yarp.reverseproxy.2.3.0.nupkg
+# measured on 2026-11-28; the commit is the release tag of its source. A mirror
+# fork for upstream contributions is planned (GAP-057), and its governance is a
+# risk (GAP-059).
+[[component]]
+name = "yarp"
+role = "adapter: HTTP entry point (the library that forwards requests, hosted by the entry's own program, part of the engine)"
+version = "2.3.0"
+license = "MIT"
+upstream = "https://github.com/dotnet/yarp"
+commit = "4154b6d1eaa0712597e3482f817b400b55268cae"
+package = "Yarp.ReverseProxy"
+package_sha256 = "ff12ef5f9c46c3f3e815575a45b7598c68043b9eb101a9aab18ed3bd8c025a24"
 
 # ---- Images used only by tools, tests and builds: not shipped ----------------
 #
