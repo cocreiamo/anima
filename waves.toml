@@ -31,13 +31,22 @@ hosted_start = [
   "gh workflow run 'System tests' --ref kickoff-restructure",
 ]
 
-# Wave R0 is open until `mise run check` has passed on the merged wave: on the
-# branch of its blocks every check passed but the one on the speed of the checks
-# (R55), which failed five times at a load average of 25 on the shared machine
-# (75 to 119 s against its 60 s). Its verification is by design `mise run check`
-# only, with no engine test: the wave holds no change to what the engine runs.
+# Wave R0 is verified by the hosted runs of the commit-time checks and of the
+# system tests on the push to the integration branch. On the shared workstation
+# every check passed but the one on the speed of the checks (R55), which failed
+# five times at a load average of 25 (75 to 119 s against its 60 s): only the
+# time check failed locally, under load.
 [[wave]]
 id = "R0"
 branch = "kickoff-restructure"
 blocks = ["R0.1", "R0.2", "R0.3"]
-status = "open"
+status = "verified"
+
+[wave.verification]
+ran = [
+  "the commit-time checks (workflow CI) on the push to kickoff-restructure",
+  "the system tests (workflow System tests) on the push to kickoff-restructure",
+]
+where = "GitHub, workflow runs 46173147975 (CI, success) and 46173147442 (System tests, success) on commit b0fa6d2"
+result = "passed"
+date = "2026-11-28"
