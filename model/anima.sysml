@@ -508,6 +508,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject engine : Engine;
         }
+        requirement <'R113'> dataFilesReadWithYamlLibrary {
+            doc /* The data files of the configurator shall be read by an adopted YAML parser, and the repository shall hold no hand-written reader of YAML. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R99'> imageRebuiltWhenAnyInputChanges {
             doc /* Every inner image shall be rebuilt when any of its inputs changes: the tag of an image shall change when any file that its container file copies changes. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1483,6 +1488,10 @@ package Anima {
         verification def test_R103_adopter_secrets_arrive_as_files {
             subject engine : Engine;
             objective { verify Day1::adopterSecretsArriveAsFiles; }
+        }
+        verification def test_R113_data_files_read_with_a_yaml_library {
+            subject tools : Toolchain;
+            objective { verify Day0::dataFilesReadWithYamlLibrary; }
         }
         verification def test_R99_image_tag_depends_on_every_input {
             subject tools : Toolchain;

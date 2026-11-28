@@ -5,87 +5,24 @@ list of faults (empty when the check passes), so that a test can also show it
 failing on a file that breaks the rule. Run by `mise run engine:configure-check`
 and by the tests under tests/configure/.
 
-The data files are read with `read_yaml`, a reader for the subset of YAML that
-they use (block maps, block lists of maps, flow lists, scalars, comments): the
-repository's test environment has no YAML library, and the files are kept to
-that subset on purpose.
+The data files are read with PyYAML (`read_yaml_file`), a development dependency
+of the repository, not part of any image: this module runs on the host.
 """
 
 import re
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGURE = ROOT / "engine" / "configure"
 DECLARATIONS = CONFIGURE / "declarations"
 
-# ---- A reader for the subset of YAML that the data files use -----------------
-
-
-def _scalar(text):
-    text = text.strip()
-    if text.startswith("[") and text.endswith("]"):
-        inner = text[1:-1].strip()
-        return [_scalar(p) for p in inner.split(",")] if inner else []
-    if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
-        return text[1:-1]
-    if text in ("true", "false"):
-        return text == "true"
-    if re.fullmatch(r"-?\d+", text):
-        return int(text)
-    return text
-
-
-def _logical_lines(text):
-    lines = []
-    for raw in text.splitlines():
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        content = re.sub(r"\s+#.*$", "", raw.rstrip())
-        lines.append((len(content) - len(content.lstrip()), content.strip()))
-    return lines
-
-
-def _block(lines, i, indent):
-    if lines[i][1].startswith("- ") or lines[i][1] == "-":
-        items = []
-        while i < len(lines) and lines[i][0] == indent and lines[i][1].startswith("-"):
-            rest = lines[i][1][1:].strip()
-            if re.match(r"^[\w.-]+:(\s|$)", rest):
-                lines[i] = (indent + 2, rest)
-                value, i = _block(lines, i, indent + 2)
-                items.append(value)
-            else:
-                items.append(_scalar(rest))
-                i += 1
-        return items, i
-    mapping = {}
-    while i < len(lines) and lines[i][0] == indent and not lines[i][1].startswith("-"):
-        key, _, value = lines[i][1].partition(":")
-        key, value = key.strip().strip("\"'"), value.strip()
-        i += 1
-        if value:
-            mapping[key] = _scalar(value)
-        elif i < len(lines) and lines[i][0] > indent:
-            mapping[key], i = _block(lines, i, lines[i][0])
-        elif i < len(lines) and lines[i][0] == indent and lines[i][1].startswith("-"):
-            mapping[key], i = _block(lines, i, indent)
-        else:
-            mapping[key] = None
-    return mapping, i
-
-
-def read_yaml(text):
-    lines = _logical_lines(text)
-    if not lines:
-        return {}
-    value, _ = _block(lines, 0, lines[0][0])
-    return value
-
 
 def read_yaml_file(path):
-    return read_yaml(Path(path).read_text())
+    """A data file, read with the YAML library: safe, no object is constructed."""
+    return yaml.safe_load(Path(path).read_text())
 
 
 # ---- The declaration of the fixed roles ---------------------------------------

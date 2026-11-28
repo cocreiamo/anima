@@ -136,6 +136,7 @@ Look here before building something. Each section is derived from its source; th
 | R107 | bare interpreter refused | written |
 | R108 | checks pass from empty cache | written |
 | R110 | releases stay patch only | written |
+| R113 | data files read with yaml library | written |
 
 ## Components
 
@@ -285,6 +286,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
+- R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
 
 ## Skills
 
