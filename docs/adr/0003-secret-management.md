@@ -89,8 +89,17 @@ Decided on 2026-11-27 and not verified by a spike; R60, R61 and R62 state it
    as units of the engine ([ADR-0005](0005-engine-image-and-runtime.md)), each ordered before the unit it serves,
    that render certificates and credentials into shared in-memory volumes. Neither the database server nor the identity provider names the secret
    store product; each receives a certificate and a credential (R7).
-4. **`svc_idp` is a static role** whose password OpenBao sets; its rotation
-   is outside the first release. Short-lived dynamic users are not used for the identity provider, because
+4. **`svc_idp` is a static role** whose password is derived, not set by the
+   secret store (amended on 2026-11-28). What a service needs before the
+   configurator can run is derived from the root of trust; everything else is
+   set by the secret store. The identity provider keeps its state in its own
+   database, so its role and database must exist, with the password, before it
+   starts, and the configurator needs the identity provider to run, so the
+   secret store, which the configurator sets up, cannot be what sets that
+   password. The engine's database preparation creates the role and the database
+   at every start with a password derived from the root of trust and delivered as
+   a file in memory; the configurator then adopts them. Its rotation is outside
+   the first release and the secret store does not rotate it. Short-lived dynamic users are not used for the identity provider, because
    Keycloak cannot reload its database password while running (GAP-017).
 5. **Two steps are not declarative.** They ran in a first-start unit with
    the official `bao` command line in the spike: generating the seed values
@@ -162,6 +171,8 @@ trust, which is therefore kept apart from the backups.
   first machine credential) runs once (GAP-020).
 
 ### Confirmation
+
+Amended on 2026-11-28: the database password of the identity provider's service role is derived from the root of trust and set by the database preparation, no longer set by the secret store (decision 4); the identity provider in its production mode started on it, and `mise run engine:test` passed with it (R123).
 
 Built and observed on 2026-11-27 by the system tests (`mise run engine:test`): the secret store starts in the engine on the database server as its storage, unseals from the stand-in root of trust, signs the database server's certificate request and the server turns TLS on by a reload; token logins over TLS then work. Written: R61 (`test_R61_database_server_serves_without_secret_store`), R62 (`test_R62_storage_connection_uses_no_secret`) and R103 (`test_R103_adopter_secrets_arrive_as_files`). Pending, not written: R7 (`test_R7_secrets_generated`; the configurator's `test_R7_state_holds_no_secret` is written), R20 (`test_R20_backup_restores_into_empty_system`), R26 (`test_R26_unattended_start`), R36 (`test_R36_failed_first_start_repeatable`, the configurator's `test_R36_run_fails_when_a_target_is_down_and_succeeds_on_the_next` is written), R37 and R60 (see `tests/pending.toml`). Not observed: renewal of the certificate (a task is in the backlog), the manage role in use by the secret store, a restore from a backup. The facts under "Verified by the spike" were observed on 2026-11-27 with OpenBao 2.7.3 and PostgreSQL 18.7, in a spike. Validating the OpenBao configuration in continuous integration is intended and not built.
 

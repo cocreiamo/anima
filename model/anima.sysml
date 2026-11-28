@@ -220,6 +220,7 @@ package Anima {
             doc /* A version shall be released only from a commit that
                  * passed every verification in this model, and the released
                  * images shall be the ones that were verified. */
+            @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
         requirement <'R25'> everyGapRegistered {
@@ -493,6 +494,16 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R114'> systemTestsReportOnEveryChange {
+            doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R115'> publishOnlyWhatWasVerified {
+            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R112'> formatAndTestExcludeEachOther {
             doc /* A run of the formatter and a run of the automated verifications shall never overlap in time: the formatter shall wait for running verifications and the verifications shall wait for a running formatter. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -750,6 +761,28 @@ package Anima {
                  * travels in clear. */
             subject engine : Engine;
         }
+        requirement <'R118'> certificateRenewedBeforeExpiry {
+            doc /* The certificate that the database server presents shall be renewed, from the secret store's authority and with no restart of the server, once the share of its lifetime given by renewAfterPercent has passed, and so before it expires. */
+            subject engine : Engine;
+            attribute certificateLifetime : ISQ::DurationValue = 2592000 [SI::s];
+            attribute renewAfterPercent : ScalarValues::Integer = 66;
+        }
+        requirement <'R119'> failedRenewalLeavesEngineNotReady {
+            doc /* A renewal of the database server's certificate that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
+            subject engine : Engine;
+        }
+        requirement <'R116'> issuerIsTheConfiguredPublicUrl {
+            doc /* The issuer of a token shall be the configured public URL of the identity provider, whatever name the request used to reach it. */
+            subject engine : Engine;
+        }
+        requirement <'R117'> noTemporaryAdministratorRemains {
+            doc /* After the configurator has run, the identity provider shall hold no temporary administrator, user or service account, and the one it was started with shall not obtain a token. */
+            subject engine : Engine;
+        }
+        requirement <'R123'> identityProviderRunsInProductionMode {
+            doc /* The identity provider shall run in its production mode, with its state kept in its own database of the database server. */
+            subject engine : Engine;
+        }
         requirement <'R30'> nothingReachableByDefault {
             doc /* Unless the configuration declares otherwise, no service of
                  * the engine shall be reachable from outside the machine. */
@@ -941,6 +974,8 @@ package Anima {
     satisfy Day0::declarationsFollowProviderGuards by anima.engine;
     satisfy Day0::bareInterpreterRefused by toolchain;
     satisfy Day0::formatAndTestExcludeEachOther by toolchain;
+    satisfy Day0::systemTestsReportOnEveryChange by toolchain;
+    satisfy Day0::publishOnlyWhatWasVerified by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::noReferenceToMissingRecord by toolchain;
@@ -976,6 +1011,11 @@ package Anima {
     satisfy Runtime::databaseServerDependsOnStandardIssuerOnly by anima.engine.postgresql;
     satisfy Runtime::superuserLocalOnly by anima.engine.postgresql;
     satisfy Runtime::encryptedConnectionsOnly by anima.engine;
+    satisfy Runtime::certificateRenewedBeforeExpiry by anima.engine;
+    satisfy Runtime::failedRenewalLeavesEngineNotReady by anima.engine;
+    satisfy Runtime::issuerIsTheConfiguredPublicUrl by anima.engine;
+    satisfy Runtime::noTemporaryAdministratorRemains by anima.engine;
+    satisfy Runtime::identityProviderRunsInProductionMode by anima.engine;
     satisfy Runtime::passesUpstreamRegressionSuite by anima.engine.postgresql;
     satisfy Runtime::rolesDeclaredWithIdentities by anima;
     satisfy Runtime::nothingReachableByDefault by anima.engine;
@@ -1103,6 +1143,26 @@ package Anima {
             subject sys : System;
             objective { verify Runtime::encryptedConnectionsOnly; }
         }
+        verification def test_R118_certificate_renewed_before_expiry {
+            subject sys : System;
+            objective { verify Runtime::certificateRenewedBeforeExpiry; }
+        }
+        verification def test_R119_failed_renewal_leaves_engine_not_ready {
+            subject sys : System;
+            objective { verify Runtime::failedRenewalLeavesEngineNotReady; }
+        }
+        verification def test_R116_issuer_is_the_configured_public_url {
+            subject sys : System;
+            objective { verify Runtime::issuerIsTheConfiguredPublicUrl; }
+        }
+        verification def test_R117_no_temporary_administrator_remains {
+            subject sys : System;
+            objective { verify Runtime::noTemporaryAdministratorRemains; }
+        }
+        verification def test_R123_identity_provider_runs_in_production_mode {
+            subject sys : System;
+            objective { verify Runtime::identityProviderRunsInProductionMode; }
+        }
         verification def test_R16_published_images_attested {
             subject tools : Toolchain;
             objective { verify Day0::publishedImagesAttested; }
@@ -1180,6 +1240,10 @@ package Anima {
             objective { verify Day1::probesAndSingleReadiness; }
         }
         verification def test_R42_abrupt_stop_recovers_with_same_start {
+            subject sys : System;
+            objective { verify Day1::oneStartPathAfterCrash; }
+        }
+        verification def test_R42_abrupt_stop_in_secret_store_first_start_recovers {
             subject sys : System;
             objective { verify Day1::oneStartPathAfterCrash; }
         }
@@ -1486,6 +1550,14 @@ package Anima {
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;
             objective { verify Day0::bareInterpreterRefused; }
+        }
+        verification def test_R114_system_tests_report_under_one_name {
+            subject tools : Toolchain;
+            objective { verify Day0::systemTestsReportOnEveryChange; }
+        }
+        verification def test_R115_promotion_publishes_only_what_it_verified {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
         }
         verification def test_R112_format_and_test_exclude_each_other {
             subject tools : Toolchain;

@@ -64,6 +64,13 @@ variable "secret_store_secret_id" {
   sensitive = true
 }
 
+# The secret of the configurator's permanent client in the identity provider,
+# derived from the root of trust.
+variable "configurator_client_secret" {
+  type      = string
+  sensitive = true
+}
+
 # The superuser reaches the database server on its local socket, as the
 # operating-system user of the same name, with no password (R12). The provider
 # has no setting for a socket: with an empty host the driver reads the socket
@@ -93,9 +100,10 @@ provider "vault" {
   }
 }
 
-# KEYCLOAK_USER and KEYCLOAK_PASSWORD come from the environment.
+# KEYCLOAK_CLIENT_ID and KEYCLOAK_CLIENT_SECRET come from the environment: the
+# configurator's permanent client, or at the first run the temporary administrator
+# (a service account) that the identity provider was started with.
 provider "keycloak" {
-  url       = var.identity_provider_address
-  client_id = "admin-cli"
-  realm     = "master"
+  url   = var.identity_provider_address
+  realm = "master"
 }

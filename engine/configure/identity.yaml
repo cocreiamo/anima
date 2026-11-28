@@ -6,3 +6,11 @@ realm: anima
 # The engine's own public client. Role scopes are granted only to it, because the
 # validator does not check the audience of a token: the scope acts as audience.
 client_id: anima-engine
+
+# The configurator's own permanent client in the master realm (a service account),
+# which replaces the temporary administrator the provider starts with.
+configurator_client_id: anima-configurator
+
+# The administrator role of the identity provider's own (master) realm, which the
+# configurator's client holds; the provider's name for it, not one of the fixed roles.
+master_administrator_role: admin

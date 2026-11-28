@@ -241,6 +241,35 @@ def facts_declared_once_faults(root=ROOT):
     return faults
 
 
+# ---- Default client scopes ---------------------------------------------------------
+
+
+def default_scope_faults(text, token_roles):
+    """A role scope is never a default scope (R102). The only client given default scopes
+    is the configurator's own, for the administration scope its calls need, and its list
+    holds no scope of a fixed token role."""
+    faults = []
+    if "keycloak_realm_default_client_scopes" in text:
+        faults.append("a default scope of the realm is declared")
+    for name in re.findall(
+        r'resource "keycloak_openid_client_default_scopes" "(\w+)"', text
+    ):
+        if name != "configurator":
+            faults.append(f"client {name} is given default scopes")
+    for block in re.findall(
+        r'resource "keycloak_openid_client_default_scopes" "configurator" \{(.*?)\n\}',
+        text,
+        re.DOTALL,
+    ):
+        listed = re.search(r"default_scopes\s*=\s*\[([^\]]*)\]", block)
+        for role in token_roles:
+            if listed and re.search(rf'"{re.escape(role)}"', listed.group(1)):
+                faults.append(
+                    f"the configurator's default scopes hold the role scope {role}"
+                )
+    return faults
+
+
 # ---- The configuration names no adapter ---------------------------------------
 
 ADAPTER_NAMES = (

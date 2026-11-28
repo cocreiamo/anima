@@ -70,3 +70,37 @@ resource "keycloak_openid_client_optional_scopes" "engine" {
   client_id       = keycloak_openid_client.engine.id
   optional_scopes = [for r in local.token_roles : keycloak_openid_client_scope.token[r].name]
 }
+
+# The configurator's own client in the master realm: a service account that holds
+# the realm's administrator role, with a secret derived from the root of trust and
+# set write-only, so that the state holds none. It is the identity the configurator
+# signs in with at every run. The temporary administrator that the identity
+# provider starts with creates it at the first run and is deleted by the
+# configurator's run script once this client exists; nothing declared here is a
+# temporary administrator (R117).
+resource "keycloak_openid_client" "configurator" {
+  realm_id                     = "master"
+  client_id                    = local.identity.configurator_client_id
+  access_type                  = "CONFIDENTIAL"
+  client_secret_wo             = var.configurator_client_secret
+  client_secret_wo_version     = 1
+  service_accounts_enabled     = true
+  standard_flow_enabled        = false
+  direct_access_grants_enabled = false
+}
+
+# The administration interface accepts only a token issued for it: the built-in
+# client scope `kc-admin-api` adds its audience, and a client of ours must be given
+# it, or its token is refused with 401. Exhaustive, with the scopes a new client
+# gets by default.
+resource "keycloak_openid_client_default_scopes" "configurator" {
+  realm_id       = "master"
+  client_id      = keycloak_openid_client.configurator.id
+  default_scopes = ["acr", "basic", "email", "profile", "roles", "web-origins", "kc-admin-api"]
+}
+
+resource "keycloak_openid_client_service_account_realm_role" "configurator" {
+  realm_id                = "master"
+  service_account_user_id = keycloak_openid_client.configurator.service_account_user_id
+  role                    = local.identity.master_administrator_role
+}

@@ -1,13 +1,15 @@
 [Unit]
-Description=Anima database: storage role and database of the secret store (every start)
-Requires=database.service
-After=database.service
+Description=Anima database: roles and databases that the secret store and the identity provider need before the configurator (every start)
+Requires=database.service anima-credentials.service
+After=database.service anima-credentials.service
 
 [Container]
 ContainerName=database-prepare
 Image=database.image
 Pod=anima.pod
 Volume=/run/anima/pgsocket:/run/postgresql
+# The identity provider's database password, derived from the root of trust.
+Volume=/run/anima/configurator/identity_provider_database_password:/run/anima/idp_database_password:ro
 ReadOnly=true
 Exec=psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --set=ON_ERROR_STOP=1 --file=/etc/anima/database/prepare.sql
 

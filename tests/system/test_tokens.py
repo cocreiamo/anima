@@ -12,6 +12,7 @@ provider's administration interface, and it exists only in the engine container
 of the session.
 """
 
+import base64
 import http.cookiejar
 import json
 import re
@@ -22,23 +23,41 @@ import urllib.parse
 import urllib.request
 
 from conftest import CACHE
-from engine_logic import audit_names_person, form_submission
+from engine_logic import (
+    audit_names_person,
+    form_submission,
+    issuer_faults,
+    production_faults,
+    temporary_administrators,
+)
 
 ISSUER = "http://localhost:8080/realms/anima"
+PUBLIC_HOST = "localhost:8080"
+# The identity provider's two credentials of the configurator, derived inside the
+# engine from its root of trust: the temporary one it was started with, and the
+# permanent client of the configurator in the master realm.
+BOOTSTRAP_CLIENT = "anima-bootstrap"
+CONFIGURATOR_CLIENT = "anima-configurator"
 TOKEN_SCRIPT = r"""
 seed=$( { printf 'configurator-applications\n'; cat /var/lib/anima/root-of-trust/seal; } | sha256sum | cut -d' ' -f1)
 secret=$(printf '%s' "$seed:reporting" | sha256sum | cut -d' ' -f1)
 body="grant_type=client_credentials&client_id=reporting&client_secret=$secret&scope=readonly"
 exec 3<>/dev/tcp/127.0.0.1/8080
-printf 'POST /realms/anima/protocol/openid-connect/token HTTP/1.0\r\nHost: localhost:8080\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n%s' "${#body}" "$body" >&3
+printf 'POST /realms/anima/protocol/openid-connect/token HTTP/1.0\r\nHost: __HOST__\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n%s' "${#body}" "$body" >&3
 cat <&3
 """
 
 
-def application_token(engine) -> str:
-    code, out = engine.exec("bash", "-c", TOKEN_SCRIPT)
+def application_token(engine, host: str = PUBLIC_HOST) -> str:
+    """The token of the application `reporting`, asked by the name `host`."""
+    code, out = engine.exec("bash", "-c", TOKEN_SCRIPT.replace("__HOST__", host))
     assert code == 0 and '"access_token":"' in out, out
     return out.split('"access_token":"')[1].split('"')[0]
+
+
+def token_claims(token: str) -> dict:
+    payload = token.split(".")[1]
+    return json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -97,24 +116,34 @@ class Provider:
         raise AssertionError(f"too many redirects at {url}")
 
 
-def set_credential(engine, provider: Provider, person: str) -> str:
-    """Give `person` a generated password at run time and return it. The
-    administrator's password is derived inside the engine and read there."""
-    code, admin_password = engine.exec(
-        "cat", "/run/anima/configurator/identity_provider_admin_password"
-    )
-    assert code == 0, admin_password
-    status, text = provider.request(
+def token_answer(engine, provider: Provider, client: str, file: str):
+    """(status, text of the answer) of the client-credentials grant of the master
+    realm for `client`, whose secret the engine holds in `file`."""
+    code, secret = engine.exec("cat", f"/run/anima/configurator/{file}")
+    assert code == 0, secret
+    return provider.request(
         f"{provider.base}/realms/master/protocol/openid-connect/token",
         data={
-            "grant_type": "password",
-            "client_id": "admin-cli",
-            "username": "admin",
-            "password": admin_password,
+            "grant_type": "client_credentials",
+            "client_id": client,
+            "client_secret": secret,
         },
     )
+
+
+def administrator(engine, provider: Provider) -> dict:
+    """The authorization header of the configurator's permanent client."""
+    status, text = token_answer(
+        engine, provider, CONFIGURATOR_CLIENT, "identity_provider_configurator_secret"
+    )
     assert status == 200, text
-    auth = {"Authorization": f"Bearer {json.loads(text)['access_token']}"}
+    return {"Authorization": f"Bearer {json.loads(text)['access_token']}"}
+
+
+def set_credential(engine, provider: Provider, person: str) -> str:
+    """Give `person` a generated password at run time and return it. The
+    configurator's own client signs in; its secret is derived inside the engine."""
+    auth = administrator(engine, provider)
     users = f"{provider.base}/admin/realms/anima/users"
     status, text = provider.request(
         f"{users}?username={person}&exact=true", headers=auth
@@ -247,3 +276,80 @@ def test_R5_identity_maps_to_role(engine):
     assert login(engine, token, "readonly")[0] == 0
     code, out = login(engine, token, "admin")
     assert code != 0 and "connection succeeded" not in out, out
+
+
+def test_R123_identity_provider_runs_in_production_mode(engine):
+    """Seen from the running engine: the provider's log reports the production
+    profile and not the development mode, and the realms are rows of its own
+    database of the database server."""
+    log = engine.exec("podman", "logs", "access")[1]
+    code, rows = engine.inner(
+        "database",
+        "psql",
+        "--host=/run/postgresql",
+        "--username=postgres",
+        "--dbname=idp",
+        "--no-psqlrc",
+        "--tuples-only",
+        "--command=select count(*) from realm",
+    )
+    count = int(rows.strip()) if code == 0 and rows.strip().isdigit() else 0
+    faults = production_faults(log, count)
+    assert not faults, (faults, rows, log[-1500:])
+
+
+def test_R116_issuer_is_the_configured_public_url(engine):
+    """Whatever name a request uses to reach the provider (the public name, the
+    published address and port, an unrelated name), the discovery document and
+    the tokens carry the configured public URL as issuer."""
+    provider = Provider(engine)
+    port = engine.container.get_exposed_port(8080)
+    names = [PUBLIC_HOST, f"127.0.0.1:{port}", "other.example.test"]
+    issuers = {}
+    for name in names:
+        status, text = provider.request(
+            f"{provider.base}/realms/anima/.well-known/openid-configuration",
+            headers={"Host": name},
+        )
+        assert status == 200, (name, status, text)
+        issuers[f"discovery by {name}"] = json.loads(text)["issuer"]
+        issuers[f"token by {name}"] = token_claims(application_token(engine, name))[
+            "iss"
+        ]
+    faults = issuer_faults(issuers, ISSUER)
+    assert not faults, faults
+
+
+def test_R117_no_temporary_administrator_remains(engine):
+    """After the configurator has run, no user of the master realm, service
+    accounts included, is a temporary administrator, and the credentials the
+    provider was started with obtain no token."""
+    provider = Provider(engine)
+    auth = administrator(engine, provider)
+    status, text = provider.request(
+        f"{provider.base}/admin/realms/master/users?briefRepresentation=false&max=1000",
+        headers=auth,
+    )
+    assert status == 200, text
+    users = json.loads(text)
+    # The listing leaves out the service accounts: they are read client by client.
+    status, text = provider.request(
+        f"{provider.base}/admin/realms/master/clients", headers=auth
+    )
+    assert status == 200, text
+    for client in json.loads(text):
+        if client.get("serviceAccountsEnabled"):
+            status, text = provider.request(
+                f"{provider.base}/admin/realms/master/clients/{client['id']}/service-account-user",
+                headers=auth,
+            )
+            assert status == 200, text
+            users.append(json.loads(text))
+    assert not temporary_administrators(users), temporary_administrators(users)
+    # The service account of the permanent client is there, so the listing is
+    # not an empty answer.
+    assert f"service-account-{CONFIGURATOR_CLIENT}" in [u["username"] for u in users]
+    status, text = token_answer(
+        engine, provider, BOOTSTRAP_CLIENT, "identity_provider_bootstrap_secret"
+    )
+    assert status in (400, 401), (status, text)

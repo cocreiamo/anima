@@ -47,5 +47,8 @@ LABEL org.opencontainers.image.title="anima identity provider" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.anima.source.keycloak="${SOURCE_COMMIT_KEYCLOAK}"
 USER 1000
+# The production mode starts an optimized build: the options that are fixed at
+# build time (the database vendor, the health endpoints) are given here, once.
+RUN /opt/keycloak/bin/kc.sh build --db=postgres --health-enabled=true
 EXPOSE 8080 8443 9000
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]

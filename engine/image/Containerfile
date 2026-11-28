@@ -14,6 +14,7 @@ COPY --from=images / /usr/lib/anima/images/
 COPY engine/image/anima.pod /usr/share/containers/systemd/
 COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
 COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
+COPY engine/access/public-url.env /usr/share/anima/public-url.env
 COPY engine/secrets/secrets.image engine/secrets/secrets.container /usr/share/containers/systemd/
 COPY engine/database/database-prepare.container engine/database/database-tls.container /usr/share/containers/systemd/
 COPY engine/secrets/secrets-root-of-trust.service engine/image/anima-ready.target /usr/lib/systemd/system/
@@ -26,8 +27,10 @@ COPY engine/mail/mail.image engine/mail/mail.container /usr/share/containers/sys
 COPY --chmod=555 engine/image/anima-credentials /usr/libexec/anima/credentials
 COPY engine/image/anima-credentials.service /usr/lib/systemd/system/
 COPY engine/image/configure.image engine/image/configure.container /usr/share/containers/systemd/
+COPY --chmod=555 engine/image/anima-ready /usr/libexec/anima/ready
 COPY engine/image/anima-ready-upheld.conf /usr/lib/systemd/system/multi-user.target.d/50-anima-ready-upheld.conf
 COPY engine/secrets/openbao.hcl /etc/anima/secrets/openbao.hcl
+COPY engine/secrets/first-start.sql /usr/share/anima/secrets/first-start.sql
 COPY engine/configure/secret-store-bootstrap.hcl /etc/anima/secrets/secret-store-bootstrap.hcl
 
 RUN systemctl enable anima-ready.target secrets-root-of-trust.service \
@@ -41,5 +44,5 @@ VOLUME ["/var/lib/anima/database", "/var/lib/anima/root-of-trust", "/var/lib/con
 STOPSIGNAL SIGRTMIN+3
 # The one readiness answer, asked of the engine's own init (R41).
 HEALTHCHECK --interval=5s --timeout=4s --start-period=170s --retries=3 \
-  CMD ["systemctl", "is-active", "--quiet", "anima-ready.target"]
+  CMD ["/usr/libexec/anima/ready", "anima-ready.target"]
 CMD ["/sbin/init"]

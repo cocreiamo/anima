@@ -17,6 +17,14 @@ import {
   id       = each.key
 }
 
+# The databases with an owner that the engine made before the configurator (the
+# identity provider's): adopted, not created.
+import {
+  for_each = toset([for n, d in local.owned_databases : n if try(d.bootstrap, false)])
+  to       = postgresql_database.owned[each.key]
+  id       = each.key
+}
+
 resource "postgresql_role" "plain" {
   for_each        = local.plain_roles
   name            = each.key

@@ -45,16 +45,16 @@ ADR 0003 (secret management). Who may connect and as what is
 4. **Self-initialization runs once and cannot be repaired.** A failed one leaves
    the storage unusable (GAP-015), so a first start is repeatable from an empty
    state with the same command (R36) and nothing precious is in the secret
-   store before the first start has succeeded. What the initialization itself
+   store before the first start has succeeded. The engine uses that: before
+   every start of the store, storage whose first start is not recorded as
+   completed is emptied, and the record is written in the database server once
+   the store is healthy, before any unit that uses the store starts; so an
+   abrupt stop in the middle of the first start recovers with the same start
+   (R42, PM-009, `anima-tech-openbao`). What the initialization itself
    creates (the certificate authority, the seed values, the first machine
    credential) is not converged afterwards (GAP-020); the secret store's
    policies, engines and roles are, by the configurator at every start.
-5. **The identity provider's service role has a static name**, `svc_idp`,
-   whose password the secret store sets; rotation is outside the first
-   release. Not: dynamic short-lived
-   users, because Keycloak cannot reload its database password (GAP-017); say
-   who restarts what when a secret rotates. The role's confinement to its
-   database is `anima-access-design`.
+5. **What a service needs before the configurator can run is derived from the root of trust; everything else is set by the secret store.** The identity provider's service role has a static name, `svc_idp`, and keeps the provider's state in its own database, so the role, its database and its password exist before the provider starts, and the configurator needs the provider to run. The engine's database preparation (`engine/database/prepare.sql`) therefore creates the role and the database at every start with a password that `anima-credentials` derives from the root of trust into memory (a file for the preparation, the provider's environment file); the configurator adopts the role and the database. The secret store does not rotate it: rotation is outside the first release. Not: dynamic short-lived users, because Keycloak cannot reload its database password (GAP-017); not: a password set by the secret store through the configurator, which would need the provider that needs it (ADR 0003, amended on 2026-11-28). Say who restarts what when a secret rotates. The role's confinement to its database is `anima-access-design`.
 6. **The root of trust is a port** that gives the secret store the key that
    unseals it, so that the system starts unattended (R26). The default
    adapter is an external key management service; the stand-in is a local key
@@ -90,6 +90,8 @@ ADR 0003 (secret management). Who may connect and as what is
     key management service is not built (its cloud seals are GAP-016); the
     local key is the only one built, and no installation yet needs the
     protection the production adapter gives.
+
+14. **The database server's certificate is renewed by its own unit, before it expires, and taken by a reload.** `engine/database/tls-enable` stays up after the first issue, asks the authority for a new certificate once the share of the lifetime given by the thresholds of R118 has passed, and reloads the server; the server is never restarted and nobody restarts anything for a renewal that succeeds. A renewal that fails ends the unit with the message "certificate renewal failed", the unit fails and the readiness target leaves the active state, so the engine is not ready and says why (R119); the unit is started again and tries again for as long as it fails, and the old certificate keeps serving until it expires. The lifetime and the share are thresholds of R118, mirrored in the unit and compared by the test; the role's ceiling in `engine/secrets/openbao.hcl` must stay at or above the lifetime. Observed on 2026-11-28 by the system tests (R118, R119). Not: a timer that polls, or a renewal that restarts the unit and so the readiness target, which would flicker at every renewal.
 
 ## Questions to answer before proposing
 

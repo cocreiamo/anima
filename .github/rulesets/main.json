@@ -42,7 +42,8 @@
                     { "context": "check / check" },
                     { "context": "reuse / reuse" },
                     { "context": "pull-request / Conventional Commits title" },
-                    { "context": "pull-request / Dependency review" }
+                    { "context": "pull-request / Dependency review" },
+                    { "context": "System tests" }
                 ]
             }
         }

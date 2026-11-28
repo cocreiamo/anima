@@ -50,7 +50,7 @@ Look here before building something. Each section is derived from its source; th
 | R21 | passes upstream regression suite | written |
 | R22 | roles declared with identities | written |
 | R23 | images for both architectures | pending |
-| R24 | release only from verified commit | pending |
+| R24 | release only from verified commit | written |
 | R25 | every gap registered | written |
 | R26 | unattended start | pending |
 | R27 | idp role confined to its database | pending |
@@ -138,6 +138,13 @@ Look here before building something. Each section is derived from its source; th
 | R110 | releases stay patch only | written |
 | R112 | format and test exclude each other | written |
 | R113 | data files read with yaml library | written |
+| R114 | system tests report on every change | written |
+| R115 | publish only what was verified | written |
+| R116 | issuer is the configured public url | written |
+| R117 | no temporary administrator remains | written |
+| R118 | certificate renewed before expiry | written |
+| R119 | failed renewal leaves engine not ready | written |
+| R123 | identity provider runs in production mode | written |
 
 ## Components
 
@@ -218,6 +225,7 @@ Look here before building something. Each section is derived from its source; th
 | `pull-request.yml` | Pull request | pull_request, merge_group |
 | `scorecard.yml` | Scorecard | push, schedule |
 | `sync-forks.yml` | Sync forks | schedule, workflow_dispatch |
+| `system-tests.yml` | System tests | pull_request, merge_group, push |
 
 ## Fitness functions
 
@@ -229,6 +237,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
 - R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
 - R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
+- R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
 - R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
 - R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
 - R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
@@ -237,7 +246,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
-- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_recovers_with_same_start` (written).
+- R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
@@ -289,6 +298,8 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
 - R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
 - R113, data files read with yaml library, at every commit: `test_R113_data_files_read_with_a_yaml_library` (written).
+- R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
+- R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
 
 ## Skills
 

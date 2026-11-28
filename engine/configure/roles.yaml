@@ -16,7 +16,8 @@
 # manages_credentials  the secret store reaches the database server as this role
 #                 to set and rotate the credentials of the rotated roles.
 # bootstrap       created by the engine before the configurator can run (the
-#                 secret store needs it first); the configurator adopts it.
+#                 secret store and the identity provider need it first, and
+#                 the configurator needs both); the configurator adopts it.
 # peer_user, peer_map  the operating-system user that a peer role is mapped
 #                 from, and the name of that mapping in the identity map.
 # rotated_credential  the secret store sets and rotates the password of this
@@ -58,7 +59,10 @@ roles:
     kind: service
     authentication: password
     databases: [idp]
-    rotated_credential: true
+    # Created before the configurator, with a password derived from the root of
+    # trust (the identity provider does not reload its password, so the secret
+    # store does not rotate it); adopted here.
+    bootstrap: true
   svc_backup:
     kind: service
     authentication: password
@@ -97,6 +101,7 @@ databases:
   idp:
     closed: true
     owner: svc_idp
+    bootstrap: true
     extensions: [vector]
   secrets_store:
     closed: true

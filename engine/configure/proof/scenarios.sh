@@ -54,10 +54,10 @@ sql() {
 
 kc_admin_token() {
     umask 077
-    printf %s "$(podman secret inspect --showsecret cfg-admin-password --format '{{.SecretData}}')" >"$CFG_TMP/kc-admin"
+    printf %s "$(podman secret inspect --showsecret cfg-configurator-secret --format '{{.SecretData}}')" >"$CFG_TMP/kc-admin"
     curl -s --fail-with-body "$KC/realms/master/protocol/openid-connect/token" \
-        -d client_id=admin-cli -d grant_type=password -d username=admin \
-        --data-urlencode "password@$CFG_TMP/kc-admin" | jq -r .access_token
+        -d client_id=anima-configurator -d grant_type=client_credentials \
+        --data-urlencode "client_secret@$CFG_TMP/kc-admin" | jq -r .access_token
 }
 
 # kc <method> <path> [json body]: the administration API of the engine's realm, as the administrator.
@@ -251,7 +251,7 @@ scenario_state_holds_no_secret() {
     local name found=0 file
     secret_to_file cfg-root-of-trust "$CFG_TMP/s-rot"
     secret_to_file cfg-secret-id "$CFG_TMP/s-sid"
-    secret_to_file cfg-admin-password "$CFG_TMP/s-adm"
+    secret_to_file cfg-configurator-secret "$CFG_TMP/s-adm"
     local value
     for file in "$CFG_TMP/s-sid" "$CFG_TMP/s-adm"; do
         value=$(cat "$file")
@@ -305,7 +305,7 @@ scenario_scopes() {
     mallory_password=$(random_hex)
 
     # A declared application: its scope when it asks, and no more.
-    secret_to_file cfg-admin-password "$CFG_TMP/s-adm"
+    secret_to_file cfg-configurator-secret "$CFG_TMP/s-adm"
     local etl_id
     etl_id=$(kc GET "/clients?clientId=etl" | jq -r '.[0].id')
     kc GET "/clients/$etl_id/client-secret" | jq -rj .value >"$CFG_TMP/etl-secret"

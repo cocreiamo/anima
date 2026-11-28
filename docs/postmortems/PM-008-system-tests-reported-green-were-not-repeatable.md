@@ -50,6 +50,10 @@ One false failure of the suite on a repeat run; the engine was not at fault. No 
 
 Went well: the log of the failed run named both causes. Did not go well: the suite had been called green on one run, and the repeat is where its faults showed.
 
+## Correction, 2026-11-28
+
+The text above reads the answer 125 of `podman kill` as "the command took effect, so observe the phase" and counts Status `stopped` as stopped. That was incomplete. After the 125 podman reports Status `stopped` with ExitCode -1 because it gave up waiting 5 s for the exit file, while the previous run is not finished; a start issued then answers 0 and is undone when the old run's exit is applied (GAP-056). `test_R42_abrupt_stop_recovers_with_same_start` failed again on GitHub for this reason. Only Status `exited` is a finished stop; `container_phase` now reports `stopped` for it alone (with a companion case for Status `stopped`), and `Engine.kill` and `Engine.stop` return only then.
+
 ## Guards
 
 - test `test_R21_upstream_regression_suite_passes` (requirement R21, with its `_detects_violation` companion): reads the verdict through `regress_tests_passed` from the result kept in the image; the companion shows that a failed result, an empty one and the output of a cached build give no verdict. It does not prove that `make` failing fails the build; that rests on the kept exit status in the container file, which was read and not exercised with a failing suite.

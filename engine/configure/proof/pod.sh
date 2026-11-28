@@ -13,7 +13,7 @@ CFG_DB=cfg-db
 CFG_SECRETS=cfg-secrets
 CFG_IDP=cfg-idp
 CFG_VOLUMES=(cfg-data cfg-socket)
-CFG_PODMAN_SECRETS=(cfg-root-of-trust cfg-secret-id cfg-admin-password)
+CFG_PODMAN_SECRETS=(cfg-root-of-trust cfg-secret-id cfg-bootstrap-client-id cfg-bootstrap-secret cfg-configurator-secret)
 CFG_IDP_PORT=${CFG_IDP_PORT:-15401}
 CFG_PUBLIC_URL=${ANIMA_IDENTITY_PROVIDER_URL:-http://idp.anima.test:8080}
 CFG_TMP=${CFG_TMP:-${TMPDIR:-/tmp}/cfg-proof}
@@ -60,7 +60,9 @@ cfg_run() {
         -v "$identities:/etc/anima/access/identities.yaml:ro" \
         --secret cfg-root-of-trust,target=root_of_trust \
         --secret cfg-secret-id,target=secret_store_secret_id \
-        --secret cfg-admin-password,target=identity_provider_admin_password \
+        --secret cfg-bootstrap-client-id,target=identity_provider_bootstrap_client_id \
+        --secret cfg-bootstrap-secret,target=identity_provider_bootstrap_secret \
+        --secret cfg-configurator-secret,target=identity_provider_configurator_secret \
         -e ANIMA_IDENTITY_PROVIDER_URL="$CFG_PUBLIC_URL" \
         "${extra[@]}" "${CFG_IMAGE:-$(cfg_ref configure)}" "${@:-converge}"
 }
@@ -79,7 +81,13 @@ cfg_generate_secrets() {
     chmod 644 "$CFG_TMP/rot/seal"
     cfg_secret cfg-root-of-trust "$CFG_TMP/rot/seal"
     local name
-    for name in secret-id admin-password; do
+    printf %s anima-bootstrap >"$CFG_TMP/bootstrap-client-id"
+    cfg_secret cfg-bootstrap-client-id "$CFG_TMP/bootstrap-client-id"
+    # The identity provider's database password, as the engine derives it, read by the
+    # preparation of the database server.
+    head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$CFG_TMP/idp-database-password"
+    chmod 644 "$CFG_TMP/idp-database-password"
+    for name in secret-id bootstrap-secret configurator-secret; do
         head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$CFG_TMP/$name"
         cfg_secret "cfg-$name" "$CFG_TMP/$name"
         rm -f "$CFG_TMP/$name"
@@ -105,6 +113,7 @@ cfg_up() {
     cfg_log "database server with the generated access rules"
     podman run -d --name "$CFG_DB" --pod "$CFG_POD" --read-only --tmpfs /tmp:mode=1777 \
         -v cfg-data:/var/lib/postgresql/data -v cfg-socket:/run/postgresql \
+        -v "$CFG_TMP/idp-database-password:/run/anima/idp_database_password:ro" \
         -v "$ROOT/.cache/configure/pg_hba.conf:/etc/anima/access/pg_hba.conf:ro" \
         -v "$ROOT/.cache/configure/pg_ident.conf:/etc/anima/access/pg_ident.conf:ro" \
         "$db" postgres -c config_file=/etc/anima/database/postgresql.conf \
@@ -124,8 +133,8 @@ cfg_up() {
 
     cfg_log "identity provider"
     podman run -d --name "$CFG_IDP" --pod "$CFG_POD" \
-        --secret cfg-admin-password,type=env,target=KC_BOOTSTRAP_ADMIN_PASSWORD \
-        -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_HOSTNAME="$CFG_PUBLIC_URL" -e KC_HEALTH_ENABLED=true \
+        --secret cfg-bootstrap-secret,type=env,target=KC_BOOTSTRAP_ADMIN_CLIENT_SECRET \
+        -e KC_BOOTSTRAP_ADMIN_CLIENT_ID=anima-bootstrap -e KC_HOSTNAME="$CFG_PUBLIC_URL" -e KC_HEALTH_ENABLED=true \
         "$idp" start-dev --http-port=8080 >/dev/null
 
     cfg_wait 120 "secret store unsealed" podman exec "$CFG_SECRETS" bao status
