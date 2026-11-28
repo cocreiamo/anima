@@ -14,6 +14,10 @@ no_edit = true
 [templates]
 format = "madr"
 variant = "full"
+# The template of the organization, in the shared submodule. The tool cannot
+# inherit a configuration, so only the template is shared; it reads this path
+# from the directory of this file.
+custom = "shared/templates/adr-madr.md"
 
 [doctor]
 # A warning fails the check as an error does.
