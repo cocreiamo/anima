@@ -178,3 +178,39 @@ def audit_names_person(log: str, person: str, role: str) -> bool:
     people = {m.group(1) for m in authenticated.finditer(log)}
     roles = {m.group(1) for m in authorized.finditer(log)}
     return bool(people & roles)
+
+
+def production_faults(log: str, database_rows: int) -> list[str]:
+    """What is wrong with the identity provider's start, seen from its log and its
+    database (R123): it must report the production profile, never the development
+    one nor its warning, and its state must be rows of its own database."""
+    faults = []
+    if "Profile prod activated" not in log:
+        faults.append("the log does not report the production profile")
+    if "Profile dev activated" in log or "development mode" in log:
+        faults.append("the log reports the development mode")
+    if database_rows <= 0:
+        faults.append("its own database holds no realm")
+    return faults
+
+
+def issuer_faults(issuers: dict[str, str], expected: str) -> list[str]:
+    """The names of the requests (R116) whose answer carried another issuer than
+    the configured one; `issuers` maps the name used to the issuer received, and
+    holds at least two names (one name proves nothing about "whatever name")."""
+    faults = [
+        f"{name}: {issuer!r}" for name, issuer in issuers.items() if issuer != expected
+    ]
+    if len(issuers) < 2:
+        faults.append("fewer than two names were tried")
+    return faults
+
+
+def temporary_administrators(users: list[dict]) -> list[str]:
+    """The users of a realm marked temporary administrators (R117): the attribute
+    `is_temporary_admin` holding `true`. A service account is a user too."""
+    return [
+        str(user.get("username"))
+        for user in users
+        if "true" in (user.get("attributes") or {}).get("is_temporary_admin", [])
+    ]

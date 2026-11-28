@@ -10,10 +10,13 @@ from engine_logic import (
     certificate_facts,
     container_phase,
     form_submission,
+    issuer_faults,
+    production_faults,
     regress_tests_passed,
     renewal_failure_faults,
     renewal_faults,
     secret_store_storage_stage,
+    temporary_administrators,
 )
 
 PASSED_LOG = (
@@ -138,3 +141,37 @@ def test_R2_valid_token_opens_session_detects_violation():
     two_sessions = AUTHENTICATED.format(n=41) + AUTHORIZED.format(n=42)
     assert not audit_names_person(two_sessions, "carol", "readwrite")
     assert not audit_names_person("", "carol", "readwrite")
+
+
+def test_R123_identity_provider_runs_in_production_mode_detects_violation():
+    """Production counts only with its own profile line, none of the
+    development mode, and a realm in its own database."""
+    prod = "started in 9s. Profile prod activated. Installed features"
+    assert production_faults(prod, 3) == []
+    assert production_faults(prod.replace("prod", "dev"), 3)
+    assert production_faults(prod + " Running the server in development mode.", 3)
+    assert production_faults(prod, 0)
+    assert production_faults("", 3)
+
+
+def test_R116_issuer_is_the_configured_public_url_detects_violation():
+    """Every name must give the configured issuer, and one name proves nothing."""
+    url = "http://localhost:8080/realms/anima"
+    other = "http://127.0.0.1:41000/realms/anima"
+    assert issuer_faults({"localhost:8080": url, "127.0.0.1:41000": url}, url) == []
+    assert issuer_faults({"localhost:8080": url, "127.0.0.1:41000": other}, url)
+    assert issuer_faults({"localhost:8080": url}, url)
+    assert issuer_faults({}, url)
+
+
+def test_R117_no_temporary_administrator_remains_detects_violation():
+    """A user, or a service account, marked temporary is found; others are not."""
+    marked = {
+        "username": "service-account-x",
+        "attributes": {"is_temporary_admin": ["true"]},
+    }
+    other = {"username": "service-account-y", "attributes": {"other": ["true"]}}
+    plain = {"username": "alice"}
+    assert temporary_administrators([marked, other, plain]) == ["service-account-x"]
+    assert temporary_administrators([other, plain]) == []
+    assert temporary_administrators([]) == []

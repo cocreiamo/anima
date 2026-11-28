@@ -14,6 +14,7 @@ COPY --from=images / /usr/lib/anima/images/
 COPY engine/image/anima.pod /usr/share/containers/systemd/
 COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
 COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
+COPY engine/access/public-url.env /usr/share/anima/public-url.env
 COPY engine/secrets/secrets.image engine/secrets/secrets.container /usr/share/containers/systemd/
 COPY engine/database/database-prepare.container engine/database/database-tls.container /usr/share/containers/systemd/
 COPY engine/secrets/secrets-root-of-trust.service engine/image/anima-ready.target /usr/lib/systemd/system/

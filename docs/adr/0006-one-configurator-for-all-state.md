@@ -121,8 +121,10 @@ applies everything, a second run that changes nothing, hand-made changes on
 tracked objects reverted, the state encrypted and holding no secret, and a failed
 run that applies nothing and succeeds on the next. Observed on 2026-11-27 in the
 engine by the system tests: the configurator runs as a unit with the superuser's
-peer authentication and applies everything declared. The identity provider was in
-its development mode. Written tests: R6, R7, R14, R22, R34, R36, R37, R39, R48,
+peer authentication and applies everything declared. Observed on 2026-11-28 with the
+identity provider in its production mode: the configurator signs in as its own
+client of the master realm, made at the first run with the temporary administrator
+that the provider starts with, which it then deletes (R117). Written tests: R6, R7, R14, R22, R34, R36, R37, R39, R48,
 R49, R63, R100, R101, R102, R104, R105 and R106 (the configurator's tests; those
 that need the pod are skipped by `check`). Pending, not written: R43, R44 and the
 rest of R7, R36 and R37 (see `tests/pending.toml`). Not run: an upgrade, because

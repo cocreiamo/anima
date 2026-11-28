@@ -23,9 +23,12 @@ Volume=/etc/anima/config/access/identities.yaml:/etc/anima/access/identities.yam
 # Credentials, as files in memory (see anima-credentials).
 Volume=/run/anima/configurator/root_of_trust:/run/secrets/root_of_trust:ro
 Volume=/run/anima/configurator/secret_store_secret_id:/run/secrets/secret_store_secret_id:ro
-Volume=/run/anima/configurator/identity_provider_admin_password:/run/secrets/identity_provider_admin_password:ro
-# The installation parameter: the identity provider's public URL.
-Environment=ANIMA_IDENTITY_PROVIDER_URL=http://localhost:8080
+Volume=/run/anima/configurator/identity_provider_bootstrap_client_id:/run/secrets/identity_provider_bootstrap_client_id:ro
+Volume=/run/anima/configurator/identity_provider_bootstrap_secret:/run/secrets/identity_provider_bootstrap_secret:ro
+Volume=/run/anima/configurator/identity_provider_configurator_secret:/run/secrets/identity_provider_configurator_secret:ro
+# The installation parameter: the identity provider's public URL (declared once,
+# read by the identity provider's unit too).
+EnvironmentFile=/usr/share/anima/public-url.env
 Exec=converge
 
 [Service]

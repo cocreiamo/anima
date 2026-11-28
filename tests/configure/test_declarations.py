@@ -408,8 +408,7 @@ def test_R102_undeclared_client_gets_no_role_scope(request):
     """A role scope is attached only to the engine's client and to declared application clients, never as a
     default scope; with the pod: a client of the realm that is not declared obtains none."""
     text = "".join(p.read_text() for p in (CONFIGURE / "declarations").glob("*.tf"))
-    assert "keycloak_openid_client_default_scopes" not in text
-    assert "keycloak_realm_default_client_scopes" not in text
+    assert checks.default_scope_faults(text, allowed_roles()) == []
     attached = re.findall(
         r'resource "keycloak_openid_client_optional_scopes" "(\w+)"', text
     )
@@ -424,8 +423,15 @@ def test_R102_undeclared_client_gets_no_role_scope(request):
 
 
 def test_R102_undeclared_client_gets_no_role_scope_detects_violation():
-    text = 'resource "keycloak_openid_client_default_scopes" "x" {\n}\n'
-    assert "keycloak_openid_client_default_scopes" in text
+    roles = ["readonly", "readwrite"]
+    own = 'resource "keycloak_openid_client_default_scopes" "configurator" {\n  default_scopes = ["email", "kc-admin-api"]\n}\n'
+    assert checks.default_scope_faults(own, roles) == []
+    other = own.replace('"configurator"', '"engine"')
+    assert checks.default_scope_faults(other, roles)
+    role_scope = own.replace('"email"', '"readonly"')
+    assert checks.default_scope_faults(role_scope, roles)
+    realm = 'resource "keycloak_realm_default_client_scopes" "x" {\n}\n'
+    assert checks.default_scope_faults(realm, roles)
 
 
 # ---- R34, R39, R49: the rules, the facts, the names ---------------------------------

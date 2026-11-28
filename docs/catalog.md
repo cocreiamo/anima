@@ -93,6 +93,7 @@ Look here before building something. Each section is derived from its source; th
 | R14 | identities reapplied | written |
 | R5 | identity maps to role | written |
 | R135 | identity provider reachable only through entry | pending |
+| R123 | identity provider runs in production mode | written |
 | R32 | idp database only for its role | pending |
 | R27 | idp role confined to its database | pending |
 | R50 | image boots as operating system | pending |
@@ -100,6 +101,7 @@ Look here before building something. Each section is derived from its source; th
 | R23 | images for both architectures | pending |
 | R150 | independent additions do not conflict in generated files | written |
 | R3 | invalid token rejected | see its parts |
+| R116 | issuer is the configured public url | written |
 | R68 | limits held in model | written |
 | R64 | mail delivered through configured service | written |
 | R160 | mirror covers every base image | written |
@@ -110,6 +112,7 @@ Look here before building something. Each section is derived from its source; th
 | R4 | no password access | pending |
 | R53 | no product in requirement | written |
 | R94 | no reference to missing record | written |
+| R117 | no temporary administrator remains | written |
 | R30 | nothing reachable by default | written |
 | R59 | one adapter active per port | pending |
 | R42 | one start path after crash | written |

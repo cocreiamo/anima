@@ -54,12 +54,7 @@ ADR 0003 (secret management). Who may connect and as what is
    creates (the certificate authority, the seed values, the first machine
    credential) is not converged afterwards (GAP-020); the secret store's
    policies, engines and roles are, by the configurator at every start.
-5. **The identity provider's service role has a static name**, `svc_idp`,
-   whose password the secret store sets; rotation is outside the first
-   release. Not: dynamic short-lived
-   users, because Keycloak cannot reload its database password (GAP-017); say
-   who restarts what when a secret rotates. The role's confinement to its
-   database is `anima-access-design`.
+5. **What a service needs before the configurator can run is derived from the root of trust; everything else is set by the secret store.** The identity provider's service role has a static name, `svc_idp`, and keeps the provider's state in its own database, so the role, its database and its password exist before the provider starts, and the configurator needs the provider to run. The engine's database preparation (`engine/database/prepare.sql`) therefore creates the role and the database at every start with a password that `anima-credentials` derives from the root of trust into memory (a file for the preparation, the provider's environment file); the configurator adopts the role and the database. The secret store does not rotate it: rotation is outside the first release. Not: dynamic short-lived users, because Keycloak cannot reload its database password (GAP-017); not: a password set by the secret store through the configurator, which would need the provider that needs it (ADR 0003, amended on 2026-11-28). Say who restarts what when a secret rotates. The role's confinement to its database is `anima-access-design`.
 6. **The root of trust is a port** that gives the secret store the key that
    unseals it, so that the system starts unattended (R26). The default
    adapter is an external key management service; the stand-in is a local key

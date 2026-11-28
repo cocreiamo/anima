@@ -16,10 +16,13 @@
 # this one process, never written anywhere. Under ANIMA_SECRETS_DIR:
 #   root_of_trust                   the key material the state key derives from
 #   secret_store_secret_id          the configurator's machine credential
-#   identity_provider_admin_password
+#   identity_provider_bootstrap_client_id, identity_provider_bootstrap_secret
+#                                   the temporary administrator of the identity provider
+#   identity_provider_configurator_secret
+#                                   the secret of the configurator's own client there
 # Settings: ANIMA_IDENTITY_PROVIDER_URL (the installation parameter, required),
 # ANIMA_DATABASE_HOST, ANIMA_SECRET_STORE_ADDRESS, ANIMA_IDENTITY_PROVIDER_ADDRESS,
-# ANIMA_IDENTITY_PROVIDER_ADMIN, ANIMA_IDENTITIES, ANIMA_WORK_DIR.
+# ANIMA_IDENTITIES, ANIMA_WORK_DIR.
 set -eu
 
 mode=${1:-converge}
@@ -64,9 +67,68 @@ TF_VAR_application_seed=$({
 export TF_VAR_application_seed
 TF_VAR_secret_store_secret_id=$(read_secret secret_store_secret_id)
 export TF_VAR_secret_store_secret_id
-KEYCLOAK_PASSWORD=$(read_secret identity_provider_admin_password)
-export KEYCLOAK_PASSWORD
-export KEYCLOAK_USER="${ANIMA_IDENTITY_PROVIDER_ADMIN:-admin}"
+configurator_secret=$(read_secret identity_provider_configurator_secret)
+TF_VAR_configurator_client_secret=$configurator_secret
+export TF_VAR_configurator_client_secret
+configurator_client=$(sed -n 's/^configurator_client_id: *//p' "$root/identity.yaml")
+
+# The identity provider's administrator. The configurator signs in as its own
+# permanent client (a service account of the master realm). At the first run that
+# client does not exist yet, and the temporary administrator that the identity
+# provider was started with (a service account too) makes it; after the run that
+# temporary administrator is deleted (see `forget_temporary_administrator`).
+provider_address=${ANIMA_IDENTITY_PROVIDER_ADDRESS:-http://127.0.0.1:8080}
+provider_hostport=${provider_address#http://}
+provider_host=${provider_hostport%:*}
+provider_port=${provider_hostport##*:}
+
+# access_token <client id> <secret>: the access token of a service account of the
+# master realm, or nothing when the identity provider refuses it.
+access_token() {
+    wget -q -O - --post-data="grant_type=client_credentials&client_id=$1&client_secret=$2" \
+        "$provider_address/realms/master/protocol/openid-connect/token" 2>/dev/null |
+        sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p'
+}
+
+if [ "$mode" != render ]; then
+    bootstrap_client=$(read_secret identity_provider_bootstrap_client_id)
+    bootstrap_secret=$(read_secret identity_provider_bootstrap_secret)
+    if [ -n "$(access_token "$configurator_client" "$configurator_secret")" ]; then
+        KEYCLOAK_CLIENT_ID=$configurator_client
+        KEYCLOAK_CLIENT_SECRET=$configurator_secret
+    else
+        KEYCLOAK_CLIENT_ID=$bootstrap_client
+        KEYCLOAK_CLIENT_SECRET=$bootstrap_secret
+    fi
+    export KEYCLOAK_CLIENT_ID KEYCLOAK_CLIENT_SECRET
+fi
+
+# Deletes the temporary administrator, once the permanent client signs in. The
+# identity provider creates it only when the master realm does not exist, so it
+# is never made again; a run that finds it (the first one, or one that stopped
+# after creating the permanent client) deletes it, and a run that does not find it
+# changes nothing.
+forget_temporary_administrator() {
+    token=$(access_token "$configurator_client" "$configurator_secret")
+    [ -n "$token" ] || fail "the configurator's own client of the identity provider cannot sign in"
+    found=$(wget -q -O - --header "Authorization: Bearer $token" \
+        "$provider_address/admin/realms/master/clients?clientId=$bootstrap_client" | grep -o '"id":"[^"]*"' | head -n 1 | cut -d'"' -f4)
+    if [ -n "$found" ]; then
+        # No command of the image can send a DELETE but the shell and `nc`; the
+        # sleep keeps the connection open until the answer has come (HTTP/1.0).
+        answer=$({
+            printf 'DELETE /admin/realms/master/clients/%s HTTP/1.0\r\nHost: %s\r\nAuthorization: Bearer %s\r\n\r\n' \
+                "$found" "$provider_host" "$token"
+            sleep 3
+        } | nc "$provider_host" "$provider_port" | head -n 1)
+        case $answer in
+        *" 204"*) echo "configure: the temporary administrator of the identity provider is deleted" ;;
+        *) fail "the temporary administrator of the identity provider was not deleted: $answer" ;;
+        esac
+    fi
+    [ -z "$(access_token "$bootstrap_client" "$bootstrap_secret")" ] ||
+        fail "the temporary administrator of the identity provider still signs in"
+}
 
 database_host=${ANIMA_DATABASE_HOST:-/run/anima/pgsocket}
 # The superuser and the database it enters are facts of the declaration of the roles.
@@ -130,5 +192,7 @@ case $code in
     fail "plan failed (exit $code), nothing was applied"
     ;;
 esac
+
+forget_temporary_administrator
 
 echo "configure: done in $(($(date +%s) - started)) s"

@@ -851,6 +851,18 @@ package Anima {
             doc /* A renewal of the database server's certificate that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
             subject engine : Engine;
         }
+        requirement <'R116'> issuerIsTheConfiguredPublicUrl {
+            doc /* The issuer of a token shall be the configured public URL of the identity provider, whatever name the request used to reach it. */
+            subject engine : Engine;
+        }
+        requirement <'R117'> noTemporaryAdministratorRemains {
+            doc /* After the configurator has run, the identity provider shall hold no temporary administrator, user or service account, and the one it was started with shall not obtain a token. */
+            subject engine : Engine;
+        }
+        requirement <'R123'> identityProviderRunsInProductionMode {
+            doc /* The identity provider shall run in its production mode, with its state kept in its own database of the database server. */
+            subject engine : Engine;
+        }
         requirement <'R126'> entryTerminatesTlsWithEngineCertificate {
             doc /* The HTTP entry point shall terminate TLS with a certificate
                  * that the engine's certificate authority issued and that
@@ -1152,6 +1164,9 @@ package Anima {
     satisfy Runtime::encryptedConnectionsOnly by anima.engine;
     satisfy Runtime::certificateRenewedBeforeExpiry by anima.engine;
     satisfy Runtime::failedRenewalLeavesEngineNotReady by anima.engine;
+    satisfy Runtime::issuerIsTheConfiguredPublicUrl by anima.engine;
+    satisfy Runtime::noTemporaryAdministratorRemains by anima.engine;
+    satisfy Runtime::identityProviderRunsInProductionMode by anima.engine;
     satisfy Runtime::entryTerminatesTlsWithEngineCertificate by anima.engine.httpEntry;
     satisfy Runtime::entryTakesRenewedCertificateWithoutRestart by anima.engine.httpEntry;
     satisfy Runtime::entryForwardsOnlyDeclaredPrefixes by anima.engine.httpEntry;
@@ -1296,6 +1311,18 @@ package Anima {
         verification def test_R119_failed_renewal_leaves_engine_not_ready {
             subject sys : System;
             objective { verify Runtime::failedRenewalLeavesEngineNotReady; }
+        }
+        verification def test_R116_issuer_is_the_configured_public_url {
+            subject sys : System;
+            objective { verify Runtime::issuerIsTheConfiguredPublicUrl; }
+        }
+        verification def test_R117_no_temporary_administrator_remains {
+            subject sys : System;
+            objective { verify Runtime::noTemporaryAdministratorRemains; }
+        }
+        verification def test_R123_identity_provider_runs_in_production_mode {
+            subject sys : System;
+            objective { verify Runtime::identityProviderRunsInProductionMode; }
         }
         verification def test_R126_entry_terminates_tls_with_engine_certificate {
             subject sys : System;
