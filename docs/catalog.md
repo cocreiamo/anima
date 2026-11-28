@@ -127,10 +127,12 @@ Look here before building something. Each section is derived from its source; th
 | R83 | postmortem status agrees with guards | written |
 | R41 | probes and single readiness | written |
 | R66 | profile differs only in selection and data | pending |
+| R170 | promotion steps are tested commands | written |
 | R115 | publish only what was verified | written |
 | R16 | published images attested | pending |
 | R98 | readiness negative when configurator fails | written |
 | R145 | records made from shared template | written |
+| R171 | release commands decide as stated | written |
 | R24 | release only from verified commit | written |
 | R155 | release tool files not formatted and licensed | written |
 | R110 | releases stay patch only | written |
@@ -235,6 +237,15 @@ Look here before building something. Each section is derived from its source; th
 | `model:fetch` | Fetch the SysML v2 pilot implementation into the cache (idempotent, safe to run in parallel) and print its directory |
 | `pre-commit` | Git pre-commit hook: the fast checks |
 | `pre-push` | Git pre-push hook: every check |
+| `promote:archive` | Archive the engine image that passed the verification and print its id (image-id=<id>) |
+| `promote:green` | Move main-green to a commit that passed every verification (a fast-forward, never forced) |
+| `promote:load` | Load an archive and check that it holds the image that passed; print its reference (ref=<reference>) |
+| `promote:plan` | Decide whether the commit carries a version to publish: print version=<version> and publish=<true|false> |
+| `promote:publish` | Publish an image under its version unless the tag exists, never moving a tag; print reference=<repository>@<digest> and existing=<true|false> |
+| `promote:registry-digest` | Print the manifest digest that a registry holds for a tag |
+| `promote:release` | Release the version a verified commit carries, naming the image published for it |
+| `promote:tag-state` | Ask a registry whether an image tag exists: prints exists, absent or unknown (and fails on unknown) |
+| `promote:test` | Run the commands of the promotion against real podman and a throwaway local registry; extra arguments go to pytest |
 | `promote:verify` | Everything a commit of main must pass to be promoted to main-green |
 | `secrets:check` | Scan the repository for committed secrets |
 | `test` | Run the automated verifications (waits for a running format) |
@@ -318,8 +329,10 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
 - R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
-- R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R170, promotion steps are tested commands, at every commit: `test_R170_promotion_steps_are_calls_to_tested_commands` (written).
+- R115, publish only what was verified, at every commit: `test_R115_commands_run_through_mise` (written).
 - R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
+- R171, release commands decide as stated, at every commit: `test_R171_release_commands_decide_as_stated` (written).
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
 - R155, release tool files not formatted and licensed, at every commit: `test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).

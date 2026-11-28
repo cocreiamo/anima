@@ -29,7 +29,7 @@ jobs:
       contents: read
     env:
       # The paths that the engine image and its tests are made of.
-      RELEVANT: '^(engine/|third_party/|config/|tests/system/|mise-tasks/engine/|\.gitmodules$|components\.toml$|\.github/workflows/system-tests\.yml$)'
+      RELEVANT: '^(engine/|third_party/|config/|tests/system/|mise-tasks/engine/|mise-tasks/promote/|tests/promote/|\.gitmodules$|components\.toml$|\.github/workflows/(system-tests|promote)\.yml$)'
     steps:
       - id: changes
         name: Decide whether the change touches the engine
@@ -89,6 +89,13 @@ jobs:
           # `podman save` refuses to write over an existing archive, and a new one
           # is saved when the key does not hold the current images.
           rm -f ~/engine-cache/images.tar
+
+      # The commands that the promotion workflow calls, run against real podman
+      # and a throwaway registry (R170, R171, PM-014); they pull small images
+      # and never touch the engine image.
+      - name: Run the commands of the promotion
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run promote:test
 
       - name: Build the engine image
         if: steps.changes.outputs.relevant == 'true'

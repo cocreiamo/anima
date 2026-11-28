@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Run the commands of the promotion against real podman and a throwaway local registry; extra arguments go to pytest"
+#
+# Needs podman, the pinned registry, skopeo and alpine images, and no network
+# beyond pulling them. Not part of `mise run check`: the tests start containers.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+ANIMA_PROMOTE_TESTS=1 exec uv run --locked pytest tests/promote "$@"

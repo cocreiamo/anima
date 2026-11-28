@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#MISE description="Archive the engine image that passed the verification and print its id (image-id=<id>)"
+#
+# Usage: mise run promote:archive <archive file>
+#
+# The image is the one recorded by `engine:image` in $ANIMA_ENGINE_CACHE
+# (default .cache/engine: engine.ref and engine.id). The archive holds that one
+# image, with its name, in the format `podman save` writes by default; its id,
+# the digest of its configuration, survives `podman save` and `podman load`
+# (the digest of its manifest does not: PM-014). Only the line `image-id=<id>`
+# goes to standard output, so that a workflow can append it to its outputs.
+set -euo pipefail
+
+archive="${1:?usage: promote:archive <archive file>}"
+cache="${ANIMA_ENGINE_CACHE:-${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/.cache/engine}"
+
+ref="$(cat "$cache/engine.ref")"
+id="$(cat "$cache/engine.id")"
+actual="$(podman image inspect --format '{{.Id}}' "$ref")"
+if [ "$actual" != "$id" ]; then
+  echo "$ref is $actual, not the image that was verified ($id)." >&2
+  exit 1
+fi
+podman save --output "$archive" "$ref" >&2
+echo "image-id=$id"
