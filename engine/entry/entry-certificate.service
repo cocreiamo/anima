@@ -1,0 +1,17 @@
+[Unit]
+Description=Anima HTTP entry point: its certificate, issued once by the engine's certificate authority
+# Issued by the secret store (its certificate authority), so after it is healthy;
+# the entry waits for it. This is the first build of the entry: no renewal yet (TASK-87).
+Requires=secrets.service
+After=secrets.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/anima/entry-certificate
+TimeoutStartSec=120
+# The statements are repeatable; tried again for as long as the secret store is not
+# ready to sign, and the readiness target says why the engine is not ready.
+Restart=on-failure
+RestartSec=3

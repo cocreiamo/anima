@@ -17,10 +17,11 @@ UNITS = {
     "database-prepare": ROOT / "engine/database/database-prepare.container",
     "access": ROOT / "engine/access/access.container",
     "secrets": ROOT / "engine/secrets/secrets.container",
+    "entry": ROOT / "engine/entry/entry.container",
 }
 # Containers that keep running and so carry the three checks (the others run to
 # completion and are waited for by systemd).
-SERVING = ["database", "access", "secrets"]
+SERVING = ["database", "access", "secrets", "entry"]
 
 
 def submodule_commit(path: str) -> str:
@@ -212,7 +213,7 @@ def test_R29_depends_only_on_container_engine(engine):
 
 
 def test_R30_nothing_reachable_by_default(engine):
-    """Only the two declared ports are published, and only on the loopback."""
+    """Only the two declared ports (the database server and the entry) are published, and only on the loopback."""
     out = subprocess.run(
         [
             "podman",
@@ -231,7 +232,7 @@ def test_R30_nothing_reachable_by_default(engine):
         for port, bindings in ports.items()
         if bindings
     }
-    assert set(published) == {"5432/tcp", "8080/tcp"}, published
+    assert set(published) == {"5432/tcp", "8443/tcp"}, published
     for port, addresses in published.items():
         assert addresses == ["127.0.0.1"], (port, addresses)
 

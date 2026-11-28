@@ -314,6 +314,14 @@ def test_R30_listen_address_follows_the_way_of_starting(engine, tmp_path):
     Unverified: the units of the booted case were never started on a booted machine."""
     code, out = engine.exec("cat", "/run/anima/listen/database.conf")
     assert code == 0 and out.strip() == "listen_addresses = '*'", out
+    # The entry follows the way of starting; the identity provider never does:
+    # it listens on the loopback of the pod, whatever the way (R135).
+    code, out = engine.exec("cat", "/run/anima/listen/entry.env")
+    assert code == 0 and "Kestrel__Endpoints__Https__Url=https://0.0.0.0:8443" in out, (
+        out
+    )
+    code, out = engine.exec("cat", "/run/anima/listen/access.env")
+    assert code == 0 and out.strip() == "KC_HTTP_HOST=127.0.0.1", out
     assert engine.active("anima-listen-container.service")
     assert not engine.active("anima-listen-host.service")
     # The condition that selects the unit is the one systemd evaluates here.
@@ -332,7 +340,7 @@ def test_R30_listen_address_follows_the_way_of_starting(engine, tmp_path):
     script = (
         "set -e; d=$(mktemp -d); printf '192.0.2.7\\n' >$d/address; "
         "ANIMA_LISTEN_DIR=$d ANIMA_LISTEN_ADDRESS_FILE=$d/address /usr/libexec/anima/listen host; "
-        "cat $d/database.conf $d/access.env; "
+        "cat $d/database.conf $d/access.env $d/entry.env; "
         "printf 'x; drop\\n' >$d/address; "
         "if ANIMA_LISTEN_DIR=$d/b ANIMA_LISTEN_ADDRESS_FILE=$d/address /usr/libexec/anima/listen host; "
         "then echo ACCEPTED; else echo REFUSED; fi; "
@@ -341,9 +349,10 @@ def test_R30_listen_address_follows_the_way_of_starting(engine, tmp_path):
     )
     code, out = engine.exec("bash", "-c", script)
     assert code == 0, out
-    assert (
-        "listen_addresses = '192.0.2.7'" in out and "KC_HTTP_HOST=192.0.2.7" in out
-    ), out
+    assert "listen_addresses = '192.0.2.7'" in out, out
+    assert "KC_HTTP_HOST=127.0.0.1" in out and "KC_HTTP_HOST=192.0.2.7" not in out, out
+    assert "Kestrel__Endpoints__Https__Url=https://192.0.2.7:8443" in out, out
+    assert "ANIMA_ENTRY_HOST=192.0.2.7" in out, out
     assert "REFUSED" in out and "ACCEPTED" not in out, out
     assert "listen_addresses = '127.0.0.1'" in out, out
 

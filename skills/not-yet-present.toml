@@ -10,4 +10,7 @@ paths = [
   "third_party/terraform-provider-postgresql/**",
   "third_party/terraform-provider-vault/**",
   "third_party/terraform-provider-keycloak/**",
+  # What an installation declares about the HTTP entry point (ADR 0008): decided,
+  # and nothing is declared yet (the certificate choice is TASK-89).
+  "config/entry/**",
 ]

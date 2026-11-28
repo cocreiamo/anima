@@ -1,0 +1,50 @@
+# The HTTP entry point (ADR 0008): the host program of engine/entry/ on the .NET
+# runtime of the distribution's packages, with the forwarding library from its
+# package.
+#
+# Build context: the repository root (`mise run engine:build entry`).
+#
+# Where the software comes from, and the exceptions (GAP-057): the .NET runtime
+# and SDK are the distribution's packages, pinned by version (the distribution
+# builds .NET from source); the library, Yarp.ReverseProxy, is its NuGet package,
+# pinned by version and by the SHA-256 of the package file, which this build
+# checks before it uses the file, and by the content hash of every package in
+# packages.lock.json, which a locked restore checks. A package or a hash that
+# differs fails the build. The same pins are in components.toml; a test compares.
+#
+# The base is the distribution's minimal image, pinned by the digest of its image
+# index (the manifest list; checked at the registry on 2026-11-28).
+
+ARG BASE=quay.io/fedora/fedora-minimal:45@sha256:7c06ebfe11ce10d5f3df9b901ff03627981d15c7168e0a4988f56dab481160e8
+
+FROM ${BASE} AS build
+ARG DOTNET_SDK=dotnet-sdk-10.0-10.0.115
+ARG YARP_VERSION=2.3.0
+ARG YARP_SHA256=ff12ef5f9c46c3f3e815575a45b7598c68043b9eb101a9aab18ed3bd8c025a24
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+RUN microdnf install -y --setopt=install_weak_deps=0 ${DOTNET_SDK} curl-minimal && microdnf clean all
+RUN mkdir /feed \
+ && curl --fail --silent --show-error --location --output /feed/yarp.reverseproxy.${YARP_VERSION}.nupkg \
+      https://api.nuget.org/v3-flatcontainer/yarp.reverseproxy/${YARP_VERSION}/yarp.reverseproxy.${YARP_VERSION}.nupkg \
+ && echo "${YARP_SHA256}  /feed/yarp.reverseproxy.${YARP_VERSION}.nupkg" | sha256sum --check -
+WORKDIR /src
+COPY engine/entry/Entry.csproj engine/entry/packages.lock.json engine/entry/nuget.config ./
+RUN dotnet restore --locked-mode
+COPY engine/entry/Program.cs engine/entry/appsettings.json ./
+RUN dotnet publish --no-restore --configuration Release --output /out -p:UseAppHost=false
+
+FROM ${BASE} AS server
+ARG DOTNET_RUNTIME=aspnetcore-runtime-10.0-10.0.15
+RUN microdnf install -y --setopt=install_weak_deps=0 ${DOTNET_RUNTIME} && microdnf clean all
+COPY --from=build /out /app
+COPY --chmod=555 engine/entry/entry-check /usr/local/bin/entry-check
+LABEL org.anima.capability="entry" \
+      org.opencontainers.image.title="anima http entry point" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+# No diagnostics pipes, no telemetry, no write outside /tmp.
+ENV DOTNET_EnableDiagnostics=0 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+    DOTNET_gcServer=0 HOME=/tmp
+WORKDIR /app
+USER 1011:1011
+EXPOSE 8443
+ENTRYPOINT ["/usr/bin/dotnet", "/app/entry.dll"]

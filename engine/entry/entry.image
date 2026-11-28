@@ -1,0 +1,9 @@
+[Unit]
+Description=Anima HTTP entry point image, loaded from the archive in the engine image
+
+[Image]
+Image=oci-archive:/usr/lib/anima/images/entry.tar
+ImageTag=localhost/anima/entry:engine
+
+[Service]
+TimeoutStartSec=300
