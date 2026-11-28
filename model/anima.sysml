@@ -483,6 +483,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R110'> releasesStayPatchOnly {
+            doc /* The release configuration shall make the first release 0.0.1 and every later release a patch bump, whatever the type of the commits, until the decision to leave the 0.0 series is taken. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R107'> bareInterpreterRefused {
             doc /* The agent settings shall refuse a command that starts a bare Python interpreter, and shall not refuse one that starts through the task runner. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1462,6 +1467,10 @@ package Anima {
         verification def test_R108_export_runs_once_for_one_input {
             subject tools : Toolchain;
             objective { verify Day0::checksPassFromEmptyCache; }
+        }
+        verification def test_R110_releases_stay_patch_only {
+            subject tools : Toolchain;
+            objective { verify Day0::releasesStayPatchOnly; }
         }
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;

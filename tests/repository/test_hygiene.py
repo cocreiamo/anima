@@ -1,9 +1,10 @@
 """What the repository's tools must not leave behind: a dirty fork, a file outside
-the cache, bytecode beside the source. R89 to R91 and R108; each carries the postmortem
+the cache, bytecode beside the source. R89 to R91, R108 and R110; each carries the postmortem
 that records the event it guards (PM-002, PM-003, PM-004).
 """
 
 import hashlib
+import json
 import os
 import subprocess
 import zipfile
@@ -313,3 +314,43 @@ def test_R108_export_runs_once_for_one_input_detects_violation(tmp_path):
     export, env, model, runs = fake_export_root(tmp_path, unlocked)
     run_exports(export, env, model, 6)
     assert len(runs.read_text().splitlines()) > 1
+
+
+# ---- R110: releases stay patch-only until the founder decides otherwise ---------------------
+
+RELEASE_CONFIG = ROOT / ".github" / "release-please-config.json"
+
+
+def release_faults(config):
+    """What in a release-please configuration would let a version leave the 0.0
+    series: the first release is not 0.0.1, a later one is not always a patch
+    bump, or a setting pins or relaxes the bump."""
+    faults = []
+    if config.get("initial-version") != "0.0.1":
+        faults.append("initial-version is not 0.0.1")
+    if config.get("versioning") != "always-bump-patch":
+        faults.append("versioning is not always-bump-patch")
+    for key in ("release-as", "bump-minor-pre-major", "bump-patch-for-minor-pre-major"):
+        if key in config:
+            faults.append(f"{key} is set")
+    for package in config.get("packages", {}).values():
+        if any(k in package for k in ("release-as", "initial-version", "versioning")):
+            faults.append("a package overrides the versioning")
+    return faults
+
+
+def test_R110_releases_stay_patch_only():
+    """Proves the configuration file keeps the first release at 0.0.1 and the
+    strategy at always-bump-patch. It reads the file; that release-please obeys
+    it is shown only by the release pull request it opens."""
+    assert release_faults(json.loads(RELEASE_CONFIG.read_text())) == []
+
+
+def test_R110_releases_stay_patch_only_detects_violation():
+    good = json.loads(RELEASE_CONFIG.read_text())
+    assert release_faults(good) == []
+    assert release_faults({**good, "initial-version": "1.0.0"})
+    assert release_faults({k: v for k, v in good.items() if k != "versioning"})
+    assert release_faults({**good, "versioning": "default"})
+    assert release_faults({**good, "release-as": "0.0.1"})
+    assert release_faults({**good, "packages": {".": {"versioning": "default"}}})
