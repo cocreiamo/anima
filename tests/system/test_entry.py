@@ -326,8 +326,9 @@ class EngineEntry:
         self.port = int(engine.container.get_exposed_port(ENTRY_PORT))
         code, authority = engine.exec("cat", f"{CERTIFICATE_DIRECTORY}/ca.crt")
         assert code == 0 and "BEGIN CERTIFICATE" in authority, authority
-        self.context = ssl.create_default_context(cadata=authority)
-        self.context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context = ssl.create_default_context(cadata=authority)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        self.context = context
         self.authority = authority
 
     def connect(self) -> ssl.SSLSocket:
