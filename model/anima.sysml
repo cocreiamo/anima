@@ -360,6 +360,26 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R120'> updateBotFollowsConfiguratorReleases {
+            doc /* The configuration of the update bot shall make the exact version constraint of the configurator in its declarations follow the releases of the configurator and no other tool's, with its exact pin kept. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R121'> updateBotFollowsTaskRunnerEverywhere {
+            doc /* The configuration of the update bot shall find the version of the task runner in every file that pins it and shall update them together. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R122'> updateBotIgnoresBuildContexts {
+            doc /* The configuration of the update bot shall not take for an image of a registry a name that a container file copies from and that is given at build time. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R124'> updateBotKeepsJdkOnLtsLine {
+            doc /* The configuration of the update bot shall propose no version of the Java toolchain image that builds the identity provider beyond the long-term-support line of its register entry. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R71'> everyTestVerifiesRequirement {
             doc /* Every automated check of the repository shall verify a requirement of the model or be the negative case of one. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1547,6 +1567,22 @@ package Anima {
         verification def test_R113_data_files_read_with_a_yaml_library {
             subject tools : Toolchain;
             objective { verify Day0::dataFilesReadWithYamlLibrary; }
+        }
+        verification def test_R120_update_bot_follows_the_configurators_releases {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotFollowsConfiguratorReleases; }
+        }
+        verification def test_R121_update_bot_follows_the_task_runner_everywhere {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotFollowsTaskRunnerEverywhere; }
+        }
+        verification def test_R122_update_bot_ignores_build_contexts {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotIgnoresBuildContexts; }
+        }
+        verification def test_R124_update_bot_keeps_the_jdk_on_its_lts_line {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotKeepsJdkOnLtsLine; }
         }
         verification def test_R99_image_tag_depends_on_every_input {
             subject tools : Toolchain;
