@@ -326,22 +326,36 @@ def line_problems(config, image, current, newer, older):
 
 
 def test_R124_update_bot_keeps_the_jdk_on_its_lts_line():
-    (entry,) = [t for t in tool_images() if t["name"] == "eclipse-temurin"]
-    major = entry["version"].split("-")[0]
-    assert major == "21", "the LTS line of the register changed: decide, then edit"
+    (entry,) = [t for t in tool_images() if t["name"] == "maven"]
+    assert entry["version"].endswith("-eclipse-temurin-21"), (
+        "the LTS line of the register changed: decide, then edit"
+    )
     assert not line_problems(
         renovate_config(),
         entry["image"],
         entry["version"],
-        newer=["22-jdk", "25-jdk", "27-jdk", "27.0.1_9-jdk"],
-        older=["21.0.9_10-jdk", "21-jdk-noble"],
+        newer=[
+            "3.9.16-eclipse-temurin-25",
+            "3.9.17-eclipse-temurin-25",
+            "3.9.16-eclipse-temurin-210",
+            "3.9.16-eclipse-temurin-21-alpine",
+        ],
+        older=["3.9.17-eclipse-temurin-21", "4.0.0-eclipse-temurin-21"],
     )
 
 
 def test_R124_update_bot_keeps_the_jdk_on_its_lts_line_detects_violation():
     jdk = "registry" + ".example/jdk"  # put together: no reference in this file
-    rule = {"matchPackageNames": [jdk], "allowedVersions": "/^21([.-]|$)/"}
-    args = (jdk, "21-jdk", ["22-jdk", "210-jdk"], ["21.0.1_1-jdk"])
+    rule = {
+        "matchPackageNames": [jdk],
+        "allowedVersions": "/^[0-9.]+-eclipse-temurin-21$/",
+    }
+    args = (
+        jdk,
+        "3.9.16-eclipse-temurin-21",
+        ["3.9.16-eclipse-temurin-25", "3.9.16-eclipse-temurin-210"],
+        ["3.9.17-eclipse-temurin-21"],
+    )
     assert line_problems({"packageRules": [rule]}, *args) == []
     # no rule, a rule for another image, a rule that allows the next line
     assert line_problems({}, *args)

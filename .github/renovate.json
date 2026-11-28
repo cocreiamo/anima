@@ -59,9 +59,9 @@
             "groupName": "mise"
         },
         {
-            "description": "The JDK that builds the identity provider stays on its long-term-support line (21): no proposal of a later major",
-            "matchPackageNames": ["docker.io/library/eclipse-temurin"],
-            "allowedVersions": "/^21([.-]|$)/"
+            "description": "The Maven image that builds the identity provider stays on the long-term-support line of the JDK (21): no proposal of a later major",
+            "matchPackageNames": ["docker.io/library/maven"],
+            "allowedVersions": "/^[0-9.]+-eclipse-temurin-21$/"
         },
         {
             "description": "Names given at build time (--build-context) to the pinned sources, not images of a registry",

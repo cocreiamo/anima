@@ -396,7 +396,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R124'> updateBotKeepsJdkOnLtsLine {
-            doc /* The configuration of the update bot shall propose no version of the Java toolchain image that builds the identity provider beyond the long-term-support line of its register entry. */
+            doc /* The configuration of the update bot shall propose no version of the builder image, Maven with its Java toolchain, that builds the identity provider beyond the long-term-support line of its register entry. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -561,6 +561,16 @@ package Anima {
         }
         requirement <'R164'> everyBuildPullsFromTheMirror {
             doc /* Every container image that a build of the engine pulls, and every image that the register of components lists, shall be referenced through the mirror and by the digest that the mirror holds, so that a digest that its upstream registry deletes does not break a build. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R165'> identityProviderBuildDownloadsNoBuildTool {
+            doc /* The build of the identity provider shall run the build tool that its pinned builder image already holds, at the version that the source's own wrapper names, and shall download no build tool, no archive of one and no wrapper at build time, so that a failure of a download site cannot fail the build before it starts. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R166'> identityProviderBuildRetriesDownloadsBounded {
+            doc /* The build of the identity provider shall retry each dependency download that it makes a bounded number of times, through the retry settings that its build tool documents, and not through a loop around the whole build, so that a brief failure of a package registry does not fail the build. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1126,6 +1136,8 @@ package Anima {
     satisfy Day0::mirrorNeverDeletesOrMovesATag by toolchain;
     satisfy Day0::mirrorHasLeastPrivilege by toolchain;
     satisfy Day0::everyBuildPullsFromTheMirror by toolchain;
+    satisfy Day0::identityProviderBuildDownloadsNoBuildTool by toolchain;
+    satisfy Day0::identityProviderBuildRetriesDownloadsBounded by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::recordsMadeFromSharedTemplate by toolchain;
@@ -1779,6 +1791,18 @@ package Anima {
         verification def test_R164_every_build_pulls_from_the_mirror {
             subject tools : Toolchain;
             objective { verify Day0::everyBuildPullsFromTheMirror; }
+        }
+        verification def test_R165_build_downloads_no_build_tool {
+            subject tools : Toolchain;
+            objective { verify Day0::identityProviderBuildDownloadsNoBuildTool; }
+        }
+        verification def test_R165_maven_version_equals_the_forks_wrapper {
+            subject tools : Toolchain;
+            objective { verify Day0::identityProviderBuildDownloadsNoBuildTool; }
+        }
+        verification def test_R166_build_retries_downloads_bounded {
+            subject tools : Toolchain;
+            objective { verify Day0::identityProviderBuildRetriesDownloadsBounded; }
         }
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;

@@ -45,7 +45,7 @@ Steps, in order. Each is its own change; this task stays open until L3.
 
 1. Mirror the base images: the workflow that copies every image of the register into the organization's mirror, with the digest preserved (R160 to R163, GAP-060). Done by the change that introduced it; it has not run yet and its packages are not published.
 2. Switch the builds to the mirror (TASK-96, R164): the container files, the register and the update bot point to it. Needs the founder's decision on the visibility of the mirror's packages and one run of the workflow.
-3. Distribute the identity provider from a builder image that we pin, instead of the wrapper's download with bounded retries.
+3. Distribute the identity provider from a builder image that we pin, instead of the wrapper's download with bounded retries. Done (PM-014, R165, R166): the builder is the pinned Maven image, `mvn` replaces the wrapper, the resolver's retry settings bound the dependency downloads. What remains of the identity provider's build is step 5: the dependency graph, Node, pnpm and npm packages are still fetched at build time.
 4. Take the distribution packages of every inner image from a dated snapshot of the distribution's archive (snapshot pins), instead of whatever the archive serves that day.
 5. Offline dependency caches: the Java, JavaScript and Go dependencies of the builds are fetched once, by hash, into a cache we hold, and the builds read only it.
 6. L3: build twice, compare, remove what differs (timestamps, ordering, build identifiers), and write test_R47_builds_reproducible.
