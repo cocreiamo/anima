@@ -12,6 +12,7 @@ import shutil
 
 import checks
 import pytest
+import yaml
 from support import CONFIGURE, IDENTITIES, ROOT, passed
 
 
@@ -37,7 +38,6 @@ def allowed_roles():
 # ---- The reader of the data files ------------------------------------------------
 
 
-# Tests a helper that a backlog task (TASK-72) replaces with an adopted library.
 def test_data_reader_reads_the_declaration_of_roles():
     data = fixed()
     assert data["superuser"] == "postgres"
@@ -50,6 +50,120 @@ def test_data_reader_reads_the_declaration_of_roles():
         "readonly",
         "readwrite",
     ]
+
+
+def read_text(tmp_path, text):
+    path = tmp_path / "data.yaml"
+    path.write_text(text)
+    return checks.read_yaml_file(path)
+
+
+def test_data_reader_reads_the_identities_of_the_example(tmp_path):
+    data = example_identities()
+    assert [p["name"] for p in data["people"]] == ["alice", "carol"]
+    assert data["people"][0]["roles"] == ["admin", "monitor"]
+    assert data["applications"] == [{"name": "reporting", "roles": ["readonly"]}]
+    assert read_text(tmp_path, "# only a comment\n") in ({}, None)
+
+
+def test_data_reader_reads_what_a_real_parser_reads(tmp_path):
+    """The cases that a reader of a subset of the language gets wrong."""
+    document = read_text(
+        tmp_path,
+        'quoted: "a # b: c"\n'
+        "single: 'it''s'\n"
+        'listed: ["x,y", z]\n'
+        "inline: {a: 1, b: [2, 3]}\n"
+        "number: 1.5\n"
+        "nothing: ~\n"
+        "text: |\n"
+        "  first\n"
+        "  # not a comment\n"
+        "  second\n"
+        "base: &base\n"
+        "  kind: token\n"
+        "copy:\n"
+        "  <<: *base\n"
+        "  extra: true\n",
+    )
+    assert document["quoted"] == "a # b: c"
+    assert document["single"] == "it's"
+    assert document["listed"] == ["x,y", "z"]
+    assert document["inline"] == {"a": 1, "b": [2, 3]}
+    assert document["number"] == 1.5
+    assert document["nothing"] is None
+    assert document["text"] == "first\n# not a comment\nsecond\n"
+    assert document["copy"] == {"kind": "token", "extra": True}
+
+
+def test_data_reader_refuses_a_malformed_file(tmp_path):
+    with pytest.raises(yaml.YAMLError):
+        read_text(tmp_path, "roles: [unclosed\nother: 1\n")
+
+
+def test_data_reader_refuses_a_duplicated_key(tmp_path):
+    """A key stated twice is not read as last-one-wins: a file of identities that declares
+    one twice is refused, with the position of the second."""
+    with pytest.raises(yaml.YAMLError, match=r"line 3"):
+        read_text(tmp_path, "roles:\n  admin: 1\n  admin: 2\n")
+    with pytest.raises(yaml.YAMLError, match=r"duplicate"):
+        read_text(tmp_path, "people:\n  - name: a\n    name: b\n")
+
+
+def test_data_reader_reads_only_true_and_false_as_booleans(tmp_path):
+    """A name such as `no`, `on` or `off` stays text; it is not one of the booleans of YAML 1.1."""
+    document = read_text(
+        tmp_path,
+        "no: [on, off, yes]\nflag: true\nother: false\nname: no\n",
+    )
+    assert document == {
+        "no": ["on", "off", "yes"],
+        "flag": True,
+        "other": False,
+        "name": "no",
+    }
+
+
+# The library is imported by the module and no reader of YAML is written in it.
+HAND_WRITTEN_READER = ("read_yaml", "_scalar", "_logical_lines", "_block")
+
+
+def reader_faults(source):
+    """What is wrong with how a module reads its data files, from its source."""
+    import ast
+
+    tree = ast.parse(source)
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    faults = []
+    if "yaml" not in imported:
+        faults.append("the module does not import a YAML library")
+    faults += [
+        f"the module defines `{name}`, a hand-written reader"
+        for name in HAND_WRITTEN_READER
+        if name in defined
+    ]
+    return faults
+
+
+def test_R113_data_files_read_with_a_yaml_library():
+    assert reader_faults((CONFIGURE / "checks.py").read_text()) == []
+
+
+def test_R113_data_files_read_with_a_yaml_library_detects_violation():
+    assert reader_faults("def read_yaml(text):\n    return {}\n") == [
+        "the module does not import a YAML library",
+        "the module defines `read_yaml`, a hand-written reader",
+    ]
+    assert reader_faults("import yaml\n\ndef _scalar(t):\n    return t\n") == [
+        "the module defines `_scalar`, a hand-written reader"
+    ]
+    assert reader_faults("import yaml\n") == []
 
 
 # ---- R22, R6, R63, R100: the identities the adopter declares -----------------------
