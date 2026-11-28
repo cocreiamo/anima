@@ -332,7 +332,6 @@ def skills_index(all_skills, not_yet):
             "shown.\n"
         ),
     ]
-    total = sum(s.unverified for s in all_skills)
     for family in FAMILIES:
         members = [s for s in all_skills if s.family == family]
         out.append(f"## {family.capitalize()} skills\n")
@@ -344,7 +343,6 @@ def skills_index(all_skills, not_yet):
             )
             + "\n"
         )
-    out.append(f"Unverified rules in all skills: {total}.\n")
     out.append(
         "Globs of `paths` that match nothing yet, listed in "
         "`not-yet-present.toml` and in no other place: "
@@ -594,6 +592,19 @@ def port_rows(model):
     return sorted(rows)
 
 
+def requirement_row_order(row):
+    """Rows by name, then id. Not by id: a new requirement takes the next id, so
+    two branches that each add one would insert at the same place, the end, and
+    conflict. By name they insert where their names fall (R150)."""
+    return row[1], [int(n) for n in re.findall(r"\d+", row[0])]
+
+
+def requirements_table(rows):
+    return "| Id | Name | Verification |\n| --- | --- | --- |\n" + "\n".join(
+        f"| {a} | {b} | {c} |" for a, b, c in rows
+    )
+
+
 def requirement_rows(model, tests):
     import sysml_model as m
 
@@ -616,7 +627,7 @@ def requirement_rows(model, tests):
                 state,
             ]
         )
-    return sorted(rows, key=lambda r: [int(n) for n in re.findall(r"\d+", r[0])])
+    return sorted(rows, key=requirement_row_order)
 
 
 def tool_names(root=ROOT):
@@ -660,18 +671,15 @@ def catalog(
         (
             "Look here before building something. Each section is derived from its "
             "source; the words that help to find an entry are in "
-            "`docs/catalog-synonyms.toml`.\n"
+            "`docs/catalog-synonyms.toml`. Requirements and fitness functions are "
+            "listed by name, not by id (R150).\n"
         ),
         "## Ports, their default adapter and their stand-in\n",
         "| Port | Default adapter | Alternatives |\n| --- | --- | --- |\n"
         + "\n".join(f"| {a} | {b} | {c} |" for a, b, c in port_rows(model))
         + "\n",
         "## Requirements and their verification\n",
-        "| Id | Name | Verification |\n| --- | --- | --- |\n"
-        + "\n".join(
-            f"| {a} | {b} | {c} |" for a, b, c in requirement_rows(model, tests)
-        )
-        + "\n",
+        requirements_table(requirement_rows(model, tests)) + "\n",
         "## Components\n",
         "| Component | Role |\n| --- | --- |\n"
         + "\n".join(f"| {c['name']} | {c['role']} |" for c in components)
