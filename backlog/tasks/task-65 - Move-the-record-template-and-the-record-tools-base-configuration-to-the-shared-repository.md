@@ -69,7 +69,7 @@ Task: TASK-65. Role: implementer. Date: 2026-11-28.
 ### Done
 
 - The record template moved: `templates/adr-madr.md` in the shared repository (cocreiamo/.github#3), with its requirement R14. `adrs.toml` names it as `custom = "shared/templates/adr-madr.md"`; R145 and its test and companion are in `model/anima.sysml` and `tests/repository/test_records.py` (acceptance 1).
-- The base configuration did not move, because the record tool cannot inherit one: `crates/adrs-core/src/config.rs` of adrs 0.13.0 has no `extends` key, and a configuration named by `ADRS_CONFIG` takes its own directory as the root, so a shared file would resolve `adr_dir` inside `shared/`. `adrs.toml` stays whole here. Tried in a scratch directory on 2026-11-28: the custom template is used, and a template without `number` gives a record the tool does not list and no error.
+- The base configuration did not move, because the record tool cannot inherit one: `crates/adrs-core/src/config.rs` of the pinned tool has no `extends` key, and a configuration named by `ADRS_CONFIG` takes its own directory as the root, so a shared file would resolve `adr_dir` inside `shared/`. `adrs.toml` stays whole here. Tried in a scratch directory on 2026-11-28: the custom template is used, and a template without `number` gives a record the tool does not list and no error.
 - The check job reads `shared/`: the shared `check.yml` has a `submodule-paths` input (cocreiamo/.github#4) and `ci.yml` passes `shared` and pins that commit.
 - Skills `anima-tech-adrs-madr` (rule 5) and `anima-writing-a-decision-record` (rule 4) say what the tool shares and that `category` and `decision-makers` are added by hand (R93 is not weakened).
 
