@@ -86,7 +86,7 @@ build_secrets() {
     # The Go modules are fetched once per commit of the fork into an image of their
     # own (stage `dependencies`), tagged from the commit, the fork's go.mod and go.sum
     # and the container file; the build of the secret store reads only that image
-    # and runs its compile stages with the network off (R167).
+    # and runs its compile stages with the network off (R178).
     local extra="third_party/openbao/go.mod third_party/openbao/go.sum"
     printf '%s\n' "$bao" | ANIMA_TAG_EXTRA="$extra" build secrets-dependencies engine/secrets/Containerfile dependencies \
         --build-context "openbao=third_party/openbao" \

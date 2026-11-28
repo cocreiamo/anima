@@ -1,4 +1,4 @@
-"""The secret store builds with the network off, and a missing dependency is named. R168 (TASK-43).
+"""The secret store builds with the network off, and a missing dependency is named. R179 (TASK-43).
 
 These tests build (the stages are cached by `mise run engine:build`, which the
 system tests run first, so the build of a stage that did not change costs
@@ -67,7 +67,7 @@ def temporary_images():
     podman("image", "prune", "--force", check=False)
 
 
-def test_R168_offline_build_succeeds_and_names_what_is_missing(
+def test_R179_offline_build_succeeds_and_names_what_is_missing(
     tmp_path, temporary_images
 ):
     """The dependencies image is enough: the stage that verifies the modules and
@@ -91,7 +91,7 @@ def test_R168_offline_build_succeeds_and_names_what_is_missing(
     assert built.returncode == 0, built.stderr[-2000:]
 
 
-def test_R168_offline_build_succeeds_and_names_what_is_missing_detects_violation(
+def test_R179_offline_build_succeeds_and_names_what_is_missing_detects_violation(
     tmp_path, temporary_images
 ):
     """A dependencies image without one module fails the compile stage, and the error

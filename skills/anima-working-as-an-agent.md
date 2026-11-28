@@ -31,7 +31,7 @@ behaves is `anima-tech-backlog-md`; what a record of architecture is,
 
 ## Rules
 
-1. **The pipeline is task, brief, implementation, review, checks, promotion.** The coordinator takes a task from the backlog, writes the brief, hands it to one role; the implementer builds it with its tests; a reviewer with a fresh context judges it against `docs/work/review-checklist.md`; `mise run check` passes; the change is promoted by the founder through a pull request (`anima-branching-and-releasing`). A spike runs outside this line, only while a decision is open.
+1. **The pipeline is task, brief, implementation, review, checks, promotion.** The coordinator takes a task from the backlog, writes the brief, hands it to one role; the implementer builds it with its tests; a reviewer with a fresh context judges it against `docs/work/review-checklist.md`; `mise run check` passes; the change is promoted by the founder through a pull request (`anima-branching-and-releasing`). A spike runs outside this line, only while a decision is open (rule 19).
 2. **Work to do is a task of the backlog,** one file in `backlog/tasks/` made with the backlog tool and addressed by its id (`TASK-<n>`). It holds what and why, acceptance, the brief and, when done, the report (`docs/work/task-template.md`). Not: issues on the hosting platform only (they carry no acceptance, brief or report and are not in the repository); a hand-written list (nothing checks it); one growing execution log (it becomes unreadable and nothing ties an entry to its checks).
 3. **Acceptance is a list of verification names,** `test_R<id>_<what>` from `model/anima.sysml`; the task is done when those tests exist and pass. A task that is not about a requirement states an explicit `Check:` line. Every open gap has a task that names it, and a task labelled `upstream` names an existing gap and, in `fork`, the fork it goes through (R79, R80).
 4. **A role is a neutral file in `agents/`** with `name`, `description`, `tier`, `model_tier` (`top` or `standard`), `may` and `may_not`; the vendor file `.claude/agents/<name>.md` is generated from it, with the model and the tools the tier and `may` allow (R77, R78). Not: roles and the choice of model kept in a session's memory or in prose; they were reversed twice in an earlier project and cannot be checked.
@@ -49,6 +49,7 @@ behaves is `anima-tech-backlog-md`; what a record of architecture is,
 16. **Nothing is checked outside the model:** every check of the repository is a requirement marked as a fitness function with its trigger, a test named like its verification and a `_detects_violation` companion; every limit is a threshold of the model (R71, R68).
 17. Unverified: **the agent settings and the path rules are effective.** They are written from the vendor's documentation (read, not observed): that a deny rule anchored with `/` matches in a worktree session, that `Edit` rules cover the `Write` tool, that the hook's `additionalContext` reaches the agent, that a failing hook stays non-blocking, and that a rule loads when a matching file is read.
 18. Unverified: **the agent layer changes what an agent does.** An earlier project's behaviour evaluation showed no difference with and without its layer, which is why rules are enforced by tests wherever possible; this evaluation is specified (`docs/evaluation/scenarios.md`, R88 pending) and has no runner.
+19. **Decide at once from what is known; the unknown becomes the first test of the task. A spike is kept only when its answer changes which option is chosen and cannot be obtained by a test inside the task.** It follows that: (a) a proposal to the founder has one recommendation and names what is known and what is not; (b) the first acceptance check of a task whose design rests on an unknown is the test that resolves it, written before anything is built, and the brief lists each unknown with that test (`docs/work/brief-template.md`); (c) when its result changes the plan, the implementer stops, reports the unknown, the result and the new plan in the hand-back, and the coordinator takes the changed plan to the founder before building on; (d) a spike's brief states in one line why a test inside the task cannot answer the question (R167); (e) investigating the root cause of a failure that already happened is not a spike and is not limited by this rule (rule 10).
 
 ## Questions to answer before proposing
 
@@ -59,6 +60,7 @@ behaves is `anima-tech-backlog-md`; what a record of architecture is,
 - What was learned, and where is it written in this change?
 - Did anything go wrong that needs a postmortem, and what is its guard?
 - What is the root cause, which class is it, and which design change would remove the class?
+- What is unknown, and which test, first in the task, resolves it?
 
 ## Where the result goes
 

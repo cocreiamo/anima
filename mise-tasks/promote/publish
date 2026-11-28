@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#MISE description="Publish an image under its version unless the tag exists, never moving a tag; print reference=<repository>@<digest> and existing=<true|false>"
+#
+# Usage: VERSION=<version> REF=<local image reference> mise run promote:publish
+#
+# Environment: VERSION, REF (the image to push, as loaded by promote:load),
+# ANIMA_REPOSITORY (default ghcr.io/cocreiamo/anima), ANIMA_REGISTRY_INSECURE=1
+# for a registry without TLS (the tests'). The registry is asked first
+# (promote:tag-state):
+#   - the tag exists: nothing is pushed, the reference points at the digest the
+#     registry holds (an earlier run pushed it and failed before the release);
+#   - the tag is absent: the image is pushed with its digest recorded, and the
+#     digest the registry reports must be the one recorded;
+#   - the registry cannot say: the command fails and pushes nothing.
+# A published tag is never moved (R115). Progress goes to standard error; only
+# the two lines above go to standard output.
+set -euo pipefail
+
+version="${VERSION:?VERSION is not set}"
+ref="${REF:?REF is not set}"
+repository="${ANIMA_REPOSITORY:-ghcr.io/cocreiamo/anima}"
+here="$(cd "$(dirname "$0")" && pwd)"
+tag="$repository:$version"
+flags=()
+[ "${ANIMA_REGISTRY_INSECURE:-}" = "1" ] && flags+=(--tls-verify=false)
+
+state="$("$here/tag-state" "$tag")"
+if [ "$state" = "exists" ]; then
+  echo "$tag exists: not pushed again." >&2
+  echo "reference=$repository@$("$here/registry-digest" "$tag")"
+  echo "existing=true"
+  exit 0
+fi
+
+digestfile="$(mktemp)"
+trap 'rm -f "$digestfile"' EXIT
+podman push "${flags[@]}" --digestfile "$digestfile" "$ref" "docker://$tag" >&2
+pushed="$(cat "$digestfile")"
+held="$("$here/registry-digest" "$tag")"
+if [ "$pushed" != "$held" ]; then
+  echo "Pushed $pushed, but the registry holds $held for $tag." >&2
+  exit 1
+fi
+echo "reference=$repository@$pushed"
+echo "existing=false"

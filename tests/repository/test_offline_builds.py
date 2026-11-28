@@ -1,4 +1,4 @@
-"""The compile stages of the engine's images run with the network off. R167 (TASK-43).
+"""The compile stages of the engine's images run with the network off. R178 (TASK-43).
 
 A build that downloads what it compiles depends on inputs the repository does
 not hold: a module proxy that is down, a registry that deleted a digest. A
@@ -6,7 +6,7 @@ converted component fetches its dependencies in one stage that does nothing else
 keeps them as an image of their own, and compiles with the network off. These
 checks read the container file as text and feed on a deliberately wrong one in
 their `_detects_violation` companions; that the build succeeds offline, and
-fails naming what is missing, is R168 (tests/system/test_offline_build.py), which
+fails naming what is missing, is R179 (tests/system/test_offline_build.py), which
 builds.
 """
 
@@ -136,7 +136,7 @@ def converted():
     return {path: (ROOT / path).read_text() for path in CONVERTED}
 
 
-def test_R167_compile_stages_run_with_network_off():
+def test_R178_compile_stages_run_with_network_off():
     """Proves that each converted container file fetches in one stage that does
     nothing else, compiles with the network off from that stage's cache, with the
     builder's own toolchain and the lock file's check intact."""
@@ -152,7 +152,7 @@ def test_R167_compile_stages_run_with_network_off():
     assert 'extra="third_party/openbao/go.mod third_party/openbao/go.sum"' in build
 
 
-def test_R167_compile_stages_run_with_network_off_detects_violation():
+def test_R178_compile_stages_run_with_network_off_detects_violation():
     text = converted()["engine/secrets/Containerfile"]
     assert offline_faults(text) == []
     wrong = {

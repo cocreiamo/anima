@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#MISE description="Print the manifest digest that a registry holds for a tag"
+#
+# Usage: mise run promote:registry-digest <reference with a tag>
+#
+# The digest is read from the registry by the pinned skopeo image (the register
+# of `components.toml`), run by podman: local storage would answer the digest
+# of the image as loaded here, which is another one (PM-014). The credentials of
+# `podman login` are passed on. ANIMA_REGISTRY_INSECURE=1 allows a registry
+# without TLS (the tests').
+set -euo pipefail
+
+ref="${1:?usage: promote:registry-digest <reference with a tag>}"
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+image="$(awk '
+  /^\[\[/ { name = ""; image = ""; digest = "" }
+  /^name = "skopeo"$/ { name = "skopeo" }
+  /^image = / { gsub(/^image = "|"$/, ""); image = $0 }
+  /^digest = / { gsub(/^digest = "|"$/, ""); digest = $0 }
+  name == "skopeo" && image != "" && digest != "" { print image "@" digest; exit }
+' "$root/components.toml")"
+[ -n "$image" ] || { echo "No pinned skopeo image in components.toml." >&2; exit 1; }
+
+mounts=()
+flags=()
+auth="${REGISTRY_AUTH_FILE:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/containers/auth.json}"
+if [ -f "$auth" ]; then
+  mounts+=(--volume "$auth:/auth.json:ro")
+  flags+=(--authfile /auth.json)
+fi
+[ "${ANIMA_REGISTRY_INSECURE:-}" = "1" ] && flags+=(--tls-verify=false)
+
+digest="$(podman run --rm --network=host --security-opt label=disable "${mounts[@]}" "$image" \
+  inspect "${flags[@]}" --format '{{.Digest}}' "docker://$ref")"
+case "$digest" in
+  sha256:????????????????????????????????????????????????????????????????) echo "$digest" ;;
+  *) echo "No digest for $ref: '$digest'" >&2; exit 1 ;;
+esac

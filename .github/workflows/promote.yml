@@ -5,6 +5,12 @@ name: Promote
 # releases the version that commit carries: the image that was built and tested
 # here is the one published, by digest, never rebuilt
 # (`anima-branching-and-releasing`).
+#
+# Every step that does something is one call to a command of the repository
+# (`mise run promote:<name>`, `mise-tasks/promote/`), which is tested against
+# real podman and a real registry (`mise run promote:test`, R115, R170, R171):
+# this file holds the checkout, the tools, the registry login, the passing of
+# inputs and outputs, and the artifact transfer.
 
 on:
   schedule:
@@ -24,28 +30,25 @@ jobs:
     permissions:
       contents: read
     outputs:
-      sha: ${{ steps.commit.outputs.sha }}
+      sha: ${{ steps.commit.outputs.commit }}
       version: ${{ steps.release.outputs.version }}
       publish: ${{ steps.release.outputs.publish }}
       image-id: ${{ steps.archive.outputs.image-id }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
           submodules: true
           persist-credentials: false
-      - id: commit
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           version: 2026.11.14
-      - id: pilot
-        run: echo "sha256=$(sed -n 's/^SYSML_PILOT_SHA256 = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/sysml-pilot
-          key: sysml-pilot-${{ steps.pilot.outputs.sha256 }}
+          key: sysml-pilot-${{ hashFiles('mise.toml') }}
       # Every check, then the engine image built cold (no image is restored from
       # a cache here) and the system tests run on it.
       - run: mise run promote:verify
@@ -53,24 +56,11 @@ jobs:
         name: Decide whether this commit carries a version to publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version="$(jq -r '."."' .github/release-please-manifest.json)"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "$version" = "0.0.0" ]; then
-            echo "No version prepared yet: nothing to publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v$version is already released: nothing to publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: mise run --quiet promote:plan >> "$GITHUB_OUTPUT"
       - id: archive
         name: Archive the image that passed
         if: steps.release.outputs.publish == 'true'
-        run: |
-          podman save --output "$RUNNER_TEMP/engine-image.tar" "$(cat .cache/engine/engine.ref)"
-          echo "image-id=$(cat .cache/engine/engine.id)" >> "$GITHUB_OUTPUT"
+        run: mise run --quiet promote:archive "$RUNNER_TEMP/engine-image.tar" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.release.outputs.publish == 'true'
         with:
@@ -91,69 +81,41 @@ jobs:
     if: needs.verify.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       packages: write
     outputs:
       reference: ${{ steps.push.outputs.reference }}
       existing: ${{ steps.push.outputs.existing }}
     env:
       VERSION: ${{ needs.verify.outputs.version }}
-      IMAGE_ID: ${{ needs.verify.outputs.image-id }}
     steps:
+      # The repository at the commit that was verified: only for its commands.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: engine-image
           path: ${{ runner.temp }}/image
       - id: load
         name: Load the archive and check that it is the image that passed
-        run: |
-          ref="$(podman load --quiet --input "$RUNNER_TEMP/image/engine-image.tar" | tail -n 1)"
-          actual="$(podman image inspect --format '{{.Id}}' "$ref")"
-          if [ "$actual" != "$IMAGE_ID" ]; then
-            echo "The archive holds $actual, not the image that passed ($IMAGE_ID)." >&2
-            exit 1
-          fi
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-      - id: push
-        name: Push the image under its version
+        env:
+          IMAGE_ID: ${{ needs.verify.outputs.image-id }}
+        run: mise run --quiet promote:load "$RUNNER_TEMP/image/engine-image.tar" "$IMAGE_ID" >> "$GITHUB_OUTPUT"
+      - name: Log in to the registry
         env:
           REGISTRY_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
+        run: echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin
+      - id: push
+        name: Push the image under its version
+        env:
           REF: ${{ steps.load.outputs.ref }}
-        run: |
-          echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin
-          # Asks the registry about the tag, with three answers, not two. `manifest
-          # inspect` takes a bare reference: with a `docker://` prefix podman 4.9.3
-          # looks the name up among local images and always fails. Only the
-          # registry's own "manifest unknown" or "name unknown" means the tag is
-          # absent; any other failure (no network, 401, 403) is unknown, and the
-          # step stops on it: a tag is never pushed over one that may exist.
-          tag_state() {
-            local err rc=0
-            err="$(podman manifest inspect "$1" 2>&1 >/dev/null)" || rc=$?
-            if [ "$rc" -eq 0 ]; then
-              echo exists
-            elif printf '%s' "$err" | grep -Eiq 'manifest unknown|name unknown'; then
-              echo absent
-            else
-              echo "Cannot tell whether $1 exists: $err" >&2
-              echo unknown
-            fi
-          }
-          state="$(tag_state "ghcr.io/cocreiamo/anima:$VERSION")"
-          if [ "$state" = "unknown" ]; then
-            exit 1
-          elif [ "$state" = "exists" ]; then
-            # An earlier run pushed the tag and failed before the release: the tag
-            # is never moved; the release points at the digest it already holds.
-            echo "ghcr.io/cocreiamo/anima:$VERSION exists: not pushed again."
-            podman pull --quiet "docker://ghcr.io/cocreiamo/anima:$VERSION" >/dev/null
-            digest="$(podman image inspect --format '{{.Digest}}' "ghcr.io/cocreiamo/anima:$VERSION")"
-            echo "reference=ghcr.io/cocreiamo/anima@$digest" >> "$GITHUB_OUTPUT"
-            echo "existing=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          podman push --digestfile "$RUNNER_TEMP/digest" "$REF" "docker://ghcr.io/cocreiamo/anima:$VERSION"
-          echo "reference=ghcr.io/cocreiamo/anima@$(cat "$RUNNER_TEMP/digest")" >> "$GITHUB_OUTPUT"
+        run: mise run --quiet promote:publish >> "$GITHUB_OUTPUT"
 
   promote:
     needs: [verify, publish]
@@ -167,31 +129,14 @@ jobs:
       IMAGE: ${{ needs.publish.outputs.reference }}
       EXISTING: ${{ needs.publish.outputs.existing }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
       - name: Fast-forward main-green
-        run: |
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main-green" --silent 2>/dev/null; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main-green" \
-              -f sha="$SHA" -F force=false --silent
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref=refs/heads/main-green -f sha="$SHA" --silent
-          fi
+        run: mise run --quiet promote:green "$SHA"
       - name: Release the version this commit carries
-        run: |
-          version="$(gh api "repos/$GITHUB_REPOSITORY/contents/.github/release-please-manifest.json?ref=$SHA" \
-            --jq '.content' | base64 --decode | jq -r '."."')"
-          if [ "$version" = "0.0.0" ]; then
-            echo "No version prepared yet."
-          elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v$version is already released."
-          elif [ -n "$IMAGE" ]; then
-            notes="Engine image: \`$IMAGE\`"
-            if [ "$EXISTING" = "true" ]; then
-              notes="$notes (published by an earlier run; the tag already existed and was not moved, this run's build was not pushed)"
-            fi
-            gh release create "v$version" --repo "$GITHUB_REPOSITORY" \
-              --target "$SHA" --generate-notes --notes "$notes"
-          else
-            echo "v$version has no published image: not releasing it." >&2
-            exit 1
-          fi
+        run: mise run --quiet promote:release "$SHA"
