@@ -569,8 +569,18 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R170'> promotionStepsAreTestedCommands {
+            doc /* Every step of the promotion workflow that does something, other than the login to the registry, shall be one call to a command of the repository, and every such command shall be run by a test against the real tools (the container runtime and a registry), which the automated verification of the engine image runs on every change to them. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R171'> releaseCommandsDecideAsStated {
+            doc /* The commands that decide and record a release shall read the version prepared at the verified commit, shall release nothing when none is prepared, when it is already released or when no image was published for it, shall name the published image by digest in the release, and shall move the green branch only forward. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
-            doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
+            doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources, the commands of the promotion or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -580,7 +590,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R115'> publishOnlyWhatWasVerified {
-            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. A version tag already in the registry shall never be pushed over: the promotion shall ask the registry whether the tag exists, shall treat only the registry's own answer that it does not as permission to push, and shall stop when the registry cannot say. */
+            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. A version tag already in the registry shall never be pushed over: the promotion shall ask the registry whether the tag exists, shall treat only the registry's own answer that it does not as permission to push, and shall stop when the registry cannot say. The promotion shall take the loaded image from what the runtime prints on loading and compare its id with the one that passed, and shall read the digest of a tag that already exists from the registry, never from local storage. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1805,6 +1815,22 @@ package Anima {
         verification def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent {
             subject tools : Toolchain;
             objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R115_promotion_loads_only_the_image_that_passed {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R115_commands_run_through_mise {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R170_promotion_steps_are_calls_to_tested_commands {
+            subject tools : Toolchain;
+            objective { verify Day0::promotionStepsAreTestedCommands; }
+        }
+        verification def test_R171_release_commands_decide_as_stated {
+            subject tools : Toolchain;
+            objective { verify Day0::releaseCommandsDecideAsStated; }
         }
         verification def test_R112_format_and_test_exclude_each_other {
             subject tools : Toolchain;
