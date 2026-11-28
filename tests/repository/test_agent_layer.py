@@ -443,7 +443,7 @@ def size_faults(agents, skill_texts_, role_texts_, descriptions, limits):
 
 
 def test_R81_size_limits_kept(model):
-    limits = {n: v for n, (v, _unit) in thresholds(model)["R81"].items()}
+    limits = {n: v for n, (v, _unit) in thresholds(model)["sizeLimitsKept"].items()}
     assert len(limits) == 8
     texts = skill_texts()
     faults = size_faults(

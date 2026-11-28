@@ -22,7 +22,7 @@ def test_R180_system_tests_stay_fast(seconds_in_session, capsys):
     there an over-budget session fails; elsewhere (a loaded machine, about twice
     as slow) the time and the limit are printed and the test passes."""
     elapsed = seconds_in_session()
-    limits, doc = model_thresholds("R180")
+    limits, doc = model_thresholds("systemTestsStayFast")
     enforced = on_hosted_runner(os.environ)
     faults = session_duration_faults(elapsed, limits, doc, enforced)
     limit = limits.get("maxSystemTestTime", ("?",))[0]
