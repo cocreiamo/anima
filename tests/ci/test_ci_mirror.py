@@ -12,7 +12,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from ci_support import reference, run, task
+from ci_support import ROOT, reference, run, task
 
 
 @pytest.fixture
@@ -188,3 +188,81 @@ def test_R165_signed_image_is_copied_with_its_signatures_detects_violation(
     result = task("mirror-copy", env=environment)
     assert result.returncode == 0, result.stderr
     assert [t for t in store.tags(mirror) if t.endswith(".sig")] == []
+
+
+# ---- R196: the mirror holds every pin of the register --------------------------------------------
+
+
+def register_of(path, host, entries):
+    """A register whose images are packages of the throwaway registry at `host`;
+    `entries` is [(name, repository, digest)]."""
+    path.write_text(
+        "".join(
+            f'[[tool_image]]\nname = "{name}"\nversion = "1"\n'
+            f'image = "{host}/{repository}"\ndigest = "sha256:{digest}"\n'
+            for name, repository, digest in entries
+        )
+    )
+    return path
+
+
+CHECK_ENV = {"ANIMA_MIRROR_INSECURE": "1"}
+
+
+def test_R196_mirror_holds_every_pin(store, tmp_path):
+    """Proves, against a registry, that the check passes when the mirror holds the
+    digest that the register pins for each image, and that the check is run after
+    the copies of the mirror workflow, before the builds of the system tests and by
+    the promotion's verification."""
+    suffix = f"{time.time_ns()}"
+    held = f"mirror/held{suffix}"
+    digest = store.push(held, "1", f"held {suffix}")
+    register = register_of(tmp_path / "ok.toml", store.host, [("held", held, digest)])
+    result = task("mirror-check", str(register), env=CHECK_ENV)
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "held: the mirror holds" in result.stdout
+
+    workflows = ROOT / ".github" / "workflows"
+    mirror = (workflows / "mirror-base-images.yml").read_text()
+    system = (workflows / "system-tests.yml").read_text()
+    mise = (ROOT / "mise.toml").read_text()
+    assert "needs: mirror" in mirror and "run: mise run ci:mirror-check" in mirror
+    assert system.index("mise run ci:mirror-check") < system.index(
+        "mise run engine:image"
+    ), "the check runs after a build"
+    verify = mise.split('[tasks."promote:verify"]', 1)[1].split("\n[", 1)[0]
+    assert verify.index("ci:mirror-check") < verify.index("engine:test")
+
+
+def test_R196_mirror_holds_every_pin_detects_violation(store, tmp_path):
+    """A digest that the mirror does not hold, a package that does not exist, a
+    registry that does not answer and an empty register each fail, and the failure
+    names the image."""
+    suffix = f"{time.time_ns()}"
+    held = f"mirror/held{suffix}"
+    digest = store.push(held, "1", f"held {suffix}")
+    missing = register_of(
+        tmp_path / "missing.toml",
+        store.host,
+        [("held", held, digest), ("lost", held, "1" * 64)],
+    )
+    result = task("mirror-check", str(missing), env=CHECK_ENV)
+    assert result.returncode != 0
+    assert "lost" in result.stderr and "held: the mirror holds" in result.stdout
+
+    absent = register_of(
+        tmp_path / "absent.toml",
+        store.host,
+        [("nowhere", f"mirror/none{suffix}", "2" * 64)],
+    )
+    result = task("mirror-check", str(absent), env=CHECK_ENV)
+    assert result.returncode != 0 and "nowhere" in result.stderr
+
+    dead = register_of(
+        tmp_path / "dead.toml", "127.0.0.1:1", [("dead", "mirror/x", "3" * 64)]
+    )
+    assert task("mirror-check", str(dead), env=CHECK_ENV).returncode != 0
+
+    empty = tmp_path / "empty.toml"
+    empty.write_text("")
+    assert task("mirror-check", str(empty), env=CHECK_ENV).returncode != 0

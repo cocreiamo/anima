@@ -1,5 +1,7 @@
-"""Reading model/anima.sysml through the JSON export of the SysML v2 Pilot
-Implementation, never by parsing the text ourselves.
+"""Reading the model (model/anima.sysml and model/requirements/**) through the
+JSON export of the SysML v2 Pilot Implementation, never by parsing the text
+ourselves. The one exception is the layout of the files (test_model_layout.py):
+which file holds which requirement is not in the export.
 """
 
 import ast
@@ -10,8 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def export_model(source="model/anima.sysml"):
-    """Elements of a SysML file (default: the model), by id."""
+def export_model(source="model"):
+    """Elements of a SysML file or of a directory of them (default: the model,
+    read as one), by id."""
     path = subprocess.run(
         [str(ROOT / "mise-tasks" / "model" / "export"), str(source)],
         cwd=ROOT,

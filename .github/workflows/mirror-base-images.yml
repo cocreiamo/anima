@@ -26,9 +26,9 @@ name: Mirror base images
 # The upstream rebuild of the engine's base happens around 11:30 UTC (observed
 # on 2026-11-28), so the copy runs after it.
 #
-# A package is created private by the first push of an image: its visibility is the
-# founder's to settle after the first run of an image that is new to the register
-# (the builds read the mirror without credentials).
+# The builds read the mirror without credentials, so its packages must be public
+# (all 13 were on 2026-11-28); the last job checks that the mirror holds every pin
+# of the register, read that way (R196).
 
 on:
   schedule:
@@ -100,3 +100,27 @@ jobs:
           REGISTRY_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: mise run ci:mirror-copy
+
+  check:
+    # After the copies: the mirror holds every pin of the register, read without
+    # credentials as a build reads it (R196). It holds no write permission and
+    # fails loudly here rather than as a refusal in the middle of a build.
+    name: Check the mirror holds every pin
+    needs: mirror
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
+          install_args: python
+          cache: false
+      - name: Check that the mirror holds every pin of the register
+        env:
+          MISE_TASK_RUN_AUTO_INSTALL: "false"
+        run: mise run ci:mirror-check

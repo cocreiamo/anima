@@ -339,8 +339,13 @@ def test_R124_update_bot_keeps_the_jdk_on_its_lts_line():
             "3.9.17-eclipse-temurin-25",
             "3.9.16-eclipse-temurin-210",
             "3.9.16-eclipse-temurin-21-alpine",
+            # R168: the Maven version is the one of the fork's wrapper, so no other
+            "3.9.17-eclipse-temurin-21",
+            "3.10.0-eclipse-temurin-21",
+            "4.0.0-eclipse-temurin-21",
+            "3.9.160-eclipse-temurin-21",
         ],
-        older=["3.9.17-eclipse-temurin-21", "4.0.0-eclipse-temurin-21"],
+        older=[],
     )
 
 
@@ -348,13 +353,18 @@ def test_R124_update_bot_keeps_the_jdk_on_its_lts_line_detects_violation():
     jdk = "registry" + ".example/jdk"  # put together: no reference in this file
     rule = {
         "matchPackageNames": [jdk],
-        "allowedVersions": "/^[0-9.]+-eclipse-temurin-21$/",
+        "allowedVersions": "/^3\\.9\\.16-eclipse-temurin-21$/",
     }
     args = (
         jdk,
         "3.9.16-eclipse-temurin-21",
-        ["3.9.16-eclipse-temurin-25", "3.9.16-eclipse-temurin-210"],
-        ["3.9.17-eclipse-temurin-21"],
+        [
+            "3.9.16-eclipse-temurin-25",
+            "3.9.16-eclipse-temurin-210",
+            "3.9.17-eclipse-temurin-21",
+            "3.10.0-eclipse-temurin-21",
+        ],
+        [],
     )
     assert line_problems({"packageRules": [rule]}, *args) == []
     # no rule, a rule for another image, a rule that allows the next line
@@ -363,6 +373,9 @@ def test_R124_update_bot_keeps_the_jdk_on_its_lts_line_detects_violation():
         {"packageRules": [{**rule, "matchPackageNames": ["x"]}]}, *args
     )
     assert line_problems({"packageRules": [{**rule, "allowedVersions": "/^2/"}]}, *args)
+    # a rule that allows another version of the same JDK line (the bot's 3.10)
+    loose = "/^[0-9.]+-eclipse-temurin-21$/"
+    assert line_problems({"packageRules": [{**rule, "allowedVersions": loose}]}, *args)
     # a rule that is not a pattern, or that refuses the current version
     assert line_problems({"packageRules": [{**rule, "allowedVersions": "<22"}]}, *args)
     assert line_problems(

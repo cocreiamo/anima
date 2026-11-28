@@ -72,6 +72,12 @@ jobs:
         if: steps.changes.outputs.relevant == 'true'
         run: mise run ci:test
 
+      # Before any build: a register entry that the mirror does not hold fails
+      # here, by name, and not as a refusal in the middle of a build (R196).
+      - name: Check that the mirror holds every pin of the register
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run ci:mirror-check
+
       - id: key
         name: Compute the key of the inner images
         if: steps.changes.outputs.relevant == 'true'
@@ -89,13 +95,6 @@ jobs:
       - name: Load the restored images
         if: steps.changes.outputs.relevant == 'true' && steps.restore.outputs.cache-matched-key != ''
         run: mise run ci:cache-load
-
-      # The commands that the promotion workflow calls, run against real podman
-      # and a throwaway registry (R170, R171, PM-014); they pull small images
-      # and never touch the engine image.
-      - name: Run the commands of the promotion
-        if: steps.changes.outputs.relevant == 'true'
-        run: mise run promote:test
 
       # The commands that the promotion workflow calls, run against real podman
       # and a throwaway registry (R170, R171, PM-014); they pull small images

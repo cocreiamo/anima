@@ -49,4 +49,4 @@ The product-wide questions of `anima-product-principles` apply (the three orders
 
 ## Where the result goes
 
-The decision goes to an ADR (ADR 0005 covers the engine image); the rule to `model/anima.sysml` with its test in `tests/system/`; a missing test to `tests/pending.toml`, which is generated; a limit of a platform to `gaps.toml`. What is decided but not built is an `Unverified:` rule, never a statement of fact.
+The decision goes to an ADR (ADR 0005 covers the engine image); the rule to `model/requirements/` with its test in `tests/system/`; a missing test to `tests/pending.toml`, which is generated; a limit of a platform to `gaps.toml`. What is decided but not built is an `Unverified:` rule, never a statement of fact.

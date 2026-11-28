@@ -279,9 +279,11 @@ def test_R2_valid_token_opens_session(engine):
     """A valid token of the configured issuer, for the scope of a role, opens a
     session of that role, over TLS: an application's token, and a person's token
     from the device flow, whose audit line names the person."""
+    # The engine is shared: only what the server logged from here on counts.
+    logged = len(server_log(engine))
     code, out = login(engine, application_token(engine), "readonly")
     assert code == 0 and "connection succeeded" in out, out
-    log = server_log(engine)
+    log = server_log(engine)[logged:]
     assert "method=oauth" in log and "user=readonly" in log, log[-1500:]
 
     # A person: the token is the person's own, the session is the role's, and the

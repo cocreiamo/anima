@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+# MISE description="Check that the mirror holds, for every image of the register, the digest that the register pins, and fail naming each image it does not"
+#
+# Usage: mise run ci:mirror-check [register (default: components.toml)]
+# For each entry of `component` and `tool_image` that has an `image` (the package
+# of the mirror) it asks the registry for the manifest of `image@digest` without
+# credentials, as a build does (an anonymous token where the registry hands one
+# out). An entry that the mirror does not hold fails the task, with the answer of
+# the registry: a register entry added after the last copy, a package that is
+# private, a digest that was never copied. It runs after the copies in the mirror
+# workflow and before any build (the system tests, the promotion), so that the
+# fault shows there and not as a refusal in the middle of a build (R196, TASK-96).
+# For a registry on a development machine: ANIMA_MIRROR_INSECURE=1 (plain HTTP).
+import json
+import os
+import re
+import sys
+import tomllib
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(os.environ.get("MISE_PROJECT_ROOT") or Path(__file__).resolve().parents[2])
+ACCEPT = (
+    "application/vnd.oci.image.index.v1+json, "
+    "application/vnd.oci.image.manifest.v1+json, "
+    "application/vnd.docker.distribution.manifest.list.v2+json, "
+    "application/vnd.docker.distribution.manifest.v2+json"
+)
+
+
+def request(url, token=None):
+    headers = {"Accept": ACCEPT}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return urllib.request.urlopen(
+        urllib.request.Request(url, method="HEAD", headers=headers), timeout=30
+    )
+
+
+def anonymous_token(challenge):
+    """The token that a registry hands out without credentials for the scope that
+    its `WWW-Authenticate` challenge names."""
+    fields = dict(re.findall(r'(\w+)="([^"]*)"', challenge))
+    query = urllib.parse.urlencode(
+        {k: fields[k] for k in ("service", "scope") if k in fields}
+    )
+    with urllib.request.urlopen(f"{fields['realm']}?{query}", timeout=30) as answer:
+        return json.load(answer).get("token")
+
+
+def held(reference):
+    """(whether the registry has the manifest, what it says otherwise)."""
+    name, digest = reference.split("@")
+    host, repository = name.split("/", 1)
+    scheme = "http" if os.environ.get("ANIMA_MIRROR_INSECURE") == "1" else "https"
+    url = f"{scheme}://{host}/v2/{repository}/manifests/{digest}"
+    try:
+        try:
+            answer = request(url)
+        except urllib.error.HTTPError as error:
+            challenge = error.headers.get("WWW-Authenticate", "")
+            if error.code != 401 or not challenge.startswith("Bearer"):
+                raise
+            answer = request(url, anonymous_token(challenge))
+        with answer:
+            served = answer.headers.get("Docker-Content-Digest", digest)
+        if served != digest:
+            return False, f"the registry names {served}"
+        return True, ""
+    except urllib.error.HTTPError as error:
+        return False, f"HTTP {error.code} {error.reason}"
+    except (urllib.error.URLError, OSError) as error:
+        return False, f"no answer: {error}"
+
+
+def main():
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "components.toml"
+    with open(path, "rb") as f:
+        register = tomllib.load(f)
+    entries = [
+        c
+        for c in register.get("component", []) + register.get("tool_image", [])
+        if "image" in c
+    ]
+    if not entries:
+        raise SystemExit("ci:mirror-check: the register holds no image")
+    missing = []
+    for c in entries:
+        reference = f"{c['image']}@{c['digest']}"
+        ok, why = held(reference)
+        if ok:
+            print(f"{c['name']}: the mirror holds {c['digest']}")
+        else:
+            missing.append(c["name"])
+            print(
+                f"::error::{c['name']}: the mirror does not hold {reference}: {why}",
+                file=sys.stderr,
+            )
+    if missing:
+        raise SystemExit(
+            f"ci:mirror-check: the mirror lacks {', '.join(missing)}: run the mirror workflow, "
+            "and make a new package public"
+        )
+
+
+if __name__ == "__main__":
+    main()

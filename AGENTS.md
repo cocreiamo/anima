@@ -72,7 +72,7 @@ Work starts by loading the skill that matches the paths you will touch (table be
 | ------------------------------------------------- | ----------------------------------------------- |
 | Decisions about the architecture                  | `docs/adr/`                                     |
 | How we work, legal and brand, tooling, principles | `skills/`                                       |
-| Requirements and their verifications              | `model/anima.sysml`                             |
+| Requirements and their verifications              | `model/requirements/`, a file for each          |
 | Shipped components, versions, licences            | `components.toml`                               |
 | Known gaps and defects of what we adopt           | `gaps.toml`                                     |
 | Work to do                                        | the backlog, `backlog/tasks/`                   |
