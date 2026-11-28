@@ -308,7 +308,8 @@ def test_R97_failing_health_check_restarts_container(own_engine):
 def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
     """Killed in the middle of the first start, then after a complete start, the
     same container is started again and reaches readiness; data written before
-    the kill is still there. A clean stop is the contrast: no crash recovery."""
+    the kill is still there. A clean stop is the contrast: no crash recovery.
+    The helpers wait for the observed phase, not for an exit code (PM-008)."""
     engine = own_engine("r42")
     # In the middle of the first start: as soon as the cluster creation has begun.
     engine.wait_for(
@@ -349,8 +350,7 @@ def test_R42_abrupt_stop_recovers_with_same_start(own_engine):
     logs = engine.exec("podman", "logs", "database")[1]
     assert "was not properly shut down" in logs, logs
     # Clean stop, then the same start: the server needs no crash recovery.
-    code, out = engine.exec_host("podman", "stop", "--time", "60", engine.name)
-    assert code == 0, out
+    engine.stop()
     engine.start_again()
     engine.wait_ready()
     assert sql("select n from survivor") == "42"

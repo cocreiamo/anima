@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import pytest
+from engine_logic import container_phase
 
 ROOT = Path(__file__).resolve().parents[2]
 CACHE = ROOT / ".cache" / "engine"
@@ -26,7 +27,7 @@ CACHE = ROOT / ".cache" / "engine"
 READY_LIMIT_SECONDS = 180
 
 
-OFFLINE_MODULES = {"test_inputs.py"}
+OFFLINE_MODULES = {"test_inputs.py", "test_logic.py"}
 
 
 def pytest_collection_modifyitems(config, items):
@@ -149,15 +150,68 @@ class Engine:
         )
         return out.strip() if code == 0 else ""
 
+    def phase(self) -> str:
+        """`running`, `stopped` or `unknown`, as podman inspects the container."""
+        code, out = self.exec_host(
+            "podman", "inspect", "--format", "{{json .State}}", self.name
+        )
+        return container_phase(out) if code == 0 else "unknown"
+
+    def reach(self, wanted: str, send, limit: float = 60.0) -> None:
+        """Send a command (`send()` returns its exit code and output), then wait,
+        within `limit`, for the container to be in the phase `wanted`.
+
+        Under load podman can answer 125 ("timed out waiting for file .../exits/<id>")
+        although the command took effect (PM-008), so the exit code decides nothing:
+        the observed phase does. A command that failed is sent again while the
+        phase is not there; a container in another phase is never accepted.
+        """
+        code, out = send()
+        deadline = time.monotonic() + limit
+        while time.monotonic() < deadline:
+            if self.phase() == wanted:
+                return
+            if code != 0:
+                code, out = send()
+            time.sleep(0.5)
+        raise AssertionError(
+            f"{self.name} is not {wanted} within {limit} s "
+            f"(phase: {self.phase()}; last answer {code}: {out.strip()})"
+        )
+
     def kill(self) -> None:
         """An abrupt stop: SIGKILL to the engine's first process and everything in it."""
-        code, out = self.exec_host("podman", "kill", self.name)
-        assert code == 0, out
+        self.reach("stopped", lambda: self.exec_host("podman", "kill", self.name))
+
+    def stop(self, grace: int = 60) -> None:
+        """A clean stop: SIGTERM, then SIGKILL after `grace` seconds."""
+        self.reach(
+            "stopped",
+            lambda: self.exec_host("podman", "stop", "--time", str(grace), self.name),
+            limit=grace + 60,
+        )
+
+    def remove(self, limit: float = 120.0) -> None:
+        """Remove the container with its volumes, then wait, within `limit`, until
+        podman no longer knows it. Under load the removal can answer 500 ("given PID
+        did not die within timeout") although the container goes away (PM-008); the
+        fact that matters is that it is gone, and it is never assumed."""
+        deadline = time.monotonic() + limit
+        out = ""
+        while time.monotonic() < deadline:
+            if self.exec_host("podman", "container", "exists", self.name)[0] != 0:
+                return
+            out = self.exec_host(
+                "podman", "rm", "--force", "--volumes", "--time", "30", self.name
+            )[1]
+            time.sleep(1)
+        raise AssertionError(
+            f"{self.name} still exists after {limit} s; last answer: {out.strip()}"
+        )
 
     def start_again(self) -> None:
         """The same start command after an abrupt stop: start the same container."""
-        code, out = self.exec_host("podman", "start", self.name)
-        assert code == 0, out
+        self.reach("running", lambda: self.exec_host("podman", "start", self.name))
         self.started_at = time.monotonic()
         self.ready_after = None
 
@@ -211,7 +265,7 @@ def engine(podman_service):
         running.wait_ready()
         yield running
     finally:
-        running.container.stop()
+        running.remove()
 
 
 @pytest.fixture
@@ -231,4 +285,4 @@ def own_engine(podman_service, request):
 
     yield make
     for running in started:
-        running.container.stop()
+        running.remove()
