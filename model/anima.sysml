@@ -396,7 +396,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R124'> updateBotKeepsJdkOnLtsLine {
-            doc /* The configuration of the update bot shall propose no version of the builder image, Maven with its Java toolchain, that builds the identity provider beyond the long-term-support line of its register entry. */
+            doc /* The configuration of the update bot shall propose no version of the builder image that builds the identity provider beyond the long-term-support line of its register entry. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -569,12 +569,12 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
-        requirement <'R165'> identityProviderBuildDownloadsNoBuildTool {
+        requirement <'R167'> identityProviderBuildDownloadsNoBuildTool {
             doc /* The build of the identity provider shall run the build tool that its pinned builder image already holds, at the version that the source's own wrapper names, and shall download no build tool, no archive of one and no wrapper at build time, so that a failure of a download site cannot fail the build before it starts. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
-        requirement <'R166'> identityProviderBuildRetriesDownloadsBounded {
+        requirement <'R168'> identityProviderBuildRetriesDownloadsBounded {
             doc /* The build of the identity provider shall retry each dependency download that it makes a bounded number of times, through the retry settings that its build tool documents, and not through a loop around the whole build, so that a brief failure of a package registry does not fail the build. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
@@ -1802,15 +1802,15 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::everyBuildPullsFromTheMirror; }
         }
-        verification def test_R165_build_downloads_no_build_tool {
+        verification def test_R167_build_downloads_no_build_tool {
             subject tools : Toolchain;
             objective { verify Day0::identityProviderBuildDownloadsNoBuildTool; }
         }
-        verification def test_R165_maven_version_equals_the_forks_wrapper {
+        verification def test_R167_maven_version_equals_the_forks_wrapper {
             subject tools : Toolchain;
             objective { verify Day0::identityProviderBuildDownloadsNoBuildTool; }
         }
-        verification def test_R166_build_retries_downloads_bounded {
+        verification def test_R168_build_retries_downloads_bounded {
             subject tools : Toolchain;
             objective { verify Day0::identityProviderBuildRetriesDownloadsBounded; }
         }

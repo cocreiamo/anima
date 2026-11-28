@@ -6,7 +6,7 @@ class: a build input fetched at build time from a site nobody holds, with no ret
 status: guarded
 guards:
   - kind: test
-    ref: test_R165_build_downloads_no_build_tool
+    ref: test_R167_build_downloads_no_build_tool
     added: 2026-11-28
 recurrences: []
 ---
@@ -29,7 +29,7 @@ The container file ran `./mvnw ... clean install`. The wrapper of the fork is of
 
 ## Resolution
 
-The builder is the official Maven image, pinned by digest and registered with the mirror like the other base images; the build calls `mvn`, which the image holds, and no longer calls the wrapper. The Maven version of the image is recorded in the register and must equal the version the fork's wrapper names. The dependency downloads that remain retry ten times through the resolver's own settings (R166).
+The builder is the official Maven image, pinned by digest and registered with the mirror like the other base images; the build calls `mvn`, which the image holds, and no longer calls the wrapper. The Maven version of the image is recorded in the register and must equal the version the fork's wrapper names. The dependency downloads that remain retry ten times through the resolver's own settings (R168).
 
 ## Impact
 
@@ -49,5 +49,5 @@ Went well: the failing line was in the log and the cause was one step. Did not g
 
 ## Guards
 
-- test `test_R165_build_downloads_no_build_tool` (requirement R165, with its `_detects_violation` companion): the build uses the register's pinned Maven image, calls neither the wrapper nor a download program; with `test_R165_maven_version_equals_the_forks_wrapper`, the Maven version of the image equals the fork's when the fork is checked out.
-- Not protected: the downloads of dependencies, Node, pnpm and npm packages, which remain, are retried (R166) and can still fail.
+- test `test_R167_build_downloads_no_build_tool` (requirement R167, with its `_detects_violation` companion): the build uses the register's pinned Maven image, calls neither the wrapper nor a download program; with `test_R167_maven_version_equals_the_forks_wrapper`, the Maven version of the image equals the fork's when the fork is checked out.
+- Not protected: the downloads of dependencies, Node, pnpm and npm packages, which remain, are retried (R168) and can still fail.

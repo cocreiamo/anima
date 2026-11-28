@@ -1,4 +1,4 @@
-"""The build of the identity provider's image. R165 and R166 (PM-014, TASK-43).
+"""The build of the identity provider's image. R167 and R168 (PM-014, TASK-43).
 
 The container file is read as text: building it takes minutes and the network.
 Each check is a function of its inputs and has a `_detects_violation` companion
@@ -11,7 +11,6 @@ checked out and is skipped, with its reason, when it is not.
 import re
 
 import pytest
-
 from repo_facts import tool_images
 from sysml_model import ROOT
 
@@ -21,7 +20,7 @@ WRAPPER = (
 )
 BUILDER = re.compile(
     r"^ARG BUILDER=(?P<image>[^:@\s]+):(?P<tag>\S+?)@(?P<digest>sha256:[0-9a-f]{64})$",
-    re.M,
+    re.MULTILINE,
 )
 # Words that start a download in a container file: the wrapper, and the programs
 # that fetch a file. The package installer is not one of them: the distribution's
@@ -37,7 +36,7 @@ def code(text):
 
 
 def maven_entry(register):
-    found = [t for t in register if t.get("image") == "docker.io/library/maven"]
+    found = [t for t in register if t.get("name") == "maven"]
     return found[0] if len(found) == 1 else None
 
 
@@ -55,7 +54,7 @@ def build_faults(containerfile, register):
     if m["tag"] != entry["version"]:
         faults.append("the builder's tag is not the register's version")
     body = code(containerfile)
-    if not re.search(r"^RUN\s+mvn\s", body, re.M):
+    if not re.search(r"^RUN\s+mvn\s", body, re.MULTILINE):
         faults.append("no step runs `mvn` of the builder")
     faults += [f"calls `{w}`" for w in sorted(set(DOWNLOADERS.findall(body)))]
     return faults
@@ -63,7 +62,9 @@ def build_faults(containerfile, register):
 
 def wrapper_version(properties):
     m = re.search(
-        r"^distributionUrl=.*/apache-maven-([0-9][^/-]*)-bin\.", properties, re.M
+        r"^distributionUrl=.*/apache-maven-([0-9][^/-]*)-bin\.",
+        properties,
+        re.MULTILINE,
     )
     return m.group(1) if m else None
 
@@ -96,20 +97,21 @@ def retry_faults(containerfile):
 # ---- the checks -------------------------------------------------------------------------------
 
 
-def test_R165_build_downloads_no_build_tool():
+def test_R167_build_downloads_no_build_tool():
     assert build_faults(CONTAINERFILE.read_text(), tool_images()) == []
 
 
-def test_R165_build_downloads_no_build_tool_detects_violation():
-    register = [
-        {
-            "image": "docker.io/library/maven",
-            "version": "3.9.1-x",
-            "digest": "sha256:" + "a" * 64,
-        }
-    ]
+def test_R167_build_downloads_no_build_tool_detects_violation():
+    # The samples take the image's name from the register: no reference of their own.
+    entry = {
+        **maven_entry(tool_images()),
+        "version": "3.9.1-x",
+        "digest": "sha256:" + "a" * 64,
+    }
+    register = [entry]
+    where = entry["image"]
     good = (
-        "ARG BUILDER=docker.io/library/maven:3.9.1-x@sha256:" + "a" * 64 + "\n"
+        f"ARG BUILDER={where}:3.9.1-x@sha256:" + "a" * 64 + "\n"
         "FROM ${BUILDER} AS dist\n"
         "# ./mvnw is not run: only a comment\n"
         "RUN mvn -B clean install\n"
@@ -119,14 +121,12 @@ def test_R165_build_downloads_no_build_tool_detects_violation():
     assert build_faults(good + "RUN wget https://example.invalid/m.zip\n", register)
     assert build_faults(good.replace("a" * 64, "b" * 64), register)
     assert build_faults(good.replace("3.9.1-x@", "3.9.2-x@"), register)
-    assert build_faults(
-        good.replace("docker.io/library/maven", "docker.io/library/jdk"), register
-    )
+    assert build_faults(good.replace(where, where + "-other"), register)
     assert build_faults(good, [])
     assert build_faults(good.replace("RUN mvn", "RUN echo"), register)
 
 
-def test_R165_maven_version_equals_the_forks_wrapper():
+def test_R167_maven_version_equals_the_forks_wrapper():
     if not WRAPPER.is_file():
         pytest.skip(
             "third_party/keycloak is not checked out: the wrapper cannot be read"
@@ -134,10 +134,8 @@ def test_R165_maven_version_equals_the_forks_wrapper():
     assert version_faults(WRAPPER.read_text(), tool_images()) == []
 
 
-def test_R165_maven_version_equals_the_forks_wrapper_detects_violation():
-    register = [
-        {"image": "docker.io/library/maven", "version": "3.9.16-eclipse-temurin-21"}
-    ]
+def test_R167_maven_version_equals_the_forks_wrapper_detects_violation():
+    register = [{"name": "maven", "version": "3.9.16-eclipse-temurin-21"}]
     url = "distributionUrl=https://r.example/maven2/org/apache/maven/apache-maven/{}/apache-maven-{}-bin.zip\n"
     assert version_faults(url.format("3.9.16", "3.9.16"), register) == []
     assert version_faults(url.format("3.9.17", "3.9.17"), register)
@@ -145,11 +143,11 @@ def test_R165_maven_version_equals_the_forks_wrapper_detects_violation():
     assert version_faults(url.format("3.9.16", "3.9.16"), [])
 
 
-def test_R166_build_retries_downloads_bounded():
+def test_R168_build_retries_downloads_bounded():
     assert retry_faults(CONTAINERFILE.read_text()) == []
 
 
-def test_R166_build_retries_downloads_bounded_detects_violation():
+def test_R168_build_retries_downloads_bounded_detects_violation():
     good = "RUN mvn -B -Daether.connector.http.retryHandler.count=10 clean install\n"
     assert retry_faults(good) == []
     assert retry_faults("RUN mvn -B clean install\n")
