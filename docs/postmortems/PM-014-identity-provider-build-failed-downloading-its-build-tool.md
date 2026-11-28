@@ -54,12 +54,12 @@ Went well: the failing line was in the log and the cause was one step. Did not g
 The ladder of TASK-43, each step removing more of the class:
 
 1. Inputs we hold, by digest: every base image is copied into our mirror (TASK-96, R160 to R164), and the build tool is part of a pinned builder image (this change). Removes the deletion of a pinned image and the download of the build tool. Does not remove the dependency downloads.
-2. Offline build: the Java, JavaScript and distribution packages are fetched once, by hash, into a cache we hold, and the build reaches no network. Removes the dependency downloads; costs a cache to build and keep. Recommended next.
+2. Offline build: the dependencies are fetched once per pinned fork commit into a dependencies image we hold, and the build reaches no network. Removes the dependency downloads; costs an image to build and keep. Recommended, and decided (below).
 3. Bit for bit: two builds of the same commit give the same image (R47). Lets a rebuild check what was promoted; needs step 2 first.
 
 ## Decision on the options
 
-Approved by the founder: mirroring the base images (in progress, TASK-96) and this step, the build tool taken from a pinned builder image. Not decided: the offline cache of dependencies (step 2) and the reproducible build (step 3); they stay in TASK-43, which remains open, so this postmortem is guarded and not closed by design.
+Approved by the founder: mirroring the base images (in progress, TASK-96) and this step, the build tool taken from a pinned builder image. Decided on 2026-11-28 for step 2: every component Anima compiles gets its dependencies from a dependencies image fetched once per pinned fork commit, and the build itself runs with the network off; the guarding test is that the network-off build succeeds. Not chosen: vendoring the dependencies into the forks, a dependency proxy server, retries alone. It is built in another change, the Go components first; the identity provider (Maven, Node, pnpm) follows after this change lands. This change, the pinned builder image and the bounded retries, is the instance fix and the first step: the class is not closed until the identity provider builds with the network off. Not decided: the reproducible build (step 3); it stays in TASK-43, which remains open.
 
 ## Guards
 
