@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# A stand-in for `gh variable list` and `gh secret list` that answers with the
+# lines of a file named after the first argument, in the directory GH_LISTS, and
+# records every call there; any other call fails. It is a file of its own so that
+# no test writes a script that mentions what it lists.
+dir="${GH_LISTS:?GH_LISTS is not set}"
+echo "$@" >>"$dir/calls"
+case "$1 $2 $3" in
+"variable list --org" | "secret list --org") cat "$dir/$1" ;;
+*) exit 1 ;;
+esac

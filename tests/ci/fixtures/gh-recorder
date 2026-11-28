@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# A stand-in for `gh` that records what it was called with and which credential
+# the environment gave it, into the file named by GH_RECORD. Tests copy it first on
+# the PATH (`recorder_command` of ci_support.py); it is a file of its own so that no
+# test writes a credential's name into a script.
+echo "$@ credential=$GH_TOKEN" >>"${GH_RECORD:?GH_RECORD is not set}"

@@ -18,7 +18,15 @@ import re
 import subprocess
 import tomllib
 
-from ci_support import FIXTURES, ROOT, register_entry, stub_command, task
+from ci_support import (
+    FIXTURES,
+    ROOT,
+    lister_command,
+    recorder_command,
+    register_entry,
+    stub_command,
+    task,
+)
 
 RECORDED = json.loads((FIXTURES / "compare-recorded.json").read_text())
 NULL = "0" * 40
@@ -310,12 +318,14 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
     fork, the upstream and the branch reach the tool in the right places and that
     the command ends with the tool's own status."""
     log = tmp_path / "log"
-    env = stub_command(tmp_path / "bin", "gh", f'echo "$@" >> "{log}"\n')
+    env = recorder_command(tmp_path / "bin", "gh", log)
+    # What the step gave is the installation token of the fork-sync App.
+    env["GH_TOKEN"] = "fork-sync-app-token"
     result = task("sync-fork", "org/fork", "up/stream", "release/1.2", env=env)
     assert result.returncode == 0, result.stderr
-    assert (
-        log.read_text()
-        == "repo sync org/fork --source up/stream --branch release/1.2\n"
+    assert log.read_text() == (
+        "repo sync org/fork --source up/stream --branch release/1.2 "
+        "credential=fork-sync-app-token\n"
     )
 
 
@@ -330,10 +340,78 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool_detects_violat
         "gh",
         f'echo called >> "{log}"\necho "branch has diverged" >&2\nexit 1\n',
     )
+    env["GH_TOKEN"] = "fork-sync-app-token"
     result = task("sync-fork", "org/fork", "up/stream", "main", env=env)
     assert result.returncode != 0
     assert "branch has diverged" in result.stderr
     log.unlink()
+    # No token: it fails before the tool is called, naming the variable.
+    no_token = {**env, "GH_TOKEN": ""}
+    result = task("sync-fork", "org/fork", "up/stream", "main", env=no_token)
+    assert result.returncode != 0 and "GH_TOKEN" in result.stderr
+    assert not log.exists()
     for arguments in ((), ("a", "b"), ("a", "", "c"), ("a", "b", "c", "d")):
         assert task("sync-fork", *arguments, env=env).returncode != 0
     assert not log.exists()
+
+
+# ---- workflows-write-with-organization-apps: the names of the Apps are checked by name, never by value --------------------------
+
+APP_WORKFLOW = (
+    "      app-id: ${{ vars.X_APP_ID }}\n      private-key: ${{ secrets.X_APP_PRIVATE_KEY }}\n"
+    "      app-id: ${{ vars.Y_APP_ID }}\n      private-key: ${{ secrets.Y_APP_PRIVATE_KEY }}\n"
+)
+
+
+def app_names_env(tmp_path, variables, secrets, workflow=APP_WORKFLOW):
+    """The workflows directory and a `gh` that answers the lists of names only, and
+    fails when it is asked for anything that would carry a value."""
+    workflows = tmp_path / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    (workflows / "w.yml").write_text(workflow)
+    lists = tmp_path / "lists"
+    lists.mkdir(exist_ok=True)
+    (lists / "variable").write_text("".join(f"{n}\n" for n in variables))
+    (lists / "secret").write_text("".join(f"{n}\n" for n in secrets))
+    env = lister_command(tmp_path / "bin", "gh", lists)
+    log = lists / "calls"
+    return {**env, "WORKFLOWS": str(workflows)}, log
+
+
+def test_workflows_write_with_organization_apps_names_checked_by_name_only(tmp_path):
+    """Proves, with a stub of `gh` (the platform has no stand-in), that the command
+    reads the names the workflows use, asks only for the field `name`, and succeeds
+    when the organization holds them all."""
+    env, log = app_names_env(
+        tmp_path,
+        ["X_APP_ID", "Y_APP_ID", "OTHER"],
+        ["X_APP_PRIVATE_KEY", "Y_APP_PRIVATE_KEY"],
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode == 0, result.stderr
+    asked = log.read_text().splitlines()
+    assert len(asked) == 2 and all("--json name" in line for line in asked)
+    assert "X_APP_PRIVATE_KEY" in result.stdout
+
+
+def test_workflows_write_with_organization_apps_names_checked_by_name_only_detects_violation(
+    tmp_path,
+):
+    """A missing variable, a missing secret, a variable listed where the secret is
+    wanted and a workflow that names no App each fail, naming what is missing."""
+    env, _ = app_names_env(
+        tmp_path / "a", ["X_APP_ID"], ["X_APP_PRIVATE_KEY", "Y_APP_PRIVATE_KEY"]
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode != 0 and "variable: Y_APP_ID" in result.stderr
+    env, _ = app_names_env(
+        tmp_path / "b", ["X_APP_ID", "Y_APP_ID"], ["X_APP_PRIVATE_KEY"]
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode != 0 and "secret: Y_APP_PRIVATE_KEY" in result.stderr
+    env, _ = app_names_env(
+        tmp_path / "c", ["X_APP_ID", "Y_APP_ID"], ["X_APP_ID", "Y_APP_ID"]
+    )
+    assert task("app-names", "o", env=env).returncode != 0
+    env, _ = app_names_env(tmp_path / "d", ["X_APP_ID"], [], workflow="on: push\n")
+    assert task("app-names", "o", env=env).returncode != 0

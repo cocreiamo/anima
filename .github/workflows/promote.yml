@@ -121,10 +121,12 @@ jobs:
     needs: [verify, publish]
     if: ${{ !cancelled() && needs.verify.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
     runs-on: ubuntu-24.04
+    # The workflow's own token only reads here: moving main-green and creating
+    # the release use the installation token of the promote App, which the
+    # ruleset of main-green lets move the branch, and which no other job gets.
     permissions:
-      contents: write
+      contents: read
     env:
-      GH_TOKEN: ${{ github.token }}
       SHA: ${{ needs.verify.outputs.sha }}
       IMAGE: ${{ needs.publish.outputs.reference }}
       EXISTING: ${{ needs.publish.outputs.existing }}
@@ -136,7 +138,18 @@ jobs:
       - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           version: 2026.11.14
+      - id: app-token
+        name: Obtain the installation token of the promote App
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.PROMOTE_APP_ID }}
+          private-key: ${{ secrets.PROMOTE_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Fast-forward main-green
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: mise run --quiet promote:green "$SHA"
       - name: Release the version this commit carries
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: mise run --quiet promote:release "$SHA"

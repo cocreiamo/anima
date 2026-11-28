@@ -10,6 +10,7 @@ it is used.
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -74,6 +75,26 @@ def stub_command(directory, name, script):
     path.write_text("#!/usr/bin/env bash\n" + script)
     path.chmod(0o755)
     return {"PATH": f"{directory}:{os.environ['PATH']}"}
+
+
+def lister_command(directory, name, lists):
+    """A copy of the fixture `gh-lister` first on the PATH: it answers `variable list`
+    and `secret list` from the files of that name in `lists` and records the calls
+    there, in `calls`."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / "gh-lister", directory / name)
+    return {"PATH": f"{directory}:{os.environ['PATH']}", "GH_LISTS": str(lists)}
+
+
+def recorder_command(directory, name, record):
+    """A copy of the fixture `gh-recorder` first on the PATH, writing what it was
+    called with, and the credential it was given, to `record`. Returns the
+    environment that puts it first."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / "gh-recorder", directory / name)
+    return {"PATH": f"{directory}:{os.environ['PATH']}", "GH_RECORD": str(record)}
 
 
 # ---- a registry of this machine ---------------------------------------------------------------

@@ -2,7 +2,7 @@
 #MISE description="Fast-forward one branch of a fork from its upstream (gh repo sync)"
 #
 # Usage: mise run ci:sync-fork <fork> <upstream> <branch>
-# Needs GH_TOKEN: a token that can write to the fork. `gh repo sync` refuses a
+# Needs GH_TOKEN: an installation token of the fork-sync App for that fork. `gh repo sync` refuses a
 # branch that has diverged from the upstream: that is a failure, never forced.
 set -euo pipefail
 
@@ -10,4 +10,5 @@ if [ "$#" -ne 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
     echo "usage: ci:sync-fork <fork> <upstream> <branch>" >&2
     exit 2
 fi
+: "${GH_TOKEN:?GH_TOKEN is not set: the installation token of the fork-sync App}"
 exec gh repo sync "$1" --source "$2" --branch "$3"

@@ -191,6 +191,7 @@ Look here before building something. Each section is derived from its source; th
 | R2 | valid token opens session | written |
 | R19 | vector search in every database | pending |
 | R78 | vendor roles limited to permissions | written |
+|  | workflows write with organization apps | written |
 
 ## Components
 
@@ -225,6 +226,7 @@ Look here before building something. Each section is derived from its source; th
 | `adr:check` | Check the decision records: sections, status, dates, numbering, links (adrs doctor) |
 | `build` | Build Anima's own code with Bazel |
 | `check` | Run every check |
+| `ci:app-names` | Check that the organization holds the variables and secrets that the workflows read for the Apps (names only, never a value) |
 | `ci:cache-key` | Print value=<key>, the key of the inner images' cache: a hash of the submodule status and of the files that the images are made of |
 | `ci:cache-load` | Load the inner images from the archive of the restored cache, then remove the archive |
 | `ci:cache-pack` | Save the inner images as one archive in the cache directory |
@@ -402,6 +404,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
 - R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
+- workflows write with organization apps, at every commit: `test_workflows_write_with_organization_apps_names_checked_by_name_only` (written).
 
 ## Skills
 
