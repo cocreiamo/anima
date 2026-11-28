@@ -216,19 +216,19 @@ upstream = "https://github.com/axllent/mailpit"
 image = "docker.io/axllent/mailpit"
 digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e"
 
-# The HTTP entry point (ADR 0008). Two entries, both recorded as exceptions to
-# building from source in a fork (GAP-057), pinned the way a fork that is not yet
-# a submodule is: by the commit of the upstream release tag, looked up with
-# `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+# The HTTP entry point (ADR 0008). Three entries, the first two recorded as
+# exceptions to building from source in a fork (GAP-057), pinned the way a fork
+# that is not yet a submodule is: by the commit of the upstream release tag,
+# looked up with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
 #
 # The runtime and SDK of the host program come from a distribution's packages
 # (the distribution builds .NET from source), not from a fork of ours. The
 # commit is the release tag of the source that the package version is built
 # from. Unverified: that the distribution's package of this version is built
-# from exactly this tag; and the package's own pin, the digest of the
-# distribution image that the entry's container file starts from, is added with
-# that container file (TASK-86), because no image has been chosen and
-# digested yet.
+# from exactly this tag. `packages` are the two packages that the entry's
+# container file installs, by name and version (a test compares them): the
+# runtime that the entry runs on, and the SDK that its build stage compiles with
+# (the SDK's version is its own feature band, 10.0.115 for the runtime 10.0.15).
 [[component]]
 name = "dotnet"
 role = "runtime and SDK of the entry's host program: the distribution's packages, built by it from source (not a fork of ours)"
@@ -236,6 +236,23 @@ version = "10.0.15"
 license = "MIT"
 upstream = "https://github.com/dotnet/dotnet"
 commit = "8e0f8ed2312954727f8919d7d1c2f78b483b4ee7"
+packages = ["aspnetcore-runtime-10.0-10.0.15", "dotnet-sdk-10.0-10.0.115"]
+
+# The distribution's minimal image, the base of the entry's image (the packages
+# above are installed into it). A distribution image, a collection of packages with
+# their own licences, so declared with the same LicenseRef as the base of the
+# engine image. The digest is the one of the image index (the manifest list), read
+# at the registry on 2026-11-28 and checked to be the SHA-256 of the index
+# document; the registry's other name for the same image shows the same digest.
+# Tags move, so the digest is the pin.
+[[component]]
+name = "fedora-minimal"
+role = "base of the HTTP entry point's image: the distribution's minimal image, onto which the .NET runtime packages are installed"
+version = "45"
+license = "LicenseRef-Fedora-Distribution"
+upstream = "https://fedoraproject.org/"
+image = "quay.io/fedora/fedora-minimal"
+digest = "sha256:7c06ebfe11ce10d5f3df9b901ff03627981d15c7168e0a4988f56dab481160e8"
 
 # The library that forwards requests. Pinned by version and by the content hash
 # of the package, which is the SHA-256 of the file

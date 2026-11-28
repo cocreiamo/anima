@@ -1,16 +1,21 @@
 #!/usr/bin/bash
 # Writes the addresses the engine's services listen on, for the parts that read
 # them before they start (the database server's configuration include and the
-# identity provider's environment file).
+# environment files of the identity provider and of the HTTP entry point).
 #
-#   anima-listen container   run as a container: the services listen on every
-#                            address of the container's network namespace, and
-#                            the outer `podman run --publish` decides what is
-#                            reachable (the loopback of the host by default).
+#   anima-listen container   run as a container: the database server and the
+#                            entry listen on every address of the container's
+#                            network namespace, and the outer `podman run
+#                            --publish` decides what is reachable (the loopback
+#                            of the host by default).
 #   anima-listen host        booted as the operating system of a machine: nothing
 #                            restricts the services from outside, so they listen
 #                            only on the address the machine's operator wrote in
 #                            /etc/anima/listen-address (default 127.0.0.1).
+#
+# The identity provider is never given an address of the outside: it listens on
+# the pod's loopback only, in both ways of starting, and the entry is the one way
+# in to it (ADR 0008, R135).
 #
 # Directory of the output: ANIMA_LISTEN_DIR (default /run/anima/listen); the
 # address file: ANIMA_LISTEN_ADDRESS_FILE (default /etc/anima/listen-address).
@@ -23,7 +28,7 @@ file=${ANIMA_LISTEN_ADDRESS_FILE:-/etc/anima/listen-address}
 case "$mode" in
     container)
         database='*'
-        access=0.0.0.0
+        entry=0.0.0.0
         ;;
     host)
         address=127.0.0.1
@@ -36,7 +41,7 @@ case "$mode" in
             exit 1
         fi
         database=$address
-        access=$address
+        entry=$address
         ;;
     *)
         echo "anima-listen: unknown mode '$mode'" >&2
@@ -45,8 +50,13 @@ case "$mode" in
 esac
 
 mkdir -p "$dir"
+entry_url=$entry
+# An IPv6 address is written in brackets in a URL.
+case "$entry" in *:*) entry_url="[$entry]" ;; esac
 printf "listen_addresses = '%s'\n" "$database" >"$dir/database.conf.new"
-printf 'KC_HTTP_HOST=%s\n' "$access" >"$dir/access.env.new"
-chmod 0644 "$dir/database.conf.new" "$dir/access.env.new"
+printf 'KC_HTTP_HOST=127.0.0.1\n' >"$dir/access.env.new"
+printf 'ANIMA_ENTRY_HOST=%s\nKestrel__Endpoints__Https__Url=https://%s:8443\n' "$entry" "$entry_url" >"$dir/entry.env.new"
+chmod 0644 "$dir/database.conf.new" "$dir/access.env.new" "$dir/entry.env.new"
 mv "$dir/database.conf.new" "$dir/database.conf"
 mv "$dir/access.env.new" "$dir/access.env"
+mv "$dir/entry.env.new" "$dir/entry.env"

@@ -1,5 +1,5 @@
 [Unit]
-Description=Anima identity provider (production mode, behind a TLS-terminating entry point to come)
+Description=Anima identity provider (production mode, behind the TLS-terminating HTTP entry point)
 # The identity provider keeps its state in its own database of the database
 # server, as the role prepared before the configurator (database-prepare); the
 # database server does not need the identity provider (R13). Its start order is
@@ -18,16 +18,17 @@ EnvironmentFile=/run/anima/listen/access.env
 # derived into memory from the root of trust.
 EnvironmentFile=/run/anima/configurator/access.env
 Environment=KC_HTTP_MANAGEMENT_HOST=127.0.0.1
-# Plain HTTP inside the pod: a TLS-terminating entry point in front of it is a
-# task of its own. The headers that such a proxy sets are not trusted until then
-# (no proxy-headers setting), and the hostname is the public URL, never the
+# Plain HTTP on the pod's loopback only (KC_HTTP_HOST, written by anima-listen,
+# and the management host above): the HTTP entry point (engine/entry/) terminates
+# TLS and is the one way in (R135). The `Forwarded` header it sets is trusted from
+# the loopback and from nowhere else; the hostname is the public URL, never the
 # request's name (R116).
 Environment=KC_HTTP_ENABLED=true
 Environment=KC_DB_URL=jdbc:postgresql://127.0.0.1:5432/idp
 Environment=KC_DB_USERNAME=svc_idp
 Pod=anima.pod
 # Production mode on the image's optimized build; the state is in the database.
-Exec=start --optimized --http-port=8080 --hostname=${ANIMA_IDENTITY_PROVIDER_URL}
+Exec=start --optimized --http-port=8080 --hostname=${ANIMA_IDENTITY_PROVIDER_URL} --proxy-headers=forwarded --proxy-trusted-addresses=127.0.0.1/32
 Mount=type=tmpfs,destination=/opt/keycloak/data,tmpfs-mode=1777
 Tmpfs=/tmp:rw,mode=1777
 # Startup, liveness and readiness through the management port (no curl in the

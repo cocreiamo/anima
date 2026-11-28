@@ -4,6 +4,7 @@ title: Issue, renew and pick up the entry's certificate
 status: To Do
 assignee: []
 created_date: '2026-11-28T10:05:37Z'
+updated_date: '2026-11-28T12:54:08Z'
 labels:
   - engine
   - entry
@@ -33,6 +34,12 @@ The HTTP entry point presents a certificate issued by the engine's certificate a
 - [ ] #2 test_R126_entry_terminates_tls_with_engine_certificate
 - [ ] #3 test_R127_entry_takes_renewed_certificate_without_restart
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done by TASK-86 (2026-11-28): the entry has a certificate, issued once per start by engine/entry/entry-certificate (unit entry-certificate.service) through the secret store's existing role of the database server (names localhost and 127.0.0.1, lifetime 720h), into /run/anima/entrytls (server.crt, server.key, ca.crt, owned by the entry's user, 1011). The entry reads it through Kestrel settings in engine/entry/entry.container (Certificate Path and KeyPath). R126 is tested (tests/system/test_entry.py). Remains for this task: a role of its own whose names include the installation's public host, renewal by the mechanism and thresholds of the database server's certificate (R118, R119: a failure is reported by the readiness check), pickup of a renewed certificate without a restart and the pair of files replaced as one (R127, still pending), and the entry's certificate unit then stays up instead of running once.
+<!-- SECTION:NOTES:END -->
 
 ## Brief
 

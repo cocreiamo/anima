@@ -9,7 +9,7 @@
 #   -p 127.0.0.1:...      the two declared ports, on the loopback by default
 # Volumes of state are declared by the image (VOLUME) and need no flag.
 # Variables: ANIMA_ADDRESS (default 127.0.0.1), ANIMA_DATABASE_PORT (5432),
-# ANIMA_ACCESS_PORT (8080), ANIMA_NAME (anima-engine).
+# ANIMA_ENTRY_PORT (8443), ANIMA_NAME (anima-engine).
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -26,5 +26,5 @@ fi
 
 exec podman run --detach --name "$name" --cap-add SYS_ADMIN --cap-add SYS_PTRACE "${extra[@]}" \
     --publish "$address:${ANIMA_DATABASE_PORT:-5432}:5432" \
-    --publish "$address:${ANIMA_ACCESS_PORT:-8080}:8080" \
+    --publish "$address:${ANIMA_ENTRY_PORT:-8443}:8443" \
     "$image"
