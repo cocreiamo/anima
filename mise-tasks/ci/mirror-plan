@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+# MISE description="Read the images to mirror and the copy tool from the register, and print the lines images= and skopeo="
+#
+# Usage: mise run ci:mirror-plan [register (default: components.toml)]
+# Standard output is what the step appends to GITHUB_OUTPUT.
+# The list is read from the register and written nowhere else. Every entry of
+# `component` and `tool_image` that has an `image` is mirrored; the copy tool is
+# the entry named skopeo, and a register without it is a failure.
+import json
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(os.environ.get("MISE_PROJECT_ROOT") or Path(__file__).resolve().parents[2])
+FIELDS = (
+    ("name", "name"),
+    ("image", "image"),
+    ("tag", "version"),
+    ("digest", "digest"),
+    ("mirror", "mirror"),
+)
+
+
+def plan(register):
+    """(the matrix of the images, the reference of the copy tool by digest)."""
+    entries = [
+        c
+        for c in register.get("component", []) + register.get("tool_image", [])
+        if "image" in c
+    ]
+    images = [{key: c[source] for key, source in FIELDS} for c in entries]
+    skopeo = next((c for c in entries if c["name"] == "skopeo"), None)
+    if skopeo is None:
+        raise SystemExit("ci:mirror-plan: the register has no image named skopeo")
+    return {"include": images}, skopeo["image"] + "@" + skopeo["digest"]
+
+
+def main():
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "components.toml"
+    with open(path, "rb") as f:
+        register = tomllib.load(f)
+    images, skopeo = plan(register)
+    lines = "images=" + json.dumps(images) + "\n" + "skopeo=" + skopeo + "\n"
+    sys.stdout.write(lines)
+
+
+if __name__ == "__main__":
+    main()

@@ -331,7 +331,7 @@ def checks_without_companion(names, exceptions):
 
 def test_R56_every_check_seen_to_fail():
     names = set()
-    for directory in ("repository", "configure", "system"):
+    for directory in ("repository", "configure", "system", "ci"):
         names |= defined_function_names(ROOT / "tests" / directory)
     faults = checks_without_companion(names, EXCEPTIONS)
     assert not faults, faults
@@ -348,7 +348,7 @@ def test_R56_every_check_seen_to_fail_detects_violation():
     assert checks_without_companion({check, companion}, {check: "why"})
     # A test of the configurator or of the engine is read like the others: its
     # directory is one of those the check scans.
-    assert {"configure", "system"} <= {
+    assert {"configure", "system", "ci"} <= {
         p.name for p in (ROOT / "tests").iterdir() if p.is_dir()
     }
     assert checks_without_companion({check}, {"test_R8_y": "why"})

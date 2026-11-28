@@ -7,6 +7,10 @@ name: System tests
 # passes without work (`anima-tech-github-governance`, rule 2), so the check
 # can be required. Only the promotion builds an image that is released
 # (`anima-branching-and-releasing`, rules 4 and 6).
+#
+# Every `run:` step is one call to a command of the repository that has a test
+# that runs it (`mise-tasks/ci/`, `tests/ci/`, R170): the commands are tested here
+# too, before the build, whenever the commands or the engine change.
 
 on:
   pull_request:
@@ -29,32 +33,29 @@ jobs:
       contents: read
     env:
       # The paths that the engine image and its tests are made of.
-      RELEVANT: '^(engine/|third_party/|config/|tests/system/|mise-tasks/engine/|mise-tasks/promote/|tests/promote/|\.gitmodules$|components\.toml$|\.github/workflows/(system-tests|promote)\.yml$)'
+      RELEVANT: '^(engine/|third_party/|config/|tests/system/|mise-tasks/engine/|mise-tasks/promote/|tests/promote/|mise-tasks/ci/|tests/ci/|\.gitmodules$|components\.toml$|\.github/workflows/(system-tests|promote)\.yml$)'
     steps:
+      # The decision needs the repository's command and the one tool it reads the
+      # answer with, and nothing else: no tool is installed for it but that one.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
+          install_args: jq
+          cache: false
+
       - id: changes
         name: Decide whether the change touches the engine
         env:
           GH_TOKEN: ${{ github.token }}
+          MISE_TASK_RUN_AUTO_INSTALL: "false"
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-        run: |
-          set -euo pipefail
-          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
-            echo "No base to compare with: the change counts as relevant."
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          gh api --paginate "repos/$GITHUB_REPOSITORY/compare/$BASE...$HEAD" \
-            --jq '.files[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
-          if grep -Eq "$RELEVANT" "$RUNNER_TEMP/changed.txt"; then
-            echo "The change touches the engine ($EVENT):"
-            grep -E "$RELEVANT" "$RUNNER_TEMP/changed.txt"
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "The change touches nothing of the engine: nothing to run."
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: mise run --quiet ci:changes >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.changes.outputs.relevant == 'true'
@@ -67,11 +68,14 @@ jobs:
         with:
           version: 2026.11.14
 
+      - name: Test the commands that the workflows call
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run ci:test
+
       - id: key
         name: Compute the key of the inner images
         if: steps.changes.outputs.relevant == 'true'
-        run: |
-          echo "value=$( { git submodule status; find engine mise-tasks/engine config -type f | LC_ALL=C sort | xargs sha256sum; } | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        run: mise run --quiet ci:cache-key >> "$GITHUB_OUTPUT"
 
       - id: restore
         name: Restore the inner images
@@ -84,11 +88,14 @@ jobs:
 
       - name: Load the restored images
         if: steps.changes.outputs.relevant == 'true' && steps.restore.outputs.cache-matched-key != ''
-        run: |
-          podman load --input ~/engine-cache/images.tar
-          # `podman save` refuses to write over an existing archive, and a new one
-          # is saved when the key does not hold the current images.
-          rm -f ~/engine-cache/images.tar
+        run: mise run ci:cache-load
+
+      # The commands that the promotion workflow calls, run against real podman
+      # and a throwaway registry (R170, R171, PM-014); they pull small images
+      # and never touch the engine image.
+      - name: Run the commands of the promotion
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run promote:test
 
       # The commands that the promotion workflow calls, run against real podman
       # and a throwaway registry (R170, R171, PM-014); they pull small images
@@ -106,11 +113,7 @@ jobs:
       - id: pack
         name: Save the inner images as one archive
         if: steps.changes.outputs.relevant == 'true' && github.event_name == 'push' && steps.restore.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ~/engine-cache
-          refs=$(cat .cache/engine/{configure,database,database-test-client,access,secrets,secrets-dependencies,mail}.ref)
-          # shellcheck disable=SC2086
-          podman save --multi-image-archive --output ~/engine-cache/images.tar $refs
+        run: mise run ci:cache-pack
 
       - name: Cache the inner images
         if: steps.changes.outputs.relevant == 'true' && github.event_name == 'push' && steps.pack.outcome == 'success'

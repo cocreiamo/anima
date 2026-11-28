@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#MISE description="Save the inner images as one archive in the cache directory"
+#
+# Usage: mise run ci:cache-pack [cache directory (default: ~/engine-cache)]
+# The references are read from <refs>/<name>.ref (refs: ANIMA_ENGINE_REFS, default
+# .cache/engine, where `engine:build` writes them) for each name of
+# ANIMA_INNER_IMAGES. `podman save` refuses to write over an archive that exists
+# (PM-010), so any archive is removed first; a missing reference stops the task:
+# an incomplete archive would be cached under a key that says it is complete.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+dir="${1:-$HOME/engine-cache}"
+refs_dir="${ANIMA_ENGINE_REFS:-$root/.cache/engine}"
+names="${ANIMA_INNER_IMAGES:-configure database database-test-client access secrets secrets-dependencies mail}"
+
+refs=()
+for name in $names; do
+    file="$refs_dir/$name.ref"
+    if [ ! -s "$file" ]; then
+        echo "ci:cache-pack: no reference for $name ($file): was it built?" >&2
+        exit 1
+    fi
+    refs+=("$(<"$file")")
+done
+
+mkdir -p "$dir"
+rm -f "$dir/images.tar"
+podman save --multi-image-archive --output "$dir/images.tar" "${refs[@]}"
