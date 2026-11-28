@@ -635,3 +635,36 @@ workaround = "Treat only Status `exited` as a finished stop and start again only
 upstream = "not reported"
 resolved_when = "A podman release is shown not to apply a late exit to a new run of the same container."
 status = "open"
+
+[[gap]]
+id = "GAP-057"
+component = "yarp"
+version = "2.3.0, 2026-11-28"
+summary = "The HTTP entry point (ADR 0008) is not built from source in a fork of ours. The .NET runtime and SDK come from a distribution's packages (the distribution builds them from source; building them from a fork is impractical), and YARP comes from its NuGet package, pinned by version and by the content hash of the package. A mirror fork of YARP for upstream contributions is planned and does not exist yet."
+impact = "An exception to building every component from source (`anima-maintaining-a-fork`): the library that the entry runs is a binary package whose build we do not reproduce, and a change of ours to it has no fork to be written in."
+workaround = "The package is pinned by version and content hash in components.toml; the build of the entry (TASK-86) is to refuse a package whose hash differs, and is not built yet."
+upstream = "not reported"
+resolved_when = "The mirror fork of YARP exists and the entry's build compiles the library from the fork's pinned commit, or the founder records that the NuGet package stays the way the library is taken."
+status = "open"
+
+[[gap]]
+id = "GAP-058"
+component = "yarp"
+version = "2.3.0, 2026-11-28"
+summary = "The application that the YARP project packages is preview only (not marked as shipping), so the entry runs a minimal host program of ours that loads the library and its configuration."
+impact = "A program of ours to maintain, in the engine, that upstream would otherwise ship (`anima-adopting-a-component`, rule 2)."
+workaround = "none yet; the host program is written in TASK-86 and is to hold no routing and no TLS setting, all of them being configuration."
+upstream = "not reported"
+resolved_when = "Upstream ships a stable application that is configured by files and carries what the entry needs (TLS from files, header transforms, routes), and the entry runs it instead of our host program."
+status = "open"
+
+[[gap]]
+id = "GAP-059"
+component = "yarp"
+version = "2.3.0, 2026-11-28"
+summary = "YARP had no stable release for about 21 months at 2026-11-28 (last stable release 2025-02-27), while its main branch was active."
+impact = "The entry depends on a library whose release cadence is a governance risk: a fix or a security update may not reach a stable release soon, and the project's plans are not known to us."
+workaround = "The package is pinned; the mirror fork (GAP-057) is the place to carry a fix of ours until a release has it."
+upstream = "not reported"
+resolved_when = "YARP has made a stable release after 2026-11-28 and has kept a regular release cadence for a year, or the entry has moved to another library behind the same port."
+status = "open"

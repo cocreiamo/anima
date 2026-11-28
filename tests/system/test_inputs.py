@@ -9,6 +9,7 @@ temporary copy of the inputs, for every inner image.
 import hashlib
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -57,27 +58,34 @@ def naive_tag(containerfile: str, directory: Path, commits: str = COMMITS) -> st
 
 
 def inputs_that_leave_the_tag(tag, containerfile: str, directory: Path) -> list[str]:
-    """The inputs whose change leaves the tag as it was (none, when it is right)."""
-    unchanged = []
-    for name in [containerfile, *copied_files(containerfile)]:
-        before = tag(containerfile, directory)
-        path = directory / name
-        original = path.read_bytes()
-        path.write_bytes(original + b"\n# changed\n")
-        after = tag(containerfile, directory)
-        path.write_bytes(original)
-        if before == after:
-            unchanged.append(name)
-    if tag(containerfile, directory) == tag(containerfile, directory, COMMITS + "e5\n"):
-        unchanged.append("source commits")
-    return unchanged
+    """The inputs whose change leaves the tag as it was (none, when it is right).
+    Each input is changed in a copy of its own, and the copies are tagged together:
+    the tag is a process that mostly waits for the machine, so it runs in parallel."""
+    before = tag(containerfile, directory)
+    names = [containerfile, *copied_files(containerfile)]
+
+    def unchanged(indexed: tuple[int, str]) -> bool:
+        index, name = indexed
+        copy = directory.parent / f"{directory.name}-changed-{index}"
+        shutil.copytree(directory, copy)
+        with (copy / name).open("ab") as changed:
+            changed.write(b"\n# changed\n")
+        return tag(containerfile, copy) == before
+
+    with ThreadPoolExecutor() as pool:
+        flags = list(pool.map(unchanged, enumerate(names)))
+        more = pool.submit(tag, containerfile, directory, COMMITS + "e5\n").result()
+    found = [name for name, same in zip(names, flags, strict=True) if same]
+    if before == more:
+        found.append("source commits")
+    return found
 
 
 @pytest.mark.parametrize("containerfile", CONTAINERFILES)
 def test_R99_image_tag_depends_on_every_input(containerfile, tmp_path):
     """Changing the container file, a file it copies or a source commit changes the tag."""
     copy_inputs(containerfile, tmp_path)
-    assert tag_of(containerfile, tmp_path) == tag_of(containerfile, tmp_path)
+    assert tag_of(containerfile, tmp_path) == tag_of(containerfile, tmp_path)  # stable
     assert inputs_that_leave_the_tag(tag_of, containerfile, tmp_path) == []
 
 

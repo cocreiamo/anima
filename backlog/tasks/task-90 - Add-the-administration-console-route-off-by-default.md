@@ -1,0 +1,70 @@
+---
+id: TASK-90
+title: Add the administration console route, off by default
+status: To Do
+assignee: []
+created_date: '2026-11-28T10:05:38Z'
+labels:
+  - engine
+  - entry
+  - access
+dependencies:
+  - TASK-86
+ordinal: 90000
+gaps: []
+fork: none
+role: implementer
+owns:
+  - engine/entry/**
+  - config/entry/**
+  - tests/system/**
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The identity provider's administration console is reachable through the entry only when the installation turns a route on by one setting; off by default. The configurator keeps using the administration API from inside the pod and never through the entry.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 test_R130_administration_console_route_off_by_default
+- [ ] #2 test_R131_administration_console_route_on_by_configuration
+<!-- AC:END -->
+
+## Brief
+
+Task: TASK-90, Add the administration console route, off by default. Role: implementer.
+
+### Read first
+
+- `docs/adr/0008-the-http-entry-point-of-the-engine.md`, R130, R131
+- `anima-tech-keycloak`
+
+### Load these skills
+
+- anima-tech-keycloak, anima-configuration-design, anima-specifying-requirements
+
+### Own these paths
+
+- engine/entry/**
+- config/entry/**
+- tests/system/**
+
+### Do not touch
+
+- third_party/**, generated files, lock files; the configurator's use of the administration API from inside the pod does not change
+
+### Acceptance
+
+- test_R130_administration_console_route_off_by_default
+- test_R131_administration_console_route_on_by_configuration
+
+### Done when
+
+- The review checklist (`docs/work/review-checklist.md`) passes.
+- The report (`docs/work/handback-template.md`) is filled in.
+
+## Report
+
+(`docs/work/handback-template.md`, when done)

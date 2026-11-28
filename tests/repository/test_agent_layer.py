@@ -8,6 +8,7 @@ Each check is a function of its inputs; its companion test
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import agent_layer as al
 import generators
@@ -626,11 +627,19 @@ def run_hook(script, stdin):
 
 def hook_faults(script):
     """The hook names the command for each file it knows, says nothing for another
-    file, and exits 0 with whatever input."""
+    file, and exits 0 with whatever input. The runs are independent processes that
+    mostly wait for the machine: they go together."""
     faults = []
-    for path, command in HOOK_CASES:
-        stdin = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path}})
-        done = run_hook(script, stdin)
+    known = [
+        json.dumps({"tool_name": "Write", "tool_input": {"file_path": path}})
+        for path, _command in HOOK_CASES
+    ]
+    other = json.dumps({"tool_input": {"file_path": "/w/README.md"}})
+    odd = (other, "", "not json", "{", '{"tool_input": null}')
+    with ThreadPoolExecutor() as pool:
+        done_known = list(pool.map(lambda stdin: run_hook(script, stdin), known))
+        done_odd = list(pool.map(lambda stdin: run_hook(script, stdin), odd))
+    for (path, command), done in zip(HOOK_CASES, done_known, strict=True):
         try:
             context = json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
         except (ValueError, KeyError):
@@ -639,9 +648,7 @@ def hook_faults(script):
             faults.append(f"{path}: the reminder does not name {command!r}")
         if done.returncode != 0:
             faults.append(f"{path}: exit status {done.returncode}")
-    other = json.dumps({"tool_input": {"file_path": "/w/README.md"}})
-    for stdin in (other, "", "not json", "{", '{"tool_input": null}'):
-        done = run_hook(script, stdin)
+    for stdin, done in zip(odd, done_odd, strict=True):
         if done.returncode != 0:
             faults.append(f"input {stdin!r}: exit status {done.returncode}")
         if stdin == other and done.stdout.strip():

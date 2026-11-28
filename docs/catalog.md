@@ -11,6 +11,7 @@ Look here before building something. Each section is derived from its source; th
 | backup | pgbackrest | none |
 | certificate authority | openbao | none |
 | configurator | opentofu | none |
+| http entry | httpEntry | none |
 | identity source | declaredIdentities | none |
 | outgoing mail | mailRelay | mailCatcher (stand-in) |
 | root of trust | keyManagementService | localKey (stand-in) |
@@ -25,6 +26,8 @@ Look here before building something. Each section is derived from its source; th
 | Id | Name | Verification |
 | --- | --- | --- |
 | R95 | absent setting takes production default | written |
+| R130 | administration console route off by default | pending |
+| R131 | administration console route on by configuration | pending |
 | R103 | adopter secrets arrive as files | written |
 | R92 | advisory hook never blocks | written |
 | R88 | agent layer evaluated at promotion | pending |
@@ -56,9 +59,15 @@ Look here before building something. Each section is derived from its source; th
 | R39 | each fact declared once | written |
 | R28 | each port has one default adapter | written |
 | R15 | encrypted connections only | written |
+| R134 | engine authority certificate obtainable | pending |
 | R1 | engine built from pinned sources | written |
 | R125 | engine image cache refreshed | written |
 | R52 | engine parts validated without starting | written |
+| R128 | entry forwards only declared prefixes | pending |
+| R129 | entry never forwards management | pending |
+| R132 | entry overwrites forwarded header | pending |
+| R127 | entry takes renewed certificate without restart | pending |
+| R126 | entry terminates tls with engine certificate | pending |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
 | R75 | every capability directory covered | written |
@@ -82,6 +91,7 @@ Look here before building something. Each section is derived from its source; th
 | R6 | identities declared | written |
 | R14 | identities reapplied | written |
 | R5 | identity maps to role | written |
+| R135 | identity provider reachable only through entry | pending |
 | R32 | idp database only for its role | pending |
 | R27 | idp role confined to its database | pending |
 | R50 | image boots as operating system | pending |
@@ -110,6 +120,7 @@ Look here before building something. Each section is derived from its source; th
 | R115 | publish only what was verified | written |
 | R16 | published images attested | pending |
 | R98 | readiness negative when configurator fails | written |
+| R145 | records made from shared template | written |
 | R24 | release only from verified commit | written |
 | R110 | releases stay patch only | written |
 | R77 | role files well formed | written |
@@ -127,6 +138,7 @@ Look here before building something. Each section is derived from its source; th
 | R62 | storage connection uses no secret | written |
 | R89 | submodule working trees clean | written |
 | R12 | superuser local only | written |
+| R133 | supplied certificate selected by one parameter | pending |
 | R114 | system tests report on every change | written |
 | R3.1 | tampered token rejected | written |
 | R80 | task acceptance names verifications | written |
@@ -172,6 +184,8 @@ Look here before building something. Each section is derived from its source; th
 | alpine | base of the secret store's image (the upstream container file's own base) and of the configurator's image |
 | mailpit | adapter: outgoing mail (stand-in, local development and CI only) |
 | mailpit-image | stand-in of outgoing mail: the upstream image the engine's mail unit is built from |
+| dotnet | runtime and SDK of the entry's host program: the distribution's packages, built by it from source (not a fork of ours) |
+| yarp | adapter: HTTP entry point (the library that forwards requests, hosted by the entry's own program, part of the engine) |
 
 ## Tasks (`mise run <task>`)
 
@@ -285,6 +299,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R41, probes and single readiness, when an image is promoted: `test_R41_probes_and_single_readiness` (written).
 - R66, profile differs only in selection and data, at every commit: `test_R66_profile_differs_only_in_selection_and_data` (pending).
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
+- R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
 - R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
