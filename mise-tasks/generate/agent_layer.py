@@ -256,23 +256,14 @@ ROUTING_END = "<!-- routing:end -->"
 FAMILY_ORDER = {"product": 0, "capability": 1, "technology": 2}
 
 
-def pad_table(header, rows):
-    """A Markdown table padded the way Prettier pads it."""
-    widths = [max(len(r[i]) for r in [header, *rows]) for i in range(len(header))]
-
-    def line(cells):
-        return "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
-
-    rule = "| " + " | ".join("-" * w for w in widths) + " |"
-    return "\n".join([line(header), rule, *[line(r) for r in rows]])
-
-
 def routing_table(all_skills):
-    rows = []
+    """One line per skill: a list, not a table. A table is padded to its widest
+    cell, so one longer cell rewrites every row (size and merge conflicts, PM-016)."""
+    lines = []
     for skill in sorted(all_skills, key=lambda s: (FAMILY_ORDER[s.family], s.name)):
         work = ", ".join(f"`{p}`" for p in skill.paths) or "any design decision"
-        rows.append([f"`{skill.name}`", skill.family, work])
-    return pad_table(["Skill", "Family", "Work on"], rows)
+        lines.append(f"- `{skill.name}` ({skill.family}): {work}")
+    return "\n".join(lines)
 
 
 def agents_md(text, all_skills):

@@ -123,6 +123,18 @@ def render(state, by_name=True, with_total=False):
     }
 
 
+def render_padded_routing(state):
+    """The routing as it was rendered until PM-016: a table padded to its widest cell."""
+    rows = [
+        [f"`{s.name}`", s.family, ", ".join(f"`{p}`" for p in s.paths)]
+        for s in sorted(state.skills, key=lambda s: (al.FAMILY_ORDER[s.family], s.name))
+    ]
+    widths = [max(len(r[i]) for r in rows) for i in range(3)]
+    return "\n".join(
+        "| " + " | ".join(c.ljust(w) for c, w in zip(r, widths)) + " |" for r in rows
+    )
+
+
 def base_state(model):
     tests = sysml_model.names_of_tests()
     return State(
@@ -158,6 +170,11 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files(model, tm
         "R9002", "update bot groups patches", test_written=False
     ).add_skill("anima-cleaning-a-cache", 2)
     assert merge_faults(base, ours, theirs, tmp_path) == []
+    # A skill whose cells are wider than every other one (PM-016).
+    wide = "anima-z" + "describing-a-very-long-named-capability-" * 3
+    ours = base.add_skill(wide, 0)
+    theirs = base.add_skill("anima-cleaning-a-cache", 0)
+    assert merge_faults(base, ours, theirs, tmp_path) == []
     # Two requirements whose tests are not written yet.
     ours = base.add_requirement("R9003", "backup restores twice", test_written=False)
     theirs = base.add_requirement("R9004", "tests report coverage", test_written=False)
@@ -180,6 +197,12 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files_detects_v
     assert "docs/catalog.md (requirements)" in old
     assert "docs/catalog.md (fitness functions)" in old
     assert "skills/README.md" in old
+    # The routing as a table padded to its widest cell: a wider cell rewrites
+    # every row, so it conflicts with any other addition (PM-016).
+    wide = "anima-z" + "describing-a-very-long-named-capability-" * 3
+    one, other = base.add_skill(wide, 0), base.add_skill("anima-cleaning-a-cache", 0)
+    padded = render_padded_routing
+    assert conflicts(padded(base), padded(one), padded(other), tmp_path)
     ours = base.add_requirement("R9003", "backup restores twice", test_written=False)
     theirs = base.add_requirement("R9004", "tests report coverage", test_written=False)
     assert "tests/pending.toml" in merge_faults(
