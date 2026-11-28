@@ -11,3 +11,4 @@ A task is done when every line below holds. The reviewer checks them with a fres
 7. **Nothing outside the owned paths.** The diff touches only the paths the brief names; nothing under `third_party/`, no lock file by hand, no repository setting.
 8. **Reported honestly.** The report separates what was run from what was only read and lists every denied command.
 9. **An event leaves a postmortem.** If something went wrong while doing the task, `docs/postmortems/` has an entry whose guard exists.
+10. **Defects solved at the root.** For each defect met, the report states the root cause with its evidence and the class, and either the class is removed by a design change the founder approved or the options and a recommendation are brought to the founder; an instance fix alone does not close a class that has recurred.

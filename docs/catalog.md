@@ -123,6 +123,7 @@ Look here before building something. Each section is derived from its source; th
 | R21 | passes upstream regression suite | written |
 | R106 | plan guard refuses undeclared contraction | written |
 | R82 | postmortem guards exist | written |
+| R166 | postmortem names root and class options | written |
 | R85 | postmortem not open too long | written |
 | R84 | postmortem recurrence needs stronger guard | written |
 | R83 | postmortem status agrees with guards | written |
@@ -314,6 +315,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
 - R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
+- R166, postmortem names root and class options, at every commit: `test_R166_postmortem_names_root_and_class_options` (written).
 - R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
 - R84, postmortem recurrence needs stronger guard, at every commit: `test_R84_postmortem_recurrence_needs_stronger_guard` (written).
 - R83, postmortem status agrees with guards, at every commit: `test_R83_postmortem_status_agrees_with_guards` (written).
