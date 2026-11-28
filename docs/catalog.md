@@ -147,6 +147,7 @@ Look here before building something. Each section is derived from its source; th
 | R122 | update bot ignores build contexts | written |
 | R124 | update bot keeps jdk on lts line | written |
 | R125 | engine image cache refreshed | written |
+| R140 | contributor agreement links privacy notice | written |
 
 ## Components
 
@@ -307,6 +308,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R122, update bot ignores build contexts, at every commit: `test_R122_update_bot_ignores_build_contexts` (written).
 - R124, update bot keeps jdk on lts line, at every commit: `test_R124_update_bot_keeps_the_jdk_on_its_lts_line` (written).
 - R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
+- R140, contributor agreement links privacy notice, at every commit: `test_R140_contributor_agreement_links_privacy_notice` (written).
 
 ## Skills
 
