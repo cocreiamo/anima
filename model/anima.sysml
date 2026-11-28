@@ -65,6 +65,7 @@ package Anima {
     part def VectorSearch :> Port;
     part def Backup :> Port;
     part def OutgoingMail :> Port;
+    part def HttpEntry :> Port;
 
     // The stand-ins of the root of trust and of outgoing mail.
     part def LocalKey :> RootOfTrust, StandIn;
@@ -134,6 +135,15 @@ package Anima {
                 doc /* The stand-in of outgoing mail, which the local profile
                      * selects: a local mail catcher that keeps the messages
                      * and delivers none. */
+            }
+            part httpEntry : HttpEntry {
+                doc /* The default adapter of the HTTP entry point: the one
+                     * listener published to the outside, in its own
+                     * container. It terminates TLS with a certificate of the
+                     * engine's certificate authority, or one that the
+                     * adopter supplies, and forwards only the declared path
+                     * prefixes to declared backends on the pod's loopback.
+                     * Decided, not built. */
             }
             part keyManagementService : RootOfTrust {
                 doc /* The production adapter of the root of trust: the
@@ -806,6 +816,71 @@ package Anima {
             doc /* A renewal of the database server's certificate that fails shall leave the engine not ready, and the readiness answer shall state that the certificate could not be renewed. */
             subject engine : Engine;
         }
+        requirement <'R126'> entryTerminatesTlsWithEngineCertificate {
+            doc /* The HTTP entry point shall terminate TLS with a certificate
+                 * that the engine's certificate authority issued and that
+                 * names the public host of the installation. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R127'> entryTakesRenewedCertificateWithoutRestart {
+            doc /* The HTTP entry point shall present a renewed certificate
+                 * as soon as it is in place, with no restart of the entry,
+                 * and shall never present a certificate with another's key. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R128'> entryForwardsOnlyDeclaredPrefixes {
+            doc /* The HTTP entry point shall forward a request only when its
+                 * path begins with a declared prefix, and only to the
+                 * loopback backend declared for that prefix; it shall answer
+                 * every other request with 404. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R129'> entryNeverForwardsManagement {
+            doc /* The HTTP entry point shall never forward the health,
+                 * metrics or management endpoints of a backend, whatever the
+                 * configuration declares. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R130'> administrationConsoleRouteOffByDefault {
+            doc /* The route to the identity provider's administration
+                 * console shall be off unless the installation turns it on:
+                 * a request for it through the entry shall answer 404. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R131'> administrationConsoleRouteOnByConfiguration {
+            doc /* When the installation turns the administration console
+                 * route on by its one setting, a request for the console
+                 * through the entry shall reach it, and the configurator
+                 * shall not need that route to apply the declared state. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R132'> entryOverwritesForwardedHeader {
+            doc /* The HTTP entry point shall set the Forwarded header of
+                 * RFC 7239 from the connection it terminates, replacing any
+                 * value a client sent, and shall remove every other
+                 * forwarding header a client supplied. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R133'> suppliedCertificateSelectedByOneParameter {
+            doc /* An installation shall be able to make the HTTP entry point
+                 * present a certificate that the adopter supplies instead of
+                 * the engine's, by one installation parameter and no other
+                 * change, the supplied certificate and its key reaching the
+                 * entry as files of a supplied secret. */
+            subject listener : HttpEntry;
+        }
+        requirement <'R134'> engineAuthorityCertificateObtainable {
+            doc /* A client shall be able to obtain the certificate of the
+                 * engine's certificate authority, with no credential, in
+                 * order to trust the certificate of the HTTP entry point. */
+            subject engine : Engine;
+        }
+        requirement <'R135'> identityProviderReachableOnlyThroughEntry {
+            doc /* From outside the pod, the identity provider shall be
+                 * reachable only through the HTTP entry point, and by no
+                 * port of its own. */
+            subject engine : Engine;
+        }
         requirement <'R30'> nothingReachableByDefault {
             doc /* Unless the configuration declares otherwise, no service of
                  * the engine shall be reachable from outside the machine. */
@@ -1037,6 +1112,16 @@ package Anima {
     satisfy Runtime::encryptedConnectionsOnly by anima.engine;
     satisfy Runtime::certificateRenewedBeforeExpiry by anima.engine;
     satisfy Runtime::failedRenewalLeavesEngineNotReady by anima.engine;
+    satisfy Runtime::entryTerminatesTlsWithEngineCertificate by anima.engine.httpEntry;
+    satisfy Runtime::entryTakesRenewedCertificateWithoutRestart by anima.engine.httpEntry;
+    satisfy Runtime::entryForwardsOnlyDeclaredPrefixes by anima.engine.httpEntry;
+    satisfy Runtime::entryNeverForwardsManagement by anima.engine.httpEntry;
+    satisfy Runtime::administrationConsoleRouteOffByDefault by anima.engine.httpEntry;
+    satisfy Runtime::administrationConsoleRouteOnByConfiguration by anima.engine.httpEntry;
+    satisfy Runtime::entryOverwritesForwardedHeader by anima.engine.httpEntry;
+    satisfy Runtime::suppliedCertificateSelectedByOneParameter by anima.engine.httpEntry;
+    satisfy Runtime::engineAuthorityCertificateObtainable by anima.engine;
+    satisfy Runtime::identityProviderReachableOnlyThroughEntry by anima.engine;
     satisfy Runtime::passesUpstreamRegressionSuite by anima.engine.postgresql;
     satisfy Runtime::rolesDeclaredWithIdentities by anima;
     satisfy Runtime::nothingReachableByDefault by anima.engine;
@@ -1171,6 +1256,46 @@ package Anima {
         verification def test_R119_failed_renewal_leaves_engine_not_ready {
             subject sys : System;
             objective { verify Runtime::failedRenewalLeavesEngineNotReady; }
+        }
+        verification def test_R126_entry_terminates_tls_with_engine_certificate {
+            subject sys : System;
+            objective { verify Runtime::entryTerminatesTlsWithEngineCertificate; }
+        }
+        verification def test_R127_entry_takes_renewed_certificate_without_restart {
+            subject sys : System;
+            objective { verify Runtime::entryTakesRenewedCertificateWithoutRestart; }
+        }
+        verification def test_R128_entry_forwards_only_declared_prefixes {
+            subject sys : System;
+            objective { verify Runtime::entryForwardsOnlyDeclaredPrefixes; }
+        }
+        verification def test_R129_entry_never_forwards_management {
+            subject sys : System;
+            objective { verify Runtime::entryNeverForwardsManagement; }
+        }
+        verification def test_R130_administration_console_route_off_by_default {
+            subject sys : System;
+            objective { verify Runtime::administrationConsoleRouteOffByDefault; }
+        }
+        verification def test_R131_administration_console_route_on_by_configuration {
+            subject sys : System;
+            objective { verify Runtime::administrationConsoleRouteOnByConfiguration; }
+        }
+        verification def test_R132_entry_overwrites_forwarded_header {
+            subject sys : System;
+            objective { verify Runtime::entryOverwritesForwardedHeader; }
+        }
+        verification def test_R133_supplied_certificate_selected_by_one_parameter {
+            subject sys : System;
+            objective { verify Runtime::suppliedCertificateSelectedByOneParameter; }
+        }
+        verification def test_R134_engine_authority_certificate_obtainable {
+            subject sys : System;
+            objective { verify Runtime::engineAuthorityCertificateObtainable; }
+        }
+        verification def test_R135_identity_provider_reachable_only_through_entry {
+            subject sys : System;
+            objective { verify Runtime::identityProviderReachableOnlyThroughEntry; }
         }
         verification def test_R16_published_images_attested {
             subject tools : Toolchain;

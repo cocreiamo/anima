@@ -11,6 +11,7 @@ Look here before building something. Each section is derived from its source; th
 | backup | pgbackrest | none |
 | certificate authority | openbao | none |
 | configurator | opentofu | none |
+| http entry | httpEntry | none |
 | identity source | declaredIdentities | none |
 | outgoing mail | mailRelay | mailCatcher (stand-in) |
 | root of trust | keyManagementService | localKey (stand-in) |
@@ -147,6 +148,16 @@ Look here before building something. Each section is derived from its source; th
 | R122 | update bot ignores build contexts | written |
 | R124 | update bot keeps jdk on lts line | written |
 | R125 | engine image cache refreshed | written |
+| R126 | entry terminates tls with engine certificate | pending |
+| R127 | entry takes renewed certificate without restart | pending |
+| R128 | entry forwards only declared prefixes | pending |
+| R129 | entry never forwards management | pending |
+| R130 | administration console route off by default | pending |
+| R131 | administration console route on by configuration | pending |
+| R132 | entry overwrites forwarded header | pending |
+| R133 | supplied certificate selected by one parameter | pending |
+| R134 | engine authority certificate obtainable | pending |
+| R135 | identity provider reachable only through entry | pending |
 | R140 | contributor agreement links privacy notice | written |
 | R145 | records made from shared template | written |
 
@@ -172,6 +183,8 @@ Look here before building something. Each section is derived from its source; th
 | alpine | base of the secret store's image (the upstream container file's own base) and of the configurator's image |
 | mailpit | adapter: outgoing mail (stand-in, local development and CI only) |
 | mailpit-image | stand-in of outgoing mail: the upstream image the engine's mail unit is built from |
+| dotnet | runtime and SDK of the entry's host program: the distribution's packages, built by it from source (not a fork of ours) |
+| yarp | adapter: HTTP entry point (the library that forwards requests, hosted by the entry's own program, part of the engine) |
 
 ## Tasks (`mise run <task>`)
 

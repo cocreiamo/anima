@@ -16,3 +16,4 @@ lists the verifications whose test is not written yet; an ADR in the status
 | [0005](0005-engine-image-and-runtime.md) | The engine image, its units and how the system starts | proposed |
 | [0006](0006-one-configurator-for-all-state.md) | One configurator for all state | proposed |
 | [0007](0007-the-configuration-of-an-installation.md) | The configuration of an installation | proposed |
+| [0008](0008-the-http-entry-point-of-the-engine.md) | The HTTP entry point of the engine | proposed |
