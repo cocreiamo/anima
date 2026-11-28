@@ -7,7 +7,7 @@
 # server; its key is derived from the root of trust (state-encryption.tf).
 
 terraform {
-  required_version = "= 1.13.10"
+  required_version = "1.17.2"
   required_providers {
     postgresql = { source = "cyrilgdn/postgresql", version = "= 1.27.0" }
     vault      = { source = "hashicorp/vault", version = "= 5.14.0" }

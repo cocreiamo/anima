@@ -2,7 +2,7 @@
 # declaration of the fixed roles, with the configurator's own templating. No
 # provider, no backend: it reads two files and one installation parameter.
 terraform {
-  required_version = "= 1.13.10"
+  required_version = "1.17.2"
 }
 
 variable "identity_provider_url" {
