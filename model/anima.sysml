@@ -575,7 +575,7 @@ package Anima {
             subject tools : Toolchain;
         }
         requirement <'R115'> publishOnlyWhatWasVerified {
-            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. */
+            doc /* The engine image shall be published only by the promotion, only the one that was built and passed the verification in that run, identified by its digest, under its version and never under a moving name, and the promotion shall restore no cache of images. A version tag already in the registry shall never be pushed over: the promotion shall ask the registry whether the tag exists, shall treat only the registry's own answer that it does not as permission to push, and shall stop when the registry cannot say. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1762,6 +1762,10 @@ package Anima {
             objective { verify Day0::engineImageCacheRefreshed; }
         }
         verification def test_R115_promotion_publishes_only_what_it_verified {
+            subject tools : Toolchain;
+            objective { verify Day0::publishOnlyWhatWasVerified; }
+        }
+        verification def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent {
             subject tools : Toolchain;
             objective { verify Day0::publishOnlyWhatWasVerified; }
         }
