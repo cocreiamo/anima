@@ -347,3 +347,68 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool_detects_violat
     for arguments in ((), ("a", "b"), ("a", "", "c"), ("a", "b", "c", "d")):
         assert task("sync-fork", *arguments, env=env).returncode != 0
     assert not log.exists()
+
+
+# ---- R195: the names of the Apps are checked by name, never by value --------------------------
+
+APP_WORKFLOW = (
+    "      app-id: ${{ vars.X_APP_ID }}\n      private-key: ${{ secrets.X_APP_PRIVATE_KEY }}\n"
+    "      app-id: ${{ vars.Y_APP_ID }}\n      private-key: ${{ secrets.Y_APP_PRIVATE_KEY }}\n"
+)
+
+
+def app_names_env(tmp_path, variables, secrets, workflow=APP_WORKFLOW):
+    """The workflows directory and a `gh` that answers the lists of names only, and
+    fails when it is asked for anything that would carry a value."""
+    workflows = tmp_path / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    (workflows / "w.yml").write_text(workflow)
+    log = tmp_path / "log"
+    env = stub_command(
+        tmp_path / "bin",
+        "gh",
+        f'echo "$@" >> "{log}"\n'
+        'case "$1 $2 $3 $4" in\n'
+        f'  "variable list --org o") printf "%s\\n" {" ".join(variables)};;\n'
+        f'  "secret list --org o") printf "%s\\n" {" ".join(secrets)};;\n'
+        "  *) exit 1;;\n"
+        "esac\n",
+    )
+    return {**env, "WORKFLOWS": str(workflows)}, log
+
+
+def test_R195_app_names_are_checked_by_name_only(tmp_path):
+    """Proves, with a stub of `gh` (the platform has no stand-in), that the command
+    reads the names the workflows use, asks only for the field `name`, and succeeds
+    when the organization holds them all."""
+    env, log = app_names_env(
+        tmp_path,
+        ["X_APP_ID", "Y_APP_ID", "OTHER"],
+        ["X_APP_PRIVATE_KEY", "Y_APP_PRIVATE_KEY"],
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode == 0, result.stderr
+    asked = log.read_text().splitlines()
+    assert len(asked) == 2 and all("--json name" in line for line in asked)
+    assert "X_APP_PRIVATE_KEY" in result.stdout
+
+
+def test_R195_app_names_are_checked_by_name_only_detects_violation(tmp_path):
+    """A missing variable, a missing secret, a variable listed where the secret is
+    wanted and a workflow that names no App each fail, naming what is missing."""
+    env, _ = app_names_env(
+        tmp_path / "a", ["X_APP_ID"], ["X_APP_PRIVATE_KEY", "Y_APP_PRIVATE_KEY"]
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode != 0 and "variable: Y_APP_ID" in result.stderr
+    env, _ = app_names_env(
+        tmp_path / "b", ["X_APP_ID", "Y_APP_ID"], ["X_APP_PRIVATE_KEY"]
+    )
+    result = task("app-names", "o", env=env)
+    assert result.returncode != 0 and "secret: Y_APP_PRIVATE_KEY" in result.stderr
+    env, _ = app_names_env(
+        tmp_path / "c", ["X_APP_ID", "Y_APP_ID"], ["X_APP_ID", "Y_APP_ID"]
+    )
+    assert task("app-names", "o", env=env).returncode != 0
+    env, _ = app_names_env(tmp_path / "d", ["X_APP_ID"], [], workflow="on: push\n")
+    assert task("app-names", "o", env=env).returncode != 0

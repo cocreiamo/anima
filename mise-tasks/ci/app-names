@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#MISE description="Check that the organization holds the variables and secrets that the workflows read for the Apps (names only, never a value)"
+#
+# Usage: mise run ci:app-names [organization]   (default: the owner of GITHUB_REPOSITORY, else cocreiamo)
+# Environment: WORKFLOWS, the directory of the workflows (default .github/workflows).
+# Reads the workflows for `vars.<NAME>_APP_ID` and `secrets.<NAME>_APP_PRIVATE_KEY`
+# and asks the platform for the names of the organization's variables and secrets
+# (`gh variable list` and `gh secret list`, the names field only). It fails naming
+# each one that is missing. It cannot see which repositories a "selected" name is
+# visible to, and it reads no value: that a workflow can read them is shown by its run.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+workflows="${WORKFLOWS:-$root/.github/workflows}"
+org="${1:-${GITHUB_REPOSITORY%%/*}}"
+org="${org:-cocreiamo}"
+
+wanted_variables=$(grep -rhoE 'vars\.[A-Z_]+_APP_ID' "$workflows" | sed 's/^vars\.//' | sort -u)
+wanted_secrets=$(grep -rhoE 'secrets\.[A-Z_]+_APP_PRIVATE_KEY' "$workflows" | sed 's/^secrets\.//' | sort -u)
+if [ -z "$wanted_variables$wanted_secrets" ]; then
+    echo "No workflow reads the name of an App." >&2
+    exit 1
+fi
+
+variables=$(gh variable list --org "$org" --json name --jq '.[].name')
+secrets=$(gh secret list --org "$org" --json name --jq '.[].name')
+
+missing=0
+for name in $wanted_variables; do
+    if ! grep -qxF "$name" <<<"$variables"; then
+        echo "Missing organization variable: $name" >&2
+        missing=1
+    fi
+done
+for name in $wanted_secrets; do
+    if ! grep -qxF "$name" <<<"$secrets"; then
+        echo "Missing organization secret: $name" >&2
+        missing=1
+    fi
+done
+if [ "$missing" -ne 0 ]; then
+    exit 1
+fi
+echo "Present in $org: $(echo $wanted_variables $wanted_secrets)"

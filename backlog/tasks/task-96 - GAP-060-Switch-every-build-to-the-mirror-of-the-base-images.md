@@ -35,6 +35,12 @@ The upstream registries delete the manifest of a pinned digest (GAP-060, observe
 - [ ] #3 Check: GAP-060 is updated in gaps.toml (status)
 <!-- AC:END -->
 
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+The dependencies images (TASK-43, step 5; `localhost/anima/secrets-dependencies:<tag>`, built by `mise run engine:build`) are not published yet. They join this switch: publish each as `ghcr.io/cocreiamo/anima-mirror/<name>-dependencies` with a tag that names its inputs (the tag `mise-tasks/engine/tag` computes) by a workflow job with the same least privilege as the mirror's (R163), record the digest it gives, and have `engine:build` consume `container-image://<mirror>/<name>-dependencies@<digest>` when the local tag is absent, so that a build on a clean machine reads the held image and reaches no module proxy. The visibility of the package is the founder's decision, the same as for the base images.
+<!-- SECTION:NOTES:END -->
+
 ## Brief
 
 Task: TASK-96, GAP-060: Switch every build to the mirror of the base images. Role: implementer.

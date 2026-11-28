@@ -25,7 +25,7 @@ development container is to be replaced by one in the same family as the engine
 ## Making a change
 
 - A change in behaviour starts in the requirements model
-  (`model/anima.sysml`): each requirement has a verification, and each
+  (`model/requirements/`, a file for each requirement): each requirement has a verification, and each
   verification is an automated test with the same name.
 - A decision about the architecture of the product is recorded as an ADR in
   `docs/adr/`, made with `adrs new "Title"` and checked by
@@ -43,7 +43,9 @@ development container is to be replaced by one in the same family as the engine
 
 ## Layout
 
-- `model/`: the requirements model.
+- `model/`: the requirements model: `requirements/`, one file for each
+  requirement with its verifications, and `anima.sysml`, the structure they
+  refer to.
 - `docs/adr/`: the architecture decision records. Elsewhere in `docs/`:
   `work/` (the templates of a brief, a report and a task, and the review
   checklist), `postmortems/`, `evaluation/` (the scenarios that evaluate the

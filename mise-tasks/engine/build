@@ -7,7 +7,7 @@
 # is recorded in .cache/engine/<name>.id and its reference in <name>.ref. A log
 # of each build is kept in .cache/engine/logs/build-<name>.log.
 #
-# Usage: mise run engine:build [database|database-test-client|access|secrets|mail|entry]...
+# Usage: mise run engine:build [database|database-test-client|access|secrets|secrets-dependencies|mail|entry]...
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -83,8 +83,20 @@ build_access() {
 build_secrets() {
     local bao
     bao=$(commit openbao)
-    printf '%s\n' "$bao" | build secrets engine/secrets/Containerfile server \
+    # The Go modules are fetched once per commit of the fork into an image of their
+    # own (stage `dependencies`), tagged from the commit, the fork's go.mod and go.sum
+    # and the container file; the build of the secret store reads only that image
+    # and runs its compile stages with the network off (R178).
+    local extra="third_party/openbao/go.mod third_party/openbao/go.sum"
+    printf '%s\n' "$bao" | ANIMA_TAG_EXTRA="$extra" build secrets-dependencies engine/secrets/Containerfile dependencies \
         --build-context "openbao=third_party/openbao" \
+        ${ANIMA_BUILD_DNS:+--dns="$ANIMA_BUILD_DNS"} \
+        --build-arg "SOURCE_COMMIT_OPENBAO=$bao"
+    local deps
+    deps=$(cat "$out/secrets-dependencies.ref")
+    printf '%s\n' "$bao" | ANIMA_TAG_EXTRA="$extra" build secrets engine/secrets/Containerfile server \
+        --build-context "openbao=third_party/openbao" \
+        --build-context "dependencies=container-image://$deps" \
         ${ANIMA_BUILD_DNS:+--dns="$ANIMA_BUILD_DNS"} \
         --build-arg "SOURCE_COMMIT_OPENBAO=$bao"
 }
@@ -105,7 +117,7 @@ for what in ${*:-database access secrets mail entry}; do
         database) build_database server database ;;
         database-test-client) build_database oauth-test-client database-test-client ;;
         access) build_access ;;
-        secrets) build_secrets ;;
+        secrets | secrets-dependencies) build_secrets ;;
         mail) build_mail ;;
         entry) build_entry ;;
         *)

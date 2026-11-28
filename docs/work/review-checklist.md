@@ -2,7 +2,7 @@
 
 A task is done when every line below holds. The reviewer checks them with a fresh context and answers pass or lists the lines that fail.
 
-1. **Requirement and test present.** The acceptance names verifications (`test_R<id>_…`) that exist in `model/anima.sysml` and in a test file, each with its `_detects_violation` companion, and they pass; or the task states an explicit `Check:` and it was run.
+1. **Requirement and test present.** The acceptance names verifications (`test_R<id>_…`) that exist in `model/requirements/` and in a test file, each with its `_detects_violation` companion, and they pass; or the task states an explicit `Check:` and it was run.
 2. **Skills updated when something was learned.** A technology behaviour goes to its technology skill, a rule that nobody has seen working is marked `Unverified:`, and a lesson about the work itself goes to the skill that owns it.
 3. **A gap registered when a defect was worked around.** The workaround names its `GAP-nnn` in a comment and the gap has a task (`gaps.toml`, `backlog/`).
 4. **No undeclared contraction.** Nothing a released version provided is removed or narrowed unless `contractions.toml` declares it.

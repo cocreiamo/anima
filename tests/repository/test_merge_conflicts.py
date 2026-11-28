@@ -1,4 +1,5 @@
-"""Independent additions do not conflict in generated files (R150, PM-011).
+"""Independent additions do not conflict in generated files or in the model
+(R150, PM-011, PM-016, PM-019).
 
 A generated file that is committed is rewritten by every branch that changes its
 source. GitHub's merge and its merge queue run no custom merge driver, so two
@@ -12,14 +13,105 @@ round of CI.
 The test renders the volatile parts of the generated files for a base and for
 two independent additions to it, then merges the three the way git does
 (`git merge-file`) and asserts that no file conflicts.
+
+The model is the same case (PM-011): two branches that each add a requirement
+add it at the same place of one file, git cannot merge two additions at one
+place, and the second pull request left the merge queue seven times in one day.
+Each requirement is a file of its own, so the test commits the model of the
+repository, adds one requirement on each of two branches the way the layout
+says (a new file), and merges the branches with git.
 """
 
+import os
 import re
+import shutil
 import subprocess
 
 import agent_layer as al
 import generators
 import sysml_model
+
+MODEL = sysml_model.ROOT / "model"
+
+
+def git(repo, *args, check=True):
+    """A git command in a repository of the test, with no configuration of the
+    user: no signing, no hooks, no template."""
+    return subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.org",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-C",
+            str(repo),
+            *args,
+        ],
+        check=check,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_NOSYSTEM": "1",
+        },
+    )
+
+
+def requirement_text(short, name, indent):
+    pad = " " * indent
+    return (
+        f"{pad}requirement <'R{short}'> {name} {{\n"
+        f"{pad}    doc /* The {name} shall hold. */\n"
+        f"{pad}    subject tools : Toolchain;\n"
+        f"{pad}}}\n"
+    )
+
+
+def add_requirement_to_model(repo, short, name):
+    """Add a requirement the way the layout of the model says. With a directory
+    of requirements it is a new file there; with one file it is inserted at the
+    end of the first group, where the next id goes."""
+    directory = repo / "model" / "requirements"
+    if directory.is_dir():
+        path = directory / "day0" / f"R{short}-{name}.sysml"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(
+            f"package R{short} {{\n    private import Anima::*;\n\n"
+            + requirement_text(short, name, 4)
+            + "}\n"
+        )
+    else:
+        path = repo / "model" / "anima.sysml"
+        marker = "    }\n\n    // ---- Day 1"
+        text = path.read_text()
+        assert marker in text, "the end of the first group is not where it was"
+        path.write_text(
+            text.replace(marker, requirement_text(short, name, 8) + marker, 1)
+        )
+
+
+def merged_model_conflicts(tmp_path, source, first, second):
+    """Whether two branches, each adding one requirement to a copy of the model
+    in `source`, merge with a conflict. Real git, in a repository of its own."""
+    repo = tmp_path / "repository"
+    shutil.copytree(source, repo / "model")
+    git(repo, "init", "-q", "-b", "main")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "base")
+    for branch, (short, name) in (("first", first), ("second", second)):
+        git(repo, "switch", "-q", "-c", branch, "main")
+        add_requirement_to_model(repo, short, name)
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", name)
+    git(repo, "switch", "-q", "first")
+    merged = git(repo, "merge", "--no-edit", "second", check=False)
+    return merged.returncode != 0
 
 
 def conflicts(base, ours, theirs, tmp_path):
@@ -179,6 +271,13 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files(model, tm
     ours = base.add_requirement("R9003", "backup restores twice", test_written=False)
     theirs = base.add_requirement("R9004", "tests report coverage", test_written=False)
     assert merge_faults(base, ours, theirs, tmp_path) == []
+    # Two requirements added to the model itself, on two branches of git.
+    assert not merged_model_conflicts(
+        tmp_path,
+        MODEL,
+        (9001, "imagesCarryProvenance"),
+        (9002, "updateBotGroupsPatches"),
+    )
 
 
 def test_R150_independent_additions_do_not_conflict_in_generated_files_detects_violation(
@@ -215,3 +314,17 @@ def test_R150_independent_additions_do_not_conflict_in_generated_files_detects_v
     # A merge of identical texts, and of one change, is clean.
     assert conflicts("a\nb\n", "a\nb\n", "a\nb\n", tmp_path) == 0
     assert conflicts("a\nb\n", "a\nx\nb\n", "a\nb\n", tmp_path) == 0
+    # The model as one file: two requirements added at the same place conflict.
+    one_file = tmp_path / "one_file"
+    (one_file).mkdir()
+    (one_file / "anima.sysml").write_text(
+        "package Anima {\n    part def Toolchain;\n    package Day0 {\n"
+        + requirement_text(1, "first", 8)
+        + "    }\n\n    // ---- Day 1\n}\n"
+    )
+    assert merged_model_conflicts(
+        tmp_path / "single",
+        one_file,
+        (9001, "imagesCarryProvenance"),
+        (9002, "updateBotGroupsPatches"),
+    )

@@ -73,12 +73,19 @@ def run_steps(workflow):
 def step_faults(workflow):
     """The steps of one workflow that are not one call of a command, and the
     commands that it calls: (faults, commands)."""
-    faults, commands = [], []
+    faults, commands, seen = [], [], set()
     for job_id, name, script in run_steps(workflow):
         lines = [line.strip() for line in str(script).splitlines() if line.strip()]
         if not lines:
             faults.append(f"{job_id} / {name}: an empty step")
         for line in lines:
+            # The same line twice in one job, with the same arguments, does the
+            # same work twice: a merge of two additions that both survived.
+            if (job_id, line) in seen:
+                faults.append(
+                    f"{job_id} / {name}: `{line}` is already called in this job"
+                )
+            seen.add((job_id, line))
             call = CALL.fullmatch(line)
             if line == LOGIN:
                 continue
@@ -248,6 +255,33 @@ def test_R170_workflow_steps_call_tested_commands_detects_violation():
         "",
     ):
         assert faults(script), script
+
+    # The same call twice in one job (two additions that both survived a merge),
+    # in two steps or in one; with different arguments it is two calls.
+    def two_steps(first, second):
+        step = "      - name: {}\n        run: {}\n"
+        return {
+            "w.yml": parse(
+                "jobs:\n  j:\n    steps:\n"
+                + step.format("a", first)
+                + step.format("b", second)
+            )
+        }
+
+    def duplicates(first, second):
+        return workflow_faults(
+            two_steps(first, second), defined, tests, {"check": "x"}, {}
+        )
+
+    assert duplicates("mise run ci:a", "mise run check") == []
+    assert duplicates("mise run ci:a x", "mise run ci:a y") == [
+        "check is excused but no workflow calls it"
+    ]
+    assert duplicates("mise run ci:a x", "mise run check") == []
+    assert duplicates("mise run ci:a", "mise run ci:a")
+    assert duplicates("mise run ci:a x", "mise run ci:a x")
+    assert faults("mise run ci:a\nmise run ci:a\nmise run check")
+    assert faults("mise run ci:a x\nmise run ci:a y\nmise run check") == []
     # A command that does not exist, or that no test runs, or an excuse that is stale.
     assert faults("mise run ci:missing\nmise run check")
     assert faults("mise run ci:b\nmise run check")

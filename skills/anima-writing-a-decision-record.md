@@ -45,4 +45,4 @@ goes, and how a record is written. How the `adrs` tool behaves is
 
 ## Where the result goes
 
-A new record to `docs/adr/` made with `adrs new`; its requirements to `model/anima.sysml` with their tests; the generated index by `mise run generate`. A decision about how we work goes to the skill that owns it. Related skills: `anima-tech-adrs-madr`, `anima-repository-conventions`, `anima-product-principles`.
+A new record to `docs/adr/` made with `adrs new`; its requirements to `model/requirements/` with their tests; the generated index by `mise run generate`. A decision about how we work goes to the skill that owns it. Related skills: `anima-tech-adrs-madr`, `anima-repository-conventions`, `anima-product-principles`.
