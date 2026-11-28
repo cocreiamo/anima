@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#MISE description="Load an archive and check that it holds the image that passed; print its reference (ref=<reference>)"
+#
+# Usage: mise run promote:load <archive file> <image id>
+#
+# `podman load` prints `Loaded image: <name>` (`<name>` is `sha256:<id>` for an
+# archive saved by id), with or without --quiet: the line is not a reference
+# until its prefix is cut (PM-014). The image is accepted only when its id is
+# the one that passed. Only `ref=<reference>` goes to standard output.
+set -euo pipefail
+
+archive="${1:?usage: promote:load <archive file> <image id>}"
+want="${2:?usage: promote:load <archive file> <image id>}"
+
+printed="$(podman load --quiet --input "$archive")"
+ref="$(printf '%s\n' "$printed" | sed -n -E 's/^Loaded image(\(s\))?: //p' | tail -n 1)"
+if [ -z "$ref" ]; then
+  echo "The archive loaded no image: $printed" >&2
+  exit 1
+fi
+actual="$(podman image inspect --format '{{.Id}}' "$ref")"
+if [ "$actual" != "$want" ]; then
+  echo "The archive holds $actual, not the image that passed ($want)." >&2
+  exit 1
+fi
+echo "ref=$ref"
