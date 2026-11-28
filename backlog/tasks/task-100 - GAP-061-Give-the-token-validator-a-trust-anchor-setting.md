@@ -1,5 +1,5 @@
 ---
-id: TASK-97
+id: TASK-100
 title: 'GAP-061: Give the token validator a trust-anchor setting'
 status: To Do
 assignee: []
@@ -8,7 +8,7 @@ labels:
   - gap
   - upstream
 dependencies: []
-ordinal: 97000
+ordinal: 100000
 gaps:
   - GAP-061
 fork: cocreiamo/anima-pg-oidc-validator
@@ -31,7 +31,7 @@ GAP-061 (pg_oidc_validator): the validator has no setting for a certificate auth
 
 ## Brief
 
-Task: TASK-97, GAP-061: Give the token validator a trust-anchor setting. Role: implementer.
+Task: TASK-100, GAP-061: Give the token validator a trust-anchor setting. Role: implementer.
 
 ### Read first
 
