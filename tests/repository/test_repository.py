@@ -460,6 +460,34 @@ def test_R18_every_file_licensed_detects_violation(tmp_path):
     assert reuse_lint(tmp_path).returncode != 0
 
 
+# ---- R140: the contributor agreement links its privacy notice --------------
+
+
+def privacy_link_faults(root):
+    notice = root / "PRIVACY.md"
+    if not notice.is_file() or not notice.read_text().strip():
+        return ["PRIVACY.md is missing or empty"]
+    return [
+        f"{name} does not link PRIVACY.md"
+        for name in ("CLA.md", "CONTRIBUTING.md")
+        if not (root / name).is_file() or "PRIVACY.md" not in (root / name).read_text()
+    ]
+
+
+def test_R140_contributor_agreement_links_privacy_notice():
+    assert not privacy_link_faults(ROOT)
+
+
+def test_R140_contributor_agreement_links_privacy_notice_detects_violation(tmp_path):
+    (tmp_path / "CLA.md").write_text("terms\n")
+    (tmp_path / "CONTRIBUTING.md").write_text("[notice](PRIVACY.md)\n")
+    assert privacy_link_faults(tmp_path) == ["PRIVACY.md is missing or empty"]
+    (tmp_path / "PRIVACY.md").write_text("notice\n")
+    assert privacy_link_faults(tmp_path) == ["CLA.md does not link PRIVACY.md"]
+    (tmp_path / "CLA.md").write_text("see PRIVACY.md\n")
+    assert privacy_link_faults(tmp_path) == []
+
+
 # ---- R45: contractions register ---------------------------------------------
 
 CONTRACTION_FIELDS = {"what", "reason", "deprecated_in", "removed_in"}

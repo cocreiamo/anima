@@ -8,7 +8,7 @@ lockfile = true
 [tools]
 java = "temurin-21.0.13+9.0.LTS"
 python = "3.13.18"
-node = "24.22.3"
+node = "26.13.1"
 uv = "0.13.10"
 "pipx:reuse" = "6.3.0"
 "npm:prettier" = "3.10.1"

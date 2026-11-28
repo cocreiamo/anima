@@ -221,6 +221,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R140'> contributorAgreementLinksPrivacyNotice {
+            doc /* The contributor agreement and the contributing guide shall link a privacy notice that exists in the repository. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R23'> imagesForBothArchitectures {
             doc /* Every published image shall be available for the amd64
                  * and the arm64 architecture. */
@@ -526,6 +531,11 @@ package Anima {
         }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R125'> engineImageCacheRefreshed {
+            doc /* The cache of the engine's inner images, kept by the automated verification, shall hold the images of the latest change to `main` that changed them: a change of the inner images shall store a new cache, and a change that left them as they were shall store none. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1673,6 +1683,10 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::systemTestsReportOnEveryChange; }
         }
+        verification def test_R125_cache_of_inner_images_refreshed_when_they_changed {
+            subject tools : Toolchain;
+            objective { verify Day0::engineImageCacheRefreshed; }
+        }
         verification def test_R115_promotion_publishes_only_what_it_verified {
             subject tools : Toolchain;
             objective { verify Day0::publishOnlyWhatWasVerified; }
@@ -1708,6 +1722,10 @@ package Anima {
         verification def test_R124_update_bot_keeps_the_jdk_on_its_lts_line {
             subject tools : Toolchain;
             objective { verify Day0::updateBotKeepsJdkOnLtsLine; }
+        }
+        verification def test_R140_contributor_agreement_links_privacy_notice {
+            subject tools : Toolchain;
+            objective { verify Day0::contributorAgreementLinksPrivacyNotice; }
         }
         verification def test_R99_image_tag_depends_on_every_input {
             subject tools : Toolchain;

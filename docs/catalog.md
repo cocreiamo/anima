@@ -147,6 +147,7 @@ Look here before building something. Each section is derived from its source; th
 | R121 | update bot follows task runner everywhere | written |
 | R122 | update bot ignores build contexts | written |
 | R124 | update bot keeps jdk on lts line | written |
+| R125 | engine image cache refreshed | written |
 | R126 | entry terminates tls with engine certificate | pending |
 | R127 | entry takes renewed certificate without restart | pending |
 | R128 | entry forwards only declared prefixes | pending |
@@ -157,6 +158,7 @@ Look here before building something. Each section is derived from its source; th
 | R133 | supplied certificate selected by one parameter | pending |
 | R134 | engine authority certificate obtainable | pending |
 | R135 | identity provider reachable only through entry | pending |
+| R140 | contributor agreement links privacy notice | written |
 
 ## Components
 
@@ -318,6 +320,8 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R121, update bot follows task runner everywhere, at every commit: `test_R121_update_bot_follows_the_task_runner_everywhere` (written).
 - R122, update bot ignores build contexts, at every commit: `test_R122_update_bot_ignores_build_contexts` (written).
 - R124, update bot keeps jdk on lts line, at every commit: `test_R124_update_bot_keeps_the_jdk_on_its_lts_line` (written).
+- R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
+- R140, contributor agreement links privacy notice, at every commit: `test_R140_contributor_agreement_links_privacy_notice` (written).
 
 ## Skills
 
