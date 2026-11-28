@@ -36,22 +36,6 @@ jobs:
           podman info --format '{{.Host.CgroupManager}} {{.Host.CgroupsVersion}} {{.Store.GraphDriverName}} {{.Store.GraphRoot}}'
           du -sh third_party/* || true
 
-      # Hack: a user session gives rootless podman a systemd cgroup manager with
-      # delegated controllers, as on a developer machine; and the larger /mnt
-      # disk holds the image store.
-      - name: User session and image store on /mnt
-        run: |
-          sudo loginctl enable-linger "$(id -un)"
-          for _ in $(seq 30); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 1; done
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
-          sudo mkdir -p /mnt/containers && sudo chown "$(id -u):$(id -g)" /mnt/containers
-          mkdir -p ~/.config/containers
-          printf '[storage]\ndriver = "overlay"\ngraphroot = "/mnt/containers/storage"\n' > ~/.config/containers/storage.conf
-          XDG_RUNTIME_DIR="/run/user/$(id -u)"
-          export XDG_RUNTIME_DIR
-          podman system migrate || true
-          podman info --format '{{.Host.CgroupManager}} {{.Host.CgroupsVersion}} {{.Store.GraphDriverName}} {{.Store.GraphRoot}}'
           cat "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers" || true
 
       - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
@@ -67,7 +51,7 @@ jobs:
         id: restore
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: /mnt/cache
+          path: ~/engine-cache
           key: spike-engine-${{ steps.key.outputs.value }}
           restore-keys: spike-engine-
 
@@ -75,7 +59,7 @@ jobs:
         if: steps.restore.outputs.cache-matched-key != ''
         run: |
           s=$SECONDS
-          podman load --input /mnt/cache/images.tar
+          podman load --input ~/engine-cache/images.tar
           echo "load: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Build configurator
@@ -96,31 +80,31 @@ jobs:
       - name: Build access
         run: |
           s=$SECONDS; mise run engine:build access; echo "access: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
-          df -h / /mnt
+          df -h /
 
       - name: Save the inner images
         id: pack
         if: steps.restore.outputs.cache-hit != 'true'
         run: |
           s=$SECONDS
-          mkdir -p /mnt/cache
+          mkdir -p ~/engine-cache
           refs=$(cat .cache/engine/{configure,database,database-test-client,access,secrets,mail}.ref)
           # shellcheck disable=SC2086
-          podman save --multi-image-archive --output /mnt/cache/images.tar $refs
-          du -sh /mnt/cache/*
+          podman save --multi-image-archive --output ~/engine-cache/images.tar $refs
+          du -sh ~/engine-cache/*
           echo "pack: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Cache the inner images
         if: steps.pack.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: /mnt/cache
+          path: ~/engine-cache
           key: spike-engine-${{ steps.key.outputs.value }}
 
       - name: Build engine image
         run: |
           s=$SECONDS; mise run engine:image; echo "engine image: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
           podman images
-          df -h / /mnt
+          df -h /
 
       - name: System tests
         run: |
@@ -133,7 +117,7 @@ jobs:
         run: |
           podman ps -a || true
           for c in $(podman ps -aq); do podman logs --tail 200 "$c" > ".cache/engine/logs/container-$c.log" 2>&1 || true; done
-          df -h / /mnt
+          df -h /
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
