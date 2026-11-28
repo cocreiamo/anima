@@ -74,7 +74,7 @@ Look here before building something. Each section is derived from its source; th
 | R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
-| R164 | every build pulls from the mirror | pending |
+| R164 | every build pulls from the mirror | written |
 | R75 | every capability directory covered | written |
 | R56 | every check seen to fail | written |
 | R11 | every dependency pinned | written |
@@ -117,6 +117,7 @@ Look here before building something. Each section is derived from its source; th
 | R176 | mirror copy leaves the mirror as specified | written |
 | R160 | mirror covers every base image | written |
 | R163 | mirror has least privilege | written |
+|  | mirror holds every pin | written |
 | R165 | mirror keeps signatures of signed images | written |
 | R162 | mirror never deletes or moves atag | written |
 | R175 | mirror plan comes from the register | written |
@@ -231,6 +232,7 @@ Look here before building something. Each section is derived from its source; th
 | `ci:cache-load` | Load the inner images from the archive of the restored cache, then remove the archive |
 | `ci:cache-pack` | Save the inner images as one archive in the cache directory |
 | `ci:changes` | Decide whether a change touches the paths that a check is about: compares the base and the head through the API, and prints relevant=true or relevant=false |
+| `ci:mirror-check` | Check that the mirror holds, for every image of the register, the digest that the register pins, and fail naming each image it does not |
 | `ci:mirror-copy` | Copy one image into the organization's mirror: the digest that the upstream tag names now and the pinned digest, whole, with the digest kept, under tags that are never moved |
 | `ci:mirror-plan` | Read the images to mirror and the copy tool from the register, and print the lines images= and skopeo= |
 | `ci:sync-fork` | Fast-forward one branch of a fork from its upstream (gh repo sync) |
@@ -326,7 +328,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
 - R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
-- R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (pending).
+- R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (written).
 - R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
 - R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
 - R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
@@ -351,6 +353,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R176, mirror copy leaves the mirror as specified, at every commit: `test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag` (written).
 - R160, mirror covers every base image, at every commit: `test_R160_mirror_covers_every_base_image` (written).
 - R163, mirror has least privilege, at every commit: `test_R163_mirror_has_least_privilege` (written).
+- mirror holds every pin, when an image is promoted: `test_mirror_holds_every_pin` (written).
 - R165, mirror keeps signatures of signed images, at every commit: `test_R165_mirror_keeps_the_signatures_of_signed_images` (written).
 - R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
 - R175, mirror plan comes from the register, at every commit: `test_R175_mirror_plan_comes_from_the_register` (written).

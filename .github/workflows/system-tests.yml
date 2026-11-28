@@ -72,6 +72,12 @@ jobs:
         if: steps.changes.outputs.relevant == 'true'
         run: mise run ci:test
 
+      # Before any build: a register entry that the mirror does not hold fails
+      # here, by name, and not as a refusal in the middle of a build (requirement mirrorHoldsEveryPin).
+      - name: Check that the mirror holds every pin of the register
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run ci:mirror-check
+
       - id: key
         name: Compute the key of the inner images
         if: steps.changes.outputs.relevant == 'true'

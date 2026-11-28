@@ -12,7 +12,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from ci_support import reference, run, task
+from ci_support import ROOT, reference, run, task
 
 
 @pytest.fixture
@@ -66,22 +66,29 @@ def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag(scenario, tmp_path
     assert store.digest(mirror, f"sha256-{new}") == new
     assert store.digest(mirror, day) == new
     assert store.digest(mirror, f"sha256-{old}") == old
-    assert store.tags(mirror) == sorted([f"sha256-{new}", day, f"sha256-{old}"])
+    # The upstream tag itself is there too: the update bot reads the digest of a
+    # tag, so it finds in the mirror only a digest that the mirror holds.
+    assert store.digest(mirror, "1") == new
+    tags = sorted([f"sha256-{new}", day, f"sha256-{old}", "1"])
+    assert store.tags(mirror) == tags
     summary = (tmp_path / "summary").read_text()
     assert f"sha256:{new}" in summary and f"sha256:{old}" in summary
 
     again = task("mirror-copy", env=environment)
     assert again.returncode == 0, again.stderr
     assert "already holds" in again.stdout
-    assert store.tags(mirror) == sorted([f"sha256-{new}", day, f"sha256-{old}"])
+    assert store.tags(mirror) == tags
 
-    # The upstream tag moves on: the day's tag of the mirror stays where it is, and
-    # the new digest gets its own tag.
+    # The upstream tag moves on: the day's tag of the mirror stays where it is, the
+    # new digest gets its own tag, and the tag that is the upstream's follows it,
+    # while the digest it named stays reachable by its own tag.
     newer = store.push(upstream, "1", "newer")
     moved = task("mirror-copy", env=environment)
     assert moved.returncode == 0, moved.stderr
     assert store.digest(mirror, day) == new, "a tag of the mirror was moved"
     assert store.digest(mirror, f"sha256-{newer}") == newer
+    assert store.digest(mirror, "1") == newer, "the followed tag did not follow"
+    assert store.digest(mirror, f"sha256-{new}") == new
     assert "left as it is" in moved.stdout
 
 
@@ -102,6 +109,8 @@ def test_R176_mirror_copy_keeps_digests_and_never_moves_a_tag_detects_violation(
     missing = task("mirror-copy", env={**environment, "DIGEST": "sha256:" + "1" * 64})
     assert missing.returncode != 0
     assert f"sha256-{'1' * 64}" not in store.tags(mirror)
+    # The tag that follows the upstream was moved before the pinned digest failed.
+    assert store.digest(mirror, "1") == new
 
     # A digest tag that holds another image is a fault, and is left alone.
     other = store.push(mirror, f"sha256-{new}", "another image")
@@ -179,3 +188,81 @@ def test_R165_signed_image_is_copied_with_its_signatures_detects_violation(
     result = task("mirror-copy", env=environment)
     assert result.returncode == 0, result.stderr
     assert [t for t in store.tags(mirror) if t.endswith(".sig")] == []
+
+
+# ---- the mirror holds every pin of the register --------------------------------------------
+
+
+def register_of(path, host, entries):
+    """A register whose images are packages of the throwaway registry at `host`;
+    `entries` is [(name, repository, digest)]."""
+    path.write_text(
+        "".join(
+            f'[[tool_image]]\nname = "{name}"\nversion = "1"\n'
+            f'image = "{host}/{repository}"\ndigest = "sha256:{digest}"\n'
+            for name, repository, digest in entries
+        )
+    )
+    return path
+
+
+CHECK_ENV = {"ANIMA_MIRROR_INSECURE": "1"}
+
+
+def test_mirror_holds_every_pin(store, tmp_path):
+    """Proves, against a registry, that the check passes when the mirror holds the
+    digest that the register pins for each image, and that the check is run after
+    the copies of the mirror workflow, before the builds of the system tests and by
+    the promotion's verification."""
+    suffix = f"{time.time_ns()}"
+    held = f"mirror/held{suffix}"
+    digest = store.push(held, "1", f"held {suffix}")
+    register = register_of(tmp_path / "ok.toml", store.host, [("held", held, digest)])
+    result = task("mirror-check", str(register), env=CHECK_ENV)
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "held: the mirror holds" in result.stdout
+
+    workflows = ROOT / ".github" / "workflows"
+    mirror = (workflows / "mirror-base-images.yml").read_text()
+    system = (workflows / "system-tests.yml").read_text()
+    mise = (ROOT / "mise.toml").read_text()
+    assert "needs: mirror" in mirror and "run: mise run ci:mirror-check" in mirror
+    assert system.index("mise run ci:mirror-check") < system.index(
+        "mise run engine:image"
+    ), "the check runs after a build"
+    verify = mise.split('[tasks."promote:verify"]', 1)[1].split("\n[", 1)[0]
+    assert verify.index("ci:mirror-check") < verify.index("engine:test")
+
+
+def test_mirror_holds_every_pin_detects_violation(store, tmp_path):
+    """A digest that the mirror does not hold, a package that does not exist, a
+    registry that does not answer and an empty register each fail, and the failure
+    names the image."""
+    suffix = f"{time.time_ns()}"
+    held = f"mirror/held{suffix}"
+    digest = store.push(held, "1", f"held {suffix}")
+    missing = register_of(
+        tmp_path / "missing.toml",
+        store.host,
+        [("held", held, digest), ("lost", held, "1" * 64)],
+    )
+    result = task("mirror-check", str(missing), env=CHECK_ENV)
+    assert result.returncode != 0
+    assert "lost" in result.stderr and "held: the mirror holds" in result.stdout
+
+    absent = register_of(
+        tmp_path / "absent.toml",
+        store.host,
+        [("nowhere", f"mirror/none{suffix}", "2" * 64)],
+    )
+    result = task("mirror-check", str(absent), env=CHECK_ENV)
+    assert result.returncode != 0 and "nowhere" in result.stderr
+
+    dead = register_of(
+        tmp_path / "dead.toml", "127.0.0.1:1", [("dead", "mirror/x", "3" * 64)]
+    )
+    assert task("mirror-check", str(dead), env=CHECK_ENV).returncode != 0
+
+    empty = tmp_path / "empty.toml"
+    empty.write_text("")
+    assert task("mirror-check", str(empty), env=CHECK_ENV).returncode != 0

@@ -273,14 +273,16 @@ def test_R175_mirror_plan_comes_from_the_register(tmp_path):
             field: entry[source]
             for field, source in (
                 ("name", "name"),
-                ("image", "image"),
+                ("image", "source"),
                 ("tag", "version"),
                 ("digest", "digest"),
-                ("mirror", "mirror"),
+                ("mirror", "image"),
             )
         }
     skopeo = register_entry("skopeo")
-    assert lines[1] == f"skopeo={skopeo['image']}@{skopeo['digest']}"
+    # The copy tool is the one image pulled from upstream: the mirror is empty
+    # when it first runs (R164, the register's header).
+    assert lines[1] == f"skopeo={skopeo['source']}@{skopeo['digest']}"
 
 
 def test_R175_mirror_plan_comes_from_the_register_detects_violation(tmp_path):
@@ -288,8 +290,8 @@ def test_R175_mirror_plan_comes_from_the_register_detects_violation(tmp_path):
     register with one image plans one."""
     register = tmp_path / "register.toml"
     register.write_text(
-        '[[component]]\nname = "a"\nimage = "x/a"\nversion = "1"\n'
-        'digest = "sha256:' + "0" * 64 + '"\nmirror = "m/a"\n'
+        '[[component]]\nname = "a"\nsource = "x/a"\nversion = "1"\n'
+        'digest = "sha256:' + "0" * 64 + '"\nimage = "m/a"\n'
     )
     result = plan(register)
     assert result.returncode != 0 and "skopeo" in result.stderr
@@ -306,7 +308,7 @@ def test_R175_mirror_plan_comes_from_the_register_detects_violation(tmp_path):
 
 def register_text_of(name):
     entry = register_entry(name)
-    fields = ("name", "version", "image", "digest", "mirror")
+    fields = ("name", "version", "source", "image", "digest")
     return "[[tool_image]]\n" + "".join(f'{k} = "{entry[k]}"\n' for k in fields)
 
 

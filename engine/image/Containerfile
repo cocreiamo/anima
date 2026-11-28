@@ -6,7 +6,7 @@
 # `mise run engine:image` from the images of `mise run engine:build`), loaded
 # by the units named `*.image` that every container unit depends on.
 
-FROM quay.io/fedora/fedora-bootc:45@sha256:27650ded85a0319c30d8978a1c10c89084de07fbbb125f85bb054910be081244
+FROM ghcr.io/cocreiamo/anima-mirror/fedora-bootc:45@sha256:27650ded85a0319c30d8978a1c10c89084de07fbbb125f85bb054910be081244
 
 COPY --from=images / /usr/lib/anima/images/
 

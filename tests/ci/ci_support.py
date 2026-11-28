@@ -30,9 +30,12 @@ def register_entry(name):
 
 
 def reference(name):
-    """The pinned reference of an image of the register, by digest."""
+    """The pinned reference of an image of the register, by digest: its package of
+    the mirror (R164), except the copy tool, which is pulled from upstream as the
+    mirror workflow pulls it, since it runs before the mirror holds anything."""
     entry = register_entry(name)
-    return f"{entry['image']}@{entry['digest']}"
+    where = entry["source"] if name == "skopeo" else entry["image"]
+    return f"{where}@{entry['digest']}"
 
 
 def run(args, env=None, cwd=None, input_text=None, check=False, timeout=600):
