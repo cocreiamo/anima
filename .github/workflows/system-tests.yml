@@ -2,7 +2,8 @@ name: System tests
 
 # Runs `mise run engine:test` (the engine image started as a container) on a
 # GitHub-hosted runner, on pull requests and in the merge queue, and on `main`
-# to keep the cache of the inner images. It provides one check, "System tests",
+# to keep the cache of the inner images, on the integration branches of the waves
+# (`waves.toml`) and when started by hand (R201). It provides one check, "System tests",
 # which reports on every change: a change that touches nothing of the engine
 # passes without work (`anima-tech-github-governance`, rule 2), so the check
 # can be required. Only the promotion builds an image that is released
@@ -16,7 +17,8 @@ on:
   pull_request:
   merge_group:
   push:
-    branches: [main]
+    branches: [main, kickoff-restructure]
+  workflow_dispatch:
 
 permissions: {}
 

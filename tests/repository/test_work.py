@@ -127,6 +127,259 @@ def test_R80_task_acceptance_names_verifications_detects_violation():
     assert folded["title"] == "GAP-1: a long title" and folded["status"] == "To Do"
 
 
+# ---- R200: waves are recorded and verified ----------------------------------------------
+
+WAVE_ID = re.compile(r"R\d+")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+MAX_BLOCKS = 6
+
+
+def wave_faults(register, tasks):
+    """`register` is the parsed waves.toml; `tasks` the backlog's tasks."""
+    faults = []
+    waves = register.get("wave", [])
+    ids = [w.get("id") for w in waves]
+    if len(ids) != len(set(ids)):
+        faults.append("a wave id is used twice")
+    owner = {}
+    for w in waves:
+        name = w.get("id", "?")
+        if not WAVE_ID.fullmatch(str(w.get("id", ""))):
+            faults.append(f"{name}: the id is not R<n>")
+        if w.get("branch") not in register.get("integration_branches", []):
+            faults.append(f"{name}: its branch is not an integration branch")
+        blocks = w.get("blocks", [])
+        if not blocks or len(blocks) > MAX_BLOCKS:
+            faults.append(
+                f"{name}: {len(blocks)} blocks, at most {MAX_BLOCKS}, at least one"
+            )
+        for block in blocks:
+            if owner.setdefault(block, name) != name:
+                faults.append(f"{block} belongs to {owner[block]} and {name}")
+        record = w.get("verification")
+        if w.get("status") == "verified":
+            if not isinstance(record, dict):
+                faults.append(f"{name}: verified without a record")
+            else:
+                if not record.get("ran") or not all(record["ran"]):
+                    faults.append(f"{name}: the record says nothing ran")
+                if not record.get("where"):
+                    faults.append(f"{name}: the record does not say where")
+                if record.get("result") != "passed":
+                    faults.append(f"{name}: the record's result is not passed")
+                if not DATE.fullmatch(str(record.get("date", ""))):
+                    faults.append(f"{name}: the record has no date")
+        elif w.get("status") == "open":
+            if record is not None:
+                faults.append(f"{name}: open but carries a record")
+        else:
+            faults.append(f"{name}: status is neither open nor verified")
+    for task in tasks:
+        wave = task.get("wave")
+        if wave not in (None, "none") and wave not in ids:
+            faults.append(f"{task['file']}: names the wave {wave}, which is not listed")
+    return faults
+
+
+def test_R200_waves_are_recorded_and_verified():
+    faults = wave_faults(load_toml("waves.toml"), read_tasks())
+    assert not faults, faults
+
+
+def test_R200_waves_are_recorded_and_verified_detects_violation():
+    record = {
+        "ran": ["mise run check"],
+        "where": "here",
+        "result": "passed",
+        "date": "2026-11-28",
+    }
+    wave = {
+        "id": "R1",
+        "branch": "b",
+        "blocks": ["R1.1"],
+        "status": "verified",
+        "verification": record,
+    }
+    register = {"integration_branches": ["b"], "wave": [wave]}
+    task = {"file": "t.md", "wave": "R1"}
+    assert wave_faults(register, [task]) == []
+
+    def with_wave(**changes):
+        return {**register, "wave": [{**wave, **changes}]}
+
+    def without(key):
+        return {k: v for k, v in record.items() if k != key}
+
+    assert wave_faults(with_wave(verification=None), [])
+    assert wave_faults(with_wave(verification=without("ran")), [])
+    assert wave_faults(with_wave(verification={**record, "ran": []}), [])
+    assert wave_faults(with_wave(verification=without("where")), [])
+    assert wave_faults(with_wave(verification={**record, "result": "failed"}), [])
+    assert wave_faults(with_wave(verification={**record, "date": "today"}), [])
+    assert wave_faults(with_wave(status="open"), [])  # an open wave with a record
+    assert wave_faults(with_wave(status="done"), [])
+    assert wave_faults(with_wave(blocks=[f"R1.{i}" for i in range(7)]), [])
+    assert wave_faults(with_wave(blocks=[]), [])
+    assert wave_faults(with_wave(branch="other"), [])
+    assert wave_faults({**register, "wave": [wave, wave]}, [])
+    assert wave_faults({**register, "wave": [wave, {**wave, "id": "R2"}]}, [])
+    assert wave_faults(register, [{**task, "wave": "R9"}])
+    assert wave_faults(register, [{"file": "t.md"}]) == []
+
+
+# ---- R202: the inventory of what the engine runs ----------------------------------------
+
+
+def engine_unit_names(engine=ROOT / "engine"):
+    """The units that the engine's own files define: `*.container` and `*.service`."""
+    return {
+        p.name.rsplit(".", 1)[0]
+        for suffix in ("container", "service")
+        for p in engine.rglob(f"*.{suffix}")
+    }
+
+
+def inventory_faults(inventory, defined):
+    faults = []
+    listed = inventory.get("unit", [])
+    units = {u["name"]: u for u in listed}
+    if len(units) != len(listed):
+        faults.append("a unit is listed twice")
+    faults += [f"{n} is defined and not listed" for n in sorted(defined - set(units))]
+    faults += [f"{n} is listed and not defined" for n in sorted(set(units) - defined)]
+    proposals = {}
+    for p in inventory.get("proposal", []):
+        name = p["unit"]
+        if name not in units:
+            faults.append(f"{name}: a proposal for no unit")
+        if name in proposals:
+            faults.append(f"{name}: proposed twice")
+        proposals[name] = p
+        measured = units.get(name, {}).get("measured", {})
+        # The peak of a runtime that grows to whatever it may (an unbounded heap)
+        # says what it took, not what it needs: its steady use is compared instead.
+        key = (
+            "memory_current_mib"
+            if measured.get("peak_is_unbounded")
+            else "memory_peak_mib"
+        )
+        if key in measured and p["memory_mib"] < measured[key]:
+            faults.append(
+                f"{name}: proposed {p['memory_mib']} MiB, measured {key} {measured[key]}"
+            )
+        if not all(p.get(k) for k in ("memory_mib", "cpu_quota_percent", "tasks")):
+            faults.append(f"{name}: a bound of memory, CPU or tasks is missing")
+    for name, unit in units.items():
+        if unit["file"].endswith(".container") and name not in proposals:
+            faults.append(f"{name}: a container without a proposed envelope")
+    memory = {n: p["memory_mib"] for n, p in proposals.items()}
+    steady = sum(
+        memory.get(n, 0)
+        for n, u in units.items()
+        if "long-running" in u["process_model"] and n != "mail"
+    )
+    total = inventory.get("proposal_total", {})
+    system = total.get("operating_system_allowance_mib", 0)
+    at_start = steady + memory.get("configure", 0)
+    expected = {
+        "long_running_ceiling_mib": steady,
+        "long_running_ceiling_with_mail_mib": steady + memory.get("mail", 0),
+        "at_start_ceiling_mib": at_start,
+        "engine_ceiling_mib": at_start + system,
+        "engine_ceiling_with_mail_mib": at_start + memory.get("mail", 0) + system,
+    }
+    faults += [
+        f"{k} is {total.get(k)}, the proposals sum to {v}"
+        for k, v in expected.items()
+        if total.get(k) != v
+    ]
+    small = inventory.get("adopter_4_gb", {})
+    change = small.get("change", {})
+    reduced = (
+        at_start
+        + system
+        - memory.get("access", 0)
+        - memory.get("database", 0)
+        + change.get("access_memory_mib", 0)
+        + change.get("database_memory_mib", 0)
+    )
+    if small.get("engine_ceiling_mib") != reduced:
+        faults.append(
+            f"the 4 GB ceiling is {small.get('engine_ceiling_mib')}, not {reduced}"
+        )
+    return faults
+
+
+def test_R202_resource_inventory_covers_every_unit():
+    faults = inventory_faults(load_toml("resources.toml"), engine_unit_names())
+    assert not faults, faults
+
+
+def test_R202_resource_inventory_covers_every_unit_detects_violation():
+    def unit(name, model="C, long-running"):
+        return {
+            "name": name,
+            "file": f"engine/x/{name}.container",
+            "process_model": model,
+            "measured": {"memory_peak_mib": 10},
+        }
+
+    def proposal(name, memory):
+        return {
+            "unit": name,
+            "memory_mib": memory,
+            "cpu_quota_percent": 100,
+            "tasks": 8,
+        }
+
+    good = {
+        "unit": [unit("access"), unit("configure", "shell, one-shot")],
+        "proposal": [proposal("access", 100), proposal("configure", 50)],
+        "proposal_total": {
+            "operating_system_allowance_mib": 10,
+            "long_running_ceiling_mib": 100,
+            "long_running_ceiling_with_mail_mib": 100,
+            "at_start_ceiling_mib": 150,
+            "engine_ceiling_mib": 160,
+            "engine_ceiling_with_mail_mib": 160,
+        },
+        "adopter_4_gb": {
+            "change": {"access_memory_mib": 60, "database_memory_mib": 0},
+            "engine_ceiling_mib": 120,
+        },
+    }
+    names = {"access", "configure"}
+    assert inventory_faults(good, names) == []
+
+    def changed(**edits):
+        return {**good, **edits}
+
+    two = [proposal("access", 100), proposal("configure", 50)]
+    assert inventory_faults(good, names | {"b"})
+    assert inventory_faults(good, {"access"})
+    assert inventory_faults(changed(proposal=[proposal("access", 5), two[1]]), names)
+    # An unbounded peak is not compared, the steady use is.
+    unit_a = {
+        **unit("access"),
+        "measured": {
+            "memory_peak_mib": 500,
+            "memory_current_mib": 50,
+            "peak_is_unbounded": True,
+        },
+    }
+    assert inventory_faults(changed(unit=[unit_a, good["unit"][1]]), names) == []
+    unit_b = {**unit_a, "measured": {**unit_a["measured"], "memory_current_mib": 500}}
+    assert inventory_faults(changed(unit=[unit_b, good["unit"][1]]), names)
+    assert inventory_faults(changed(proposal=[two[0]]), names)
+    assert inventory_faults(changed(proposal=two + [two[0]]), names)
+    assert inventory_faults(changed(proposal=two + [proposal("z", 100)]), names)
+    assert inventory_faults(changed(proposal=[proposal("access", 0), two[1]]), names)
+    total = {**good["proposal_total"], "engine_ceiling_mib": 1}
+    assert inventory_faults(changed(proposal_total=total), names)
+    small = {**good["adopter_4_gb"], "engine_ceiling_mib": 1}
+    assert inventory_faults(changed(adopter_4_gb=small), names)
+
+
 # ---- Postmortems --------------------------------------------------------------------------
 
 PM_KEYS = {"id", "date", "title", "class", "status", "guards", "recurrences"}

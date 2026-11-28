@@ -13,6 +13,7 @@ gaps:
   - GAP-<nnn>
 fork: <cocreiamo/anima-<name>, or none>
 role: <implementer | reviewer | spike | explorer>
+wave: <id in waves.toml, or none>
 owns:
   - <path glob the task may change>
 ---

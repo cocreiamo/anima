@@ -6,6 +6,7 @@ A brief is the whole instruction an agent gets for one task. It lives in the tas
 ## Brief
 
 Task: TASK-<n>, <title>. Role: <implementer | reviewer | spike | explorer>.
+Wave: <id in waves.toml>, block <n of 4 to 6>.
 
 ### Read first
 
@@ -31,10 +32,18 @@ Task: TASK-<n>, <title>. Role: <implementer | reviewer | spike | explorer>.
 
 - <each thing the design rests on that is not known, and the first acceptance check that resolves it, written before anything is built; none if none>
 
+### Verify yourself, cheaply
+
+- <the tests of this block and the cheapest means that shows each failing first: pure logic, the commit-time checks; no engine test, cold build or hosted run>
+
+### Left to the wave verification
+
+- <the expensive verifications that run once on the merged wave (`waves.toml`); none if none>
+
 ### Done when
 
 - The review checklist (`docs/work/review-checklist.md`) passes.
-- The report (`docs/work/handback-template.md`) is filled in.
+- The report (`docs/work/handback-template.md`) is filled in; the block is reported "written, awaiting the wave" until its wave is verified (`anima-working-as-an-agent`, rule 20).
 
 ### Decision this serves (spike only)
 

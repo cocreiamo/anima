@@ -1,0 +1,352 @@
+# Inventory of what the engine runs, with what bounds each unit today, the knobs
+# that exist for it, one measurement of a running engine, and the proposal of
+# default resource envelopes that the next wave applies.
+#
+# This is the source for the envelopes: the units get their limits from the
+# `[[proposal]]` entries once the founder has decided them, never the other way.
+# Every unit of `engine/` that has a `.container` or `.service` file has one
+# `[[unit]]` entry and nothing else has (R202). Numbers are evidence of one
+# measurement, dated and tied to the machine below; they are not requirements.
+#
+# Units of memory are mebibytes (MiB), times are seconds, a bound is a value or
+# "none". How each figure was read is in `[measurement].method`.
+
+[measurement]
+date = "2026-11-28"
+machine = "AMD Ryzen 7 4800H, 16 threads, 15353 MiB of memory, swap on, a shared development machine whose load average was 17 to 21 during the run (the start was slower and the identity provider's CPU time higher than on an idle machine)"
+outer_podman = "4.9.3, rootless, cgroup manager systemd, cgroup v2"
+engine_image = "localhost/anima/engine:a8cc809525aa, the newest local image (built the same day from another worktree, with the entry point and the mail stand-in); not rebuilt for this branch because a cold build was not needed to measure the running units"
+inner = "podman 6.2.1, crun 1.31, systemd 262.1, Fedora 45 bootc; the inner podman runs as root of the engine's user namespace, services are in system.slice of the engine's own cgroup tree"
+started_with = "podman run --detach --cap-add SYS_ADMIN --cap-add SYS_PTRACE with ANIMA_PROFILE=local and config/ mounted, no --memory, no --cpus; the engine was healthy after about 5 minutes (the waiting tool's 170 s limit passed once)"
+method = "systemctl show -p MemoryCurrent -p MemoryPeak -p TasksCurrent -p CPUUsageNSec per unit; pids.peak and cpu.stat of the unit's cgroup; the identity provider's heap from `java -XX:+PrintFlagsFinal -version` run in its container with the flags of its command line; the outer container's cgroup for the engine total; memory current and CPU were read twice 63 s apart on the idle engine"
+host_memory_seen_by_engine_mib = 15353
+engine_total_memory_peak_mib = 3252
+engine_total_memory_current_mib = 1071
+engine_total_pids_peak_note = "outer container pids.max is 2048 (podman's default); 192 in use when read"
+idle_cpu_seconds_per_63_seconds = { database = 0.32, access = 0.52, secrets = 2.35, entry = 0.26, mail = 0.21, database-tls = 0.09 }
+
+[cgroup_delegation]
+# What was found by looking inside the running engine (the main unknown).
+controllers_available_to_the_engine = ["cpu", "memory", "pids"]
+controllers_not_available = ["io", "cpuset"]
+levels_read = "the engine's root, system.slice, each service's cgroup and each payload cgroup under it: all list cpu, memory, pids in cgroup.controllers and subtree_control; the outer container's scope on the host lists the same three"
+systemd_directives = "work: `systemctl set-property --runtime entry.service MemoryMax=300M MemoryHigh=250M TasksMax=64 CPUQuota=50%` gave memory.max 314572800, memory.high 262144000, pids.max 64 and cpu.max 50000 100000 on the service's cgroup; the payload below it stayed at memory.max `max` and pids.max 2048, so a process that sizes itself from the cgroup it sees (JVM, .NET, Go) does NOT see a MemoryMax"
+quadlet_keys = "work: a drop-in with `[Container] Memory=64m PidsLimit=50 PodmanArgs=--cpus=0.5` on the mail unit gave memory.max 67108864, pids.max 50 and cpu.max 50000 100000 on the payload cgroup, and the container read memory.max 67108864 from inside; the generated command line carries --memory 64m --pids-limit 50; Quadlet defaults to --cgroups=split"
+defaults_today = "no unit has a memory or CPU bound; systemd gives every service TasksMax 307 and podman gives every container --pids-limit 2048"
+consequence = "Memory= (and PidsLimit=) of the container unit is the knob that makes the runtimes see their limit; CPU has no Quadlet key, so a CPU bound is CPUQuota= of the service or PodmanArgs=--cpus; MemoryMax= of the service is a backstop that the runtimes do not read"
+not_tested = "a limit on the outer container (`podman run --memory` of the engine as a whole) and its interaction with the inner limits; a limit lower than the working set (the kill and restart behaviour of each unit)"
+
+# ---------------------------------------------------------------- units
+
+[[unit]]
+name = "access"
+file = "engine/access/access.container"
+capability = "access"
+process_model = "JVM (Quarkus), long-running"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = [
+  "JAVA_OPTS_KC_HEAP replaces the heap flags of kc.sh; its default in a container is -XX:MaxRAMPercentage=70 -XX:MinRAMPercentage=70 -XX:InitialRAMPercentage=50, and without a container limit that is 70 % of the machine's memory",
+  "-XX:MaxMetaspaceSize=256m is already set by kc.sh",
+  "JAVA_OPTS_APPEND for any other flag",
+]
+cgroup_knobs = [
+  "Memory= (the JVM reads it)",
+  "PidsLimit=",
+  "CPUQuota= or PodmanArgs=--cpus (the JVM sizes its GC threads from the CPUs it sees)",
+]
+upstream_sizing = "containers guide: always set a memory limit; 750 MB is the least, 2 GB is recommended for smaller production deployments; sizing guide: base memory 1250 MB with 10000 cached sessions, 70 % of the limit is heap and about 300 MB is outside the heap, so limit = (1250 - 300) / 0.7 = 1360 MB; 1 vCPU per 15 password logins per second"
+measured = { memory_current_mib = 778, memory_peak_mib = 2069, peak_is_unbounded = true, tasks_peak = 103, cpu_seconds_since_start = 109.1, note = "effective maximum heap 11274289152 bytes (10752 MiB, 70 % of the 15353 MiB it sees), initial heap 8053063680 bytes (7680 MiB); the peak is the unbounded heap growing during start, the steady use is about 800 MiB" }
+
+[[unit]]
+name = "database"
+file = "engine/database/database.container"
+capability = "database"
+process_model = "C (PostgreSQL), long-running, one process per connection"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = [
+  "shared_buffers (observed default 163848 kB), max_connections (100), work_mem (4096 kB), maintenance_work_mem (65536 kB), autovacuum_max_workers (3), max_worker_processes (8), io_workers (3): all default, none set in engine/database/postgresql.conf",
+]
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota= or PodmanArgs=--cpus"]
+upstream_sizing = "documentation of the pinned fork: shared_buffers default typically 128 MB, a reasonable starting value is 25 % of the machine's memory"
+measured = { memory_current_mib = 114, memory_peak_mib = 136, tasks_peak = 28, cpu_seconds_since_start = 7.6, note = "idle engine: 11 connections open; the load of real use was not measured" }
+
+[[unit]]
+name = "database-init"
+file = "engine/database/database-init.container"
+capability = "database"
+process_model = "C (initdb in a shell), one-shot, only when the volume is empty"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 104, cpu_seconds_since_start = 1.2 }
+
+[[unit]]
+name = "database-prepare"
+file = "engine/database/database-prepare.container"
+capability = "database"
+process_model = "C (psql client), one-shot, every start"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 33, cpu_seconds_since_start = 0.2 }
+
+[[unit]]
+name = "database-tls"
+file = "engine/database/database-tls.container"
+capability = "database"
+process_model = "shell loop around the database client and the secret store client, long-running (renews the certificate)"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = []
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_current_mib = 6, memory_peak_mib = 26, tasks_peak = 24, cpu_seconds_since_start = 0.54 }
+
+[[unit]]
+name = "secrets"
+file = "engine/secrets/secrets.container"
+capability = "secrets"
+process_model = "Go (the secret store), long-running"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = [
+  "GOMEMLIMIT (a soft limit of the Go runtime; default math.MaxInt64, that is none) and GOMAXPROCS (defaults to the CPUs it sees, and to the cgroup CPU quota in recent Go versions); neither is set",
+]
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota= or PodmanArgs=--cpus"]
+upstream_sizing = "none found in the pinned documentation"
+measured = { memory_current_mib = 100, memory_peak_mib = 117, tasks_peak = 50, cpu_seconds_since_start = 10.0, note = "the busiest idle unit: 2.35 CPU seconds in 63 s, not investigated" }
+
+[[unit]]
+name = "entry"
+file = "engine/entry/entry.container"
+capability = "entry"
+process_model = ".NET (ASP.NET Core with a reverse proxy library), long-running, workstation GC (DOTNET_gcServer=0)"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = [
+  "DOTNET_GCHeapHardLimit or DOTNET_GCHeapHardLimitPercent (hexadecimal values): documented default inside a container with a memory limit is 75 % of that limit (at least 20 MB); with no limit there is none",
+  "DOTNET_GCConserveMemory 0 to 9 (default 0)",
+  "DOTNET_GCHighMemPercent (default 90, read against the container limit)",
+]
+cgroup_knobs = [
+  "Memory= (the runtime reads it)",
+  "PidsLimit=",
+  "CPUQuota= or PodmanArgs=--cpus",
+]
+upstream_sizing = "none; the runtime's garbage collector settings page documents the defaults above"
+measured = { memory_current_mib = 52, memory_peak_mib = 98, tasks_peak = 31, cpu_seconds_since_start = 1.8, note = "tasks peak read after a restart made for the cgroup test" }
+
+[[unit]]
+name = "entry-certificate"
+file = "engine/entry/entry-certificate.service"
+capability = "entry"
+process_model = "shell, one-shot, on the engine's operating system"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 6, cpu_seconds_since_start = 0.06 }
+
+[[unit]]
+name = "configure"
+file = "engine/image/configure.container"
+capability = "configure"
+process_model = "shell and Go (the declaration tool and its providers), one-shot, every start"
+bound_today = "none"
+native_knobs = [
+  "GOMEMLIMIT and GOMAXPROCS as for the secret store; neither is set",
+]
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 297, cpu_seconds_since_start = 8.6, note = "the biggest one-shot; it runs while every long-running unit is up" }
+
+[[unit]]
+name = "mail"
+file = "engine/mail/mail.container"
+capability = "mail"
+process_model = "Go (a mail catcher), long-running, only when the mail driver is the catcher (a stand-in, never production)"
+bound_today = "none (pids 2048, tasks 307 by default)"
+native_knobs = [
+  "GOMEMLIMIT and GOMAXPROCS as for the secret store; neither is set",
+]
+cgroup_knobs = ["Memory=", "PidsLimit=", "CPUQuota= or PodmanArgs=--cpus"]
+upstream_sizing = "none"
+measured = { memory_current_mib = 24, memory_peak_mib = 53, tasks_peak = 37, cpu_seconds_since_start = 0.82, note = "tasks peak read after a restart made for the cgroup test" }
+
+[[unit]]
+name = "anima-config"
+file = "engine/image/anima-config.service"
+capability = "configure"
+process_model = "shell, one-shot, on the engine's operating system, before anything starts"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 10, cpu_seconds_since_start = 0.12 }
+
+[[unit]]
+name = "anima-credentials"
+file = "engine/image/anima-credentials.service"
+capability = "secrets"
+process_model = "shell, one-shot, on the engine's operating system"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 4, cpu_seconds_since_start = 0.1 }
+
+[[unit]]
+name = "anima-listen-container"
+file = "engine/image/anima-listen-container.service"
+capability = "access"
+process_model = "shell, one-shot, on the engine's operating system (when run as a container)"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 2, cpu_seconds_since_start = 0.03 }
+
+[[unit]]
+name = "anima-listen-host"
+file = "engine/image/anima-listen-host.service"
+capability = "access"
+process_model = "shell, one-shot, on the engine's operating system (when booted as the operating system); never run in this measurement"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { note = "not started when the engine runs as a container" }
+
+[[unit]]
+name = "secrets-root-of-trust"
+file = "engine/secrets/secrets-root-of-trust.service"
+capability = "secrets"
+process_model = "shell (one read of the random source), one-shot, only when no seal exists"
+bound_today = "none"
+native_knobs = []
+cgroup_knobs = ["MemoryMax=", "TasksMax=", "CPUQuota="]
+upstream_sizing = "none"
+measured = { memory_peak_mib = 2, cpu_seconds_since_start = 0.03 }
+
+# ------------------------------------------------------------- proposal
+#
+# Default envelopes, to be decided by the founder and applied by the next wave:
+# a memory limit through `Memory=` of the container unit (so that the runtime
+# sees it), a CPU bound through `CPUQuota=` of the service, a task limit through
+# `PidsLimit=`. The figures are ceilings, not reservations: the engine uses
+# about a third of them when idle (engine total measured current 1071 MiB).
+# Rule of the numbers: the measured peak times a margin of 2 to 3 for a unit
+# that is small and steady; upstream's documented sizing where it exists; an
+# estimate from the unit's own settings where the measurement is of an idle
+# engine (the database), marked `estimate`, to be checked by a load test.
+
+[[proposal]]
+unit = "access"
+memory_mib = 2048
+memory_basis = "upstream recommends 2 GB for smaller production deployments (the formula of its sizing guide gives 1360 MB for 10000 cached sessions); the heap then ends at 70 %, 1433 MiB, and 256 MiB of metaspace and about 300 MB outside the heap fit in the rest; measured steady use 778 MiB"
+cpu_quota_percent = 200
+cpu_basis = "upstream: 1 vCPU per 15 password logins per second, so 2 vCPU carry 30 a second; the start needs CPU (109 CPU seconds under a load of 17, uncapped)"
+tasks = 256
+tasks_basis = "measured peak 103, times 2.5; the JVM's thread count grows with the CPUs it sees"
+native = "none: with Memory= the heap follows the limit (MaxRAMPercentage=70); an adopter who sets more writes it in the configuration"
+
+[[proposal]]
+unit = "database"
+memory_mib = 768
+memory_basis = "estimate: shared_buffers 160 MiB + 3 autovacuum workers at 64 MiB maintenance_work_mem + 100 connections at about 4 MiB of work_mem each, rounded up; measured 136 MiB peak on an idle engine"
+cpu_quota_percent = 200
+cpu_basis = "upstream's sizing guide for the identity provider's database: 0.35 to 0.7 vCPU per the workload that 2 vCPU of the identity provider produce; measured idle use 0.5 %"
+tasks = 160
+tasks_basis = "100 connections plus the background processes (measured peak 28 on an idle engine)"
+native = "none now; shared_buffers stays at its default so that it follows the limit only by hand"
+
+[[proposal]]
+unit = "secrets"
+memory_mib = 256
+memory_basis = "measured peak 117 MiB times 2.2"
+cpu_quota_percent = 100
+cpu_basis = "idle use is 3.7 % of one CPU; one CPU is generous for one node"
+tasks = 128
+tasks_basis = "measured peak 50, times 2.5"
+native = "GOMEMLIMIT=200MiB (80 % of the limit, so that the Go runtime collects before the kill)"
+
+[[proposal]]
+unit = "entry"
+memory_mib = 256
+memory_basis = "measured peak 98 MiB times 2.6; the runtime's documented default heap hard limit inside a limited container is 75 %, 192 MiB, which needs no setting"
+cpu_quota_percent = 100
+cpu_basis = "a proxy with 0.4 % idle use; one CPU"
+tasks = 128
+tasks_basis = "measured peak 31, times 4 (thread pool grows with load)"
+native = "none (the runtime reads the container limit)"
+
+[[proposal]]
+unit = "database-tls"
+memory_mib = 64
+memory_basis = "measured peak 26 MiB times 2.5"
+cpu_quota_percent = 25
+cpu_basis = "0.1 % idle use"
+tasks = 32
+tasks_basis = "measured peak 24"
+native = "none"
+
+[[proposal]]
+unit = "mail"
+memory_mib = 128
+memory_basis = "measured peak 53 MiB times 2.4; a stand-in, only with the catcher driver, counted separately"
+cpu_quota_percent = 50
+cpu_basis = "0.3 % idle use"
+tasks = 64
+tasks_basis = "measured peak 37"
+native = "GOMEMLIMIT=100MiB"
+
+[[proposal]]
+unit = "configure"
+memory_mib = 512
+memory_basis = "measured peak 297 MiB times 1.7; it runs while everything else is up, so it counts in the engine total at start"
+cpu_quota_percent = 200
+cpu_basis = "8.6 CPU seconds in a start of about two minutes, mostly one process"
+tasks = 256
+tasks_basis = "not measured (a one-shot's pids.peak is gone with its cgroup); the declaration tool starts one process per provider"
+native = "GOMEMLIMIT=400MiB"
+
+[[proposal]]
+unit = "database-init"
+memory_mib = 256
+memory_basis = "measured peak 104 MiB times 2.5; only when the volume is empty, before anything else"
+cpu_quota_percent = 100
+cpu_basis = "1.2 CPU seconds"
+tasks = 64
+tasks_basis = "initdb starts one process at a time; estimate"
+native = "none"
+
+[[proposal]]
+unit = "database-prepare"
+memory_mib = 128
+memory_basis = "measured peak 33 MiB times 3.8 (a client)"
+cpu_quota_percent = 50
+cpu_basis = "0.2 CPU seconds"
+tasks = 32
+tasks_basis = "a client; estimate"
+native = "none"
+
+[proposal_note]
+host_oneshots = "the five shell one-shots on the engine's operating system (anima-config, anima-credentials, anima-listen-*, secrets-root-of-trust, entry-certificate) peak at 10 MiB or less and stay under the systemd default task limit; they get no envelope of their own"
+
+[proposal_total]
+long_running_ceiling_mib = 3392
+long_running_ceiling_with_mail_mib = 3520
+at_start_ceiling_mib = 3904
+operating_system_allowance_mib = 256
+engine_ceiling_mib = 4160
+engine_ceiling_with_mail_mib = 4288
+measured_peak_mib = 3252
+measured_steady_mib = 1071
+reading = "the ceiling is what a limit of the engine as a whole must allow: long-running units 2048 + 768 + 256 + 256 + 64, plus the configurator's 512 which runs at the same time, plus 256 for systemd, podman and the rest of the operating system; the measured peak was above the steady use because the identity provider's heap was unbounded"
+
+[adopter_4_gb]
+# What an adopter with a machine of 4 GB (about 3.8 GiB usable) changes: the
+# defaults above sum to 4160 MiB and do not fit beside a host operating system.
+change = { access_memory_mib = 1536, database_memory_mib = 512, mail = "off (the default driver is the organisation's mail service)" }
+engine_ceiling_mib = 3392
+basis = "access: not below upstream's formula of 1360 MB for a small instance; database: 512 MiB keeps shared_buffers and 100 connections; the ceiling is 1536 + 512 + 256 + 256 + 64 + 512 (configure) + 256 (system)"
+not_supported = "a machine of 2 GB: the identity provider's documented least is 750 MB and the configurator needs 300 MiB at start"

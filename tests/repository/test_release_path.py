@@ -197,6 +197,46 @@ def test_R114_system_tests_report_under_one_name_detects_violation():
     assert system_test_faults(good.replace("|tests/ci/", ""))
 
 
+# ---- R201: a wave is verified on its own branch, without a merge to the default branch -------
+
+
+def wave_trigger_faults(text, integration_branches):
+    """What keeps a workflow from being started by hand or from running on a push
+    to an integration branch."""
+    faults = []
+    if "workflow_dispatch" not in triggers(text):
+        faults.append("it cannot be started by hand")
+    push = re.search(r"^  push:\n    branches: \[([^\]]*)\]", text, re.MULTILINE)
+    named = {b.strip() for b in push.group(1).split(",")} if push else set()
+    faults += [
+        f"it does not run on a push to {b}"
+        for b in integration_branches
+        if b not in named
+    ]
+    return faults
+
+
+def test_R201_wave_verifiable_on_its_own_branch():
+    """Proves the text of the two workflows. It does not prove that a push or a
+    dispatch starts them on the branch (only a run shows that), and a dispatch only
+    works once the file is on the default branch."""
+    branches = tomllib.loads((ROOT / "waves.toml").read_text())["integration_branches"]
+    assert branches
+    for name in ("ci.yml", "system-tests.yml"):
+        text = (WORKFLOWS / name).read_text()
+        assert wave_trigger_faults(text, branches) == [], name
+
+
+def test_R201_wave_verifiable_on_its_own_branch_detects_violation():
+    good = "on:\n  pull_request:\n  push:\n    branches: [main, wave]\n  workflow_dispatch:\n\njobs:\n"
+    assert wave_trigger_faults(good, ["wave"]) == []
+    assert wave_trigger_faults(good.replace("  workflow_dispatch:\n", ""), ["wave"])
+    assert wave_trigger_faults(good.replace(", wave", ""), ["wave"])
+    assert wave_trigger_faults(
+        good.replace("  push:\n    branches: [main, wave]\n", ""), ["wave"]
+    )
+
+
 # ---- R125: the cache of the inner images is refreshed when they changed, and only then -------
 
 

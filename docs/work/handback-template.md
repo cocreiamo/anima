@@ -5,7 +5,7 @@ The report is what an agent hands back when a task is done. It goes under `## Re
 ```markdown
 ## Report
 
-Task: TASK-<n>. Role: <role>. Date: <YYYY-MM-DD>.
+Task: TASK-<n>. Role: <role>. Wave: <id>. Date: <YYYY-MM-DD>. Status: written, awaiting the wave.
 
 ### Done
 
@@ -14,6 +14,10 @@ Task: TASK-<n>. Role: <role>. Date: <YYYY-MM-DD>.
 ### Ran
 
 - <each command that was run, and its result>
+
+### Left to the wave verification
+
+- <each verification not run here because it is expensive (full engine tests, cold builds, hosted runs), and what it should show; none if none>
 
 ### Only read
 

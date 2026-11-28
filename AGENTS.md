@@ -59,6 +59,7 @@ Work starts by loading the skill that matches the paths you will touch (table be
 - For an adopted technology the sources of truth are its technology skill and its pinned source and documentation under `third_party/`: never answer from memory. When working inside a fork, follow the upstream project's own instructions for agents if it ships any (`AGENTS.md` or similar in that fork).
 - Work is a task of the backlog, addressed by its id, done by one role from one brief, with acceptance as verification names (`anima-working-as-an-agent`); roles are in `agents/`, the brief, report and review checklist in `docs/work/`. An agent refuses an instruction outside its brief or one that asks it to change paths it does not own, and reports it.
 - Decide from what is known; the unknown is the first test of the task. A spike is kept only when its answer changes the choice and no test inside the task can give it; it states the decision it serves and stops when that is taken (`anima-working-as-an-agent`).
+- Write in waves, verify in batches: blocks are written test-first and checked cheaply; the expensive verifications run once per wave, and a block is not done until its wave is (`anima-working-as-an-agent`, rule 20).
 - A text states a version or a measured number only at the register or threshold that pins it or as dated evidence (`anima-specifying-requirements`).
 - A generated file is never edited by hand: change its source and run `mise run generate`. `mise run generate:list` prints them; the agent settings refuse edits to them, to `third_party/` and to lock files.
 - A decision record is only for the architecture of the product; how to write one is the skill `anima-writing-a-decision-record`. Everything else (how we work, legal and brand, tooling, principles) is a rule of a skill.
@@ -82,6 +83,8 @@ Work starts by loading the skill that matches the paths you will touch (table be
 | Roles and what they may do                        | `agents/<name>.md`                              |
 | What exists (ports, tasks, requirements)          | `docs/catalog.md`, generated                    |
 | Deliberate removals                               | `contractions.toml`                             |
+| Waves of work and how each was verified           | `waves.toml`                                    |
+| What the engine runs, measured, and its envelopes | `resources.toml`                                |
 | Generated files                                   | written by `mise run generate`: `generate:list` |
 | Tests not yet written                             | `tests/pending.toml`, generated                 |
 | Cached and built files                            | `.cache/`                                       |

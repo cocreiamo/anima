@@ -144,6 +144,7 @@ Look here before building something. Each section is derived from its source; th
 | R24 | release only from verified commit | written |
 | R155 | release tool files not formatted and licensed | written |
 | R110 | releases stay patch only | written |
+| R202 | resource inventory covers every unit | written |
 | R77 | role files well formed | written |
 | R31 | roles authenticate by kind | pending |
 | R22 | roles declared with identities | written |
@@ -183,6 +184,8 @@ Look here before building something. Each section is derived from its source; th
 | R2 | valid token opens session | written |
 | R19 | vector search in every database | pending |
 | R78 | vendor roles limited to permissions | written |
+| R201 | wave verifiable on its own branch | written |
+| R200 | waves are recorded and verified | written |
 
 ## Components
 
@@ -276,7 +279,7 @@ Look here before building something. Each section is derived from its source; th
 
 | Workflow file | Name | Triggers |
 | --- | --- | --- |
-| `ci.yml` | CI | pull_request, merge_group, push |
+| `ci.yml` | CI | pull_request, merge_group, push, workflow_dispatch |
 | `codeql.yml` | CodeQL | pull_request, push, schedule |
 | `mirror-base-images.yml` | Mirror base images | schedule, workflow_dispatch |
 | `prepare-release.yml` | Prepare release | push |
@@ -284,7 +287,7 @@ Look here before building something. Each section is derived from its source; th
 | `pull-request.yml` | Pull request | pull_request, merge_group |
 | `scorecard.yml` | Scorecard | push, schedule |
 | `sync-forks.yml` | Sync forks | schedule, workflow_dispatch |
-| `system-tests.yml` | System tests | pull_request, merge_group, push |
+| `system-tests.yml` | System tests | pull_request, merge_group, push, workflow_dispatch |
 
 ## Fitness functions
 
@@ -361,6 +364,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
 - R155, release tool files not formatted and licensed, at every commit: `test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
+- R202, resource inventory covers every unit, at every commit: `test_R202_resource_inventory_covers_every_unit` (written).
 - R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
 - R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
@@ -386,6 +390,8 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R44, upgrade never destroys data, when an image is promoted: `test_R44_upgrade_never_destroys_data` (pending).
 - R43, upgrade only expands, when an image is promoted: `test_R43_upgrade_removes_only_declared` (pending).
 - R78, vendor roles limited to permissions, at every commit: `test_R78_vendor_roles_limited_to_permissions` (written).
+- R201, wave verifiable on its own branch, at every commit: `test_R201_wave_verifiable_on_its_own_branch` (written).
+- R200, waves are recorded and verified, at every commit: `test_R200_waves_are_recorded_and_verified` (written).
 
 ## Skills
 

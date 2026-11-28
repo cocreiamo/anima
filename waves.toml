@@ -1,0 +1,43 @@
+# Register of waves of work (`anima-working-as-an-agent`, rule 20).
+#
+# Blocks are written test-first and checked cheaply; the expensive verifications
+# (the full engine tests, cold builds, hosted runs) run once per wave, on the
+# merged wave. A wave is 4 to 6 blocks independent enough to bisect; one that
+# fails is bisected by block, fixed and verified once again. A block is not done
+# until its wave is verified.
+#
+#   [[wave]]
+#   id = "R<n>"
+#   branch = "the integration branch the wave is merged into and verified on"
+#   blocks = ["R<n>.1", ...]       # at most 6; a task names its wave in `wave`
+#   status = "open" | "verified"
+#
+#   [wave.verification]            # present exactly when the wave is verified
+#   ran = ["each command or run, as started"]
+#   where = "the machine or the hosted run"
+#   result = "passed"
+#   date = "YYYY-MM-DD"
+#
+# Starting a hosted verification of a wave: each branch in `integration_branches`
+# is triggered by a push, and `hosted_start` lists the commands that start the
+# two workflows by hand on a branch. `workflow_dispatch` only works once the
+# workflow file that carries it exists on the default branch (GitHub's
+# documentation of the event), so until then the push is the way.
+
+integration_branches = ["kickoff-restructure"]
+
+hosted_start = [
+  "gh workflow run CI --ref kickoff-restructure",
+  "gh workflow run 'System tests' --ref kickoff-restructure",
+]
+
+# Wave R0 is open until `mise run check` has passed on the merged wave: on the
+# branch of its blocks every check passed but the one on the speed of the checks
+# (R55), which failed five times at a load average of 25 on the shared machine
+# (75 to 119 s against its 60 s). Its verification is by design `mise run check`
+# only, with no engine test: the wave holds no change to what the engine runs.
+[[wave]]
+id = "R0"
+branch = "kickoff-restructure"
+blocks = ["R0.1", "R0.2", "R0.3"]
+status = "open"

@@ -460,6 +460,16 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R200'> wavesAreRecordedAndVerified {
+            doc /* The register of waves shall give every wave a unique identifier, at most six blocks that belong to no other wave, and, for a wave marked verified, the record of its verification (what ran, where, a result of passed and a date); and every task that names a wave shall name one that the register lists. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R202'> resourceInventoryCoversEveryUnit {
+            doc /* The inventory of what the engine runs shall list exactly the units that the engine's files define, shall give every container unit a proposed envelope not below its measured peak (or, where the peak is that of a runtime growing to whatever it may use, its steady use), and shall state totals that equal the sum of the envelopes it proposes. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R81'> sizeLimitsKept {
             doc /* The instructions file, every skill, every role file and the text that is always loaded shall stay within the limits held by this requirement; when a file exceeds its limit, detail is moved or deleted and the limit is not raised. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -632,6 +642,11 @@ package Anima {
         }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources, the commands of the promotion or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R201'> waveVerifiableOnItsOwnBranch {
+            doc /* The commit-time checks and the automated verification of the engine image shall be startable by hand on any branch and shall run on every push to each integration branch that the register of waves names, so that a wave is verified on its own branch without being merged to the default branch. */
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
@@ -1669,6 +1684,14 @@ package Anima {
             subject tools : Toolchain;
             objective { verify Day0::taskAcceptanceNamesVerifications; }
         }
+        verification def test_R200_waves_are_recorded_and_verified {
+            subject tools : Toolchain;
+            objective { verify Day0::wavesAreRecordedAndVerified; }
+        }
+        verification def test_R202_resource_inventory_covers_every_unit {
+            subject tools : Toolchain;
+            objective { verify Day0::resourceInventoryCoversEveryUnit; }
+        }
         verification def test_R81_size_limits_kept {
             subject tools : Toolchain;
             objective { verify Day0::sizeLimitsKept; }
@@ -1896,6 +1919,10 @@ package Anima {
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;
             objective { verify Day0::systemTestsReportOnEveryChange; }
+        }
+        verification def test_R201_wave_verifiable_on_its_own_branch {
+            subject tools : Toolchain;
+            objective { verify Day0::waveVerifiableOnItsOwnBranch; }
         }
         verification def test_R125_cache_of_inner_images_refreshed_when_they_changed {
             subject tools : Toolchain;
