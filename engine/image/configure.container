@@ -6,10 +6,17 @@ Description=Anima configurator: brings the installation to its declared state, t
 Requires=database.service database-prepare.service database-tls.service secrets.service access.service anima-credentials.service
 After=database.service database-prepare.service database-tls.service secrets.service access.service anima-credentials.service
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=configure
 Image=configure.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/configure.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 # The superuser of the database server is reached on the local socket by the peer
 # credentials of the operating-system user of that name (uid 999).
 User=999:999
@@ -32,6 +39,7 @@ EnvironmentFile=/usr/share/anima/public-url.env
 Exec=converge
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/configure.env
 Type=oneshot
 RemainAfterExit=yes
 TimeoutStartSec=900

@@ -7,10 +7,17 @@ Description=Anima HTTP entry point: the one way in for HTTP, forwarding only the
 Requires=anima-listen-container.service anima-listen-host.service entry-certificate.service
 After=anima-listen-container.service anima-listen-host.service entry-certificate.service database.service secrets.service database-tls.service database-prepare.service access.service
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=entry
 Image=entry.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/entry.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 EnvironmentFile=/run/anima/listen/entry.env
 # Not the identity provider's: its own user, with nothing to write but memory, and
 # no capability. The certificate and its key are files of memory that this user owns.
@@ -36,6 +43,7 @@ HealthOnFailure=kill
 Notify=healthy
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/entry.env
 Restart=always
 RestartSec=2
 TimeoutStartSec=180

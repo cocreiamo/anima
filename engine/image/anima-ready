@@ -12,6 +12,13 @@ for unit in $(systemctl show "$target" --property=BindsTo --value); do
     state=$(systemctl is-active "$unit")
     [ "$state" = active ] && continue
     echo "$unit: $state (result: $(systemctl show "$unit" --property=Result --value))"
+    # A part stopped by its own limit (its envelope, R209): the kernel's kill is
+    # logged by systemd under the unit, and is the reason to give.
+    # (`grep -c`, not `grep -q`: with pipefail, a reader that stops early makes the
+    # pipeline fail by the writer's SIGPIPE although the text was found.)
+    if [ "$(journalctl --no-pager --unit "$unit" 2>/dev/null | grep -c 'OOM killer')" -gt 0 ]; then
+        echo "    cause: a process of the unit was killed by its memory limit (its envelope)"
+    fi
     # What the part itself said (its container logs under the unit's own name), not
     # what systemd or the container engine said about it.
     journalctl --no-pager --output cat --unit "$unit" --identifier "${unit%.service}" --lines 12 2>/dev/null |

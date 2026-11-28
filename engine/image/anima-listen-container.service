@@ -6,6 +6,10 @@ Requires=anima-config.service
 After=anima-config.service
 
 [Service]
+# The envelope of the class `host-oneshot` of engine/image/envelopes.toml (R203 proves it equal).
+MemoryMax=64M
+CPUQuota=100%
+TasksMax=64
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/libexec/anima/listen container

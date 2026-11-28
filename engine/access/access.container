@@ -10,6 +10,9 @@ After=anima-credentials.service anima-listen-container.service anima-listen-host
 # `podman run` into the same pod at the same moment were seen to hang each other,
 # so the starts are serialised: it starts after the others.
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=access
 Image=access.image
@@ -26,7 +29,17 @@ Environment=KC_HTTP_MANAGEMENT_HOST=127.0.0.1
 Environment=KC_HTTP_ENABLED=true
 Environment=KC_DB_URL=jdbc:postgresql://127.0.0.1:5432/idp
 Environment=KC_DB_USERNAME=svc_idp
+# One node, low traffic: its caches are local (no cluster transport, no node
+# discovery through the database): guide "Configuring distributed caches" (the
+# option `cache`, values `ispn` and `local`). The heap, collector, compiler tier,
+# pool of database connections and worker threads come from the envelope (the env
+# file above): resources.toml and the skill of the identity provider cite each.
+Environment=KC_CACHE=local
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/access.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 # Production mode on the image's optimized build; the state is in the database.
 Exec=start --optimized --http-port=8080 --hostname=${ANIMA_IDENTITY_PROVIDER_URL} --proxy-headers=forwarded --proxy-trusted-addresses=127.0.0.1/32
 Mount=type=tmpfs,destination=/opt/keycloak/data,tmpfs-mode=1777
@@ -47,6 +60,7 @@ HealthOnFailure=kill
 Notify=healthy
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/access.env
 # The public URL: the installation parameter, declared once (the configurator reads
 # the same file). A service-level file, so that systemd expands it in Exec above.
 EnvironmentFile=/usr/share/anima/public-url.env

@@ -1,0 +1,212 @@
+# The resource envelopes of the engine: the one declaration of how much memory,
+# processor time and how many tasks each unit may use (`anima-designing-for-production`,
+# R203 to R210). The engine image ships this file at /usr/share/anima/envelopes.toml;
+# the configuration reader writes each unit's values at every start into
+# /run/anima/config/envelope/<unit>.env, which the unit reads. A unit file repeats
+# no number of a container envelope; the two host-side classes below are repeated
+# in their unit files and a check proves them equal (R203).
+#
+# Rules: every unit has an envelope and there is no way to write "none" (an
+# override must be an integer of at least the floor); the defaults are the least a
+# low-traffic installation needs at steady state, measured (resources.toml); a
+# bigger machine gives room by an override in the configuration, never by default.
+# Units: memory in MiB, processor time in percent of one CPU, tasks as a count.
+#
+# `concurrent` marks the units that can run at the same time at the engine's busiest
+# moment (the sum of R204); `optional` one that runs only for a stand-in.
+# `capability` names the configuration file that may override the envelope
+# (`config/<capability>/<capability>.toml`, table `[resources]`). A unit without
+# one is not overridable. The `*_percent` and pool fields are the service's own
+# knobs, derived from the same envelope by the configuration reader.
+
+[engine]
+# What the engine's operating system (init, journal, the container runtime and the
+# processes of the engine's outer container) is allowed beyond the units below.
+operating_system_allowance_mib = 256
+
+[bounds]
+# The ceilings of an override (a sanity bound, so that "unlimited" cannot be
+# spelled as a very large number by mistake): 1 TiB, 64 CPUs, 1,000,000 tasks.
+memory_mib_max = 1048576
+cpu_percent_max = 6400
+tasks_max = 1000000
+
+# ---- the two classes of host-side unit (static in the unit files) ------------
+
+[[class]]
+name = "host-oneshot"
+memory_mib = 64
+cpu_percent = 100
+tasks = 64
+reason = "shell scripts of the engine's operating system, measured at 10 MiB or less"
+
+[[class]]
+name = "image-load"
+memory_mib = 512
+cpu_percent = 100
+tasks = 128
+reason = "the load of an image archive into the container runtime's store; the archive's page cache counts and is reclaimable"
+
+# ---- units that run a container (values reach the container through its env file) ----
+
+[[envelope]]
+unit = "access"
+concurrent = true
+capability = "access"
+memory_mib = 640
+memory_floor_mib = 512
+cpu_percent = 200
+cpu_floor_percent = 100
+tasks = 128
+tasks_floor = 96
+heap_percent = 43
+db_pool_max = 10
+http_threads = 20
+basis = "identity provider: measured steady 330 to 390 MiB and peak 450 MiB with the options of its unit, held at 512 MiB; upstream's least is 750 MB with its default options, which size the heap at 70 % of a 15 GiB host"
+
+[[envelope]]
+unit = "database"
+concurrent = true
+capability = "database"
+memory_mib = 768
+memory_floor_mib = 256
+cpu_percent = 200
+cpu_floor_percent = 100
+tasks = 160
+tasks_floor = 96
+shared_buffers_percent = 20
+maintenance_work_mem_percent = 5
+work_mem_mib = 4
+max_connections = 60
+autovacuum_max_workers = 2
+basis = "the founder's decision; measured 150 MiB at most on an idle engine, to be observed under load"
+
+[[envelope]]
+unit = "secrets"
+concurrent = true
+capability = "secrets"
+memory_mib = 256
+memory_floor_mib = 192
+cpu_percent = 100
+cpu_floor_percent = 50
+tasks = 128
+tasks_floor = 64
+go_memlimit_percent = 80
+basis = "secret store: measured peak 141 MiB"
+
+[[envelope]]
+unit = "entry"
+concurrent = true
+capability = "entry"
+memory_mib = 192
+memory_floor_mib = 128
+cpu_percent = 100
+cpu_floor_percent = 50
+tasks = 128
+tasks_floor = 64
+basis = "HTTP entry point: measured peak 98 MiB; the runtime reads the container's limit"
+
+[[envelope]]
+unit = "mail"
+concurrent = true
+optional = true
+capability = "mail"
+memory_mib = 128
+memory_floor_mib = 96
+cpu_percent = 50
+cpu_floor_percent = 25
+tasks = 64
+tasks_floor = 48
+go_memlimit_percent = 80
+basis = "the mail catcher (a stand-in): measured peak 53 MiB"
+
+[[envelope]]
+unit = "configure"
+concurrent = true
+capability = "configure"
+memory_mib = 512
+memory_floor_mib = 384
+cpu_percent = 200
+cpu_floor_percent = 100
+tasks = 256
+tasks_floor = 128
+go_memlimit_percent = 80
+basis = "the configurator, one-shot at every start: measured peak 297 MiB"
+
+[[envelope]]
+unit = "database-tls"
+concurrent = true
+memory_mib = 64
+cpu_percent = 25
+tasks = 32
+basis = "renewal loop: measured peak 26 MiB"
+
+[[envelope]]
+unit = "database-init"
+memory_mib = 256
+cpu_percent = 100
+tasks = 64
+basis = "cluster creation, only on an empty volume: measured peak 104 MiB"
+
+[[envelope]]
+unit = "database-prepare"
+memory_mib = 128
+cpu_percent = 50
+tasks = 32
+basis = "a database client: measured peak 33 MiB"
+
+# ---- units of the host side, by class ----------------------------------------
+
+[[host_unit]]
+unit = "anima-config"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "anima-credentials"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "anima-listen-container"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "anima-listen-host"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "secrets-root-of-trust"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "entry-certificate"
+class = "host-oneshot"
+
+[[host_unit]]
+unit = "access-image"
+class = "image-load"
+
+[[host_unit]]
+unit = "configure-image"
+class = "image-load"
+
+[[host_unit]]
+unit = "database-image"
+class = "image-load"
+
+[[host_unit]]
+unit = "entry-image"
+class = "image-load"
+
+[[host_unit]]
+unit = "mail-image"
+class = "image-load"
+
+[[host_unit]]
+unit = "secrets-image"
+class = "image-load"
+
+# ---- what cannot carry an envelope, and why (counted by R203) ---------------
+
+[[exempt]]
+unit = "anima-pod"
+reason = "the pod holds no process of its own but its pause process; every container in it carries an envelope and the sum of those bounds the pod"

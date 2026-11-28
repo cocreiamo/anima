@@ -10,6 +10,10 @@ After=anima-config.service access.service
 ContainerName=mail
 Image=mail.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/mail.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 # Everything the catcher keeps is in memory; its API (messages as data) and its
 # SMTP port are on the pod's loopback and are never published.
 Exec=--smtp 127.0.0.1:1025 --listen 127.0.0.1:8025
@@ -27,6 +31,7 @@ HealthOnFailure=kill
 Notify=healthy
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/mail.env
 Restart=always
 RestartSec=2
 TimeoutStartSec=120

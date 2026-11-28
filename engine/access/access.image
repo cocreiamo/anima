@@ -6,4 +6,8 @@ Image=oci-archive:/usr/lib/anima/images/access.tar
 ImageTag=localhost/anima/access:engine
 
 [Service]
+# The envelope of the class `image-load` of engine/image/envelopes.toml (R203 proves it equal).
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=128
 TimeoutStartSec=300

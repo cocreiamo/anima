@@ -12,6 +12,7 @@ COPY --from=images / /usr/lib/anima/images/
 
 # The units, each kept beside the capability it belongs to.
 COPY engine/image/anima.pod /usr/share/containers/systemd/
+COPY engine/image/envelopes.toml /usr/share/anima/envelopes.toml
 COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
 COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
 COPY engine/access/public-url.env /usr/share/anima/public-url.env

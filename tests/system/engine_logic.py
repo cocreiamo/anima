@@ -441,3 +441,62 @@ def session_duration_faults(
     if re.search(r"\d", doc):
         faults.append("the text of the requirement states a number of its own")
     return faults
+
+
+def envelope_faults(declared: dict, seen: dict, exempt: set[str]) -> list[str]:
+    """What is wrong with the limits of the running containers (R207).
+
+    `declared` is {unit: {"memory_mib", "cpu_percent", "tasks"}}; `seen` is
+    {container: {"memory", "cpu", "pids"}} with the text of the container's own
+    `memory.max`, `cpu.max` and `pids.max`; `exempt` the containers the
+    declaration names as unable to carry an envelope. A container with no
+    declared envelope, a limit that is `max` and a limit that is not the declared
+    one are each a fault, so that the absence of a limit is the violation."""
+    faults = []
+    for name, found in sorted(seen.items()):
+        if name in exempt:
+            continue
+        want = declared.get(name)
+        if want is None:
+            faults.append(f"{name}: a container with no declared envelope")
+            continue
+        memory = found["memory"].strip()
+        if memory == "max":
+            faults.append(f"{name}: no memory limit")
+        elif memory != str(want["memory_mib"] * 1048576):
+            faults.append(
+                f"{name}: memory.max {memory}, declared {want['memory_mib']} MiB"
+            )
+        quota, _, period = found["cpu"].strip().partition(" ")
+        if quota == "max":
+            faults.append(f"{name}: no CPU bound")
+        elif not period.isdigit() or int(quota) * 100 != want["cpu_percent"] * int(
+            period
+        ):
+            faults.append(
+                f"{name}: cpu.max {found['cpu'].strip()}, "
+                f"declared {want['cpu_percent']} %"
+            )
+        pids = found["pids"].strip()
+        if pids == "max":
+            faults.append(f"{name}: no task limit")
+        elif pids != str(want["tasks"]):
+            faults.append(f"{name}: pids.max {pids}, declared {want['tasks']}")
+    return faults
+
+
+def heap_faults(
+    max_heap_bytes: int, memory_mib: int, heap_percent: int, host_bytes: int
+) -> list[str]:
+    """The identity provider's effective maximum heap against its declared envelope
+    (R208): not above the share of the limit that the declaration allows, never
+    above the limit, and never a share of the host's memory."""
+    allowed = memory_mib * 1048576 * heap_percent // 100
+    faults = []
+    if max_heap_bytes > allowed:
+        faults.append(f"max heap {max_heap_bytes} bytes, the envelope allows {allowed}")
+    if max_heap_bytes >= memory_mib * 1048576:
+        faults.append("max heap is not below the memory limit")
+    if max_heap_bytes >= host_bytes // 2:
+        faults.append("max heap follows the memory of the host")
+    return faults

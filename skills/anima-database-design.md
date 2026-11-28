@@ -32,6 +32,7 @@ taken; their home is ADR 0001. Who may connect is `anima-access-design`.
 6. **A new database is closed by access rules, not grants:** the rule is in `anima-access-design`.
 7. Unverified: **backup and restore.** The backup adapter's PostgreSQL support is to be confirmed by our own restore test (R20, GAP-009), and no restore drill exists yet.
 8. Unverified: **vector search in every database.** The declaration that creates the extension in the template database is designed, and no test shows it in a database created later (R19).
+9. **The database server runs inside its envelope with settings derived from it** (`engine/image/envelopes.toml`, R205): shared buffers and maintenance memory as shares of the memory limit, a modest connection limit that the identity provider's pool fits, written at every start into a file that `postgresql.conf` includes (`include`, not `include_if_exists`: a server that starts without them would run with the defaults of a large machine). To be observed under load: the starting size is the founder's, not a measurement of load.
 
 ## Questions to answer before proposing
 

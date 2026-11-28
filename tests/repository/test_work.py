@@ -239,7 +239,10 @@ def engine_unit_names(engine=ROOT / "engine"):
     }
 
 
-def inventory_faults(inventory, defined):
+def inventory_faults(inventory, defined, declaration):
+    """The inventory lists exactly the units the engine's files define, and every
+    container unit has a declared envelope (engine/image/envelopes.toml, R203) not
+    below what it was measured to need. The totals are R204's."""
     faults = []
     listed = inventory.get("unit", [])
     units = {u["name"]: u for u in listed}
@@ -247,15 +250,18 @@ def inventory_faults(inventory, defined):
         faults.append("a unit is listed twice")
     faults += [f"{n} is defined and not listed" for n in sorted(defined - set(units))]
     faults += [f"{n} is listed and not defined" for n in sorted(set(units) - defined)]
-    proposals = {}
-    for p in inventory.get("proposal", []):
-        name = p["unit"]
+    envelopes = {}
+    for e in declaration.get("envelope", []):
+        name = e["unit"]
+        if name in envelopes:
+            faults.append(f"{name}: declared twice")
+        envelopes[name] = e
         if name not in units:
-            faults.append(f"{name}: a proposal for no unit")
-        if name in proposals:
-            faults.append(f"{name}: proposed twice")
-        proposals[name] = p
-        measured = units.get(name, {}).get("measured", {})
+            faults.append(f"{name}: an envelope for no unit")
+        # What the unit needs is what it was measured to use with the envelope's
+        # own settings (`measured_after`), else what it used before (`measured`).
+        unit = units.get(name, {})
+        measured = unit.get("measured_after") or unit.get("measured", {})
         # The peak of a runtime that grows to whatever it may (an unbounded heap)
         # says what it took, not what it needs: its steady use is compared instead.
         key = (
@@ -263,55 +269,24 @@ def inventory_faults(inventory, defined):
             if measured.get("peak_is_unbounded")
             else "memory_peak_mib"
         )
-        if key in measured and p["memory_mib"] < measured[key]:
+        if key in measured and e["memory_mib"] < measured[key]:
             faults.append(
-                f"{name}: proposed {p['memory_mib']} MiB, measured {key} {measured[key]}"
+                f"{name}: declared {e['memory_mib']} MiB, measured {key} {measured[key]}"
             )
-        if not all(p.get(k) for k in ("memory_mib", "cpu_quota_percent", "tasks")):
+        if not all(e.get(k) for k in ("memory_mib", "cpu_percent", "tasks")):
             faults.append(f"{name}: a bound of memory, CPU or tasks is missing")
     for name, unit in units.items():
-        if unit["file"].endswith(".container") and name not in proposals:
-            faults.append(f"{name}: a container without a proposed envelope")
-    memory = {n: p["memory_mib"] for n, p in proposals.items()}
-    steady = sum(
-        memory.get(n, 0)
-        for n, u in units.items()
-        if "long-running" in u["process_model"] and n != "mail"
-    )
-    total = inventory.get("proposal_total", {})
-    system = total.get("operating_system_allowance_mib", 0)
-    at_start = steady + memory.get("configure", 0)
-    expected = {
-        "long_running_ceiling_mib": steady,
-        "long_running_ceiling_with_mail_mib": steady + memory.get("mail", 0),
-        "at_start_ceiling_mib": at_start,
-        "engine_ceiling_mib": at_start + system,
-        "engine_ceiling_with_mail_mib": at_start + memory.get("mail", 0) + system,
-    }
-    faults += [
-        f"{k} is {total.get(k)}, the proposals sum to {v}"
-        for k, v in expected.items()
-        if total.get(k) != v
-    ]
-    small = inventory.get("adopter_4_gb", {})
-    change = small.get("change", {})
-    reduced = (
-        at_start
-        + system
-        - memory.get("access", 0)
-        - memory.get("database", 0)
-        + change.get("access_memory_mib", 0)
-        + change.get("database_memory_mib", 0)
-    )
-    if small.get("engine_ceiling_mib") != reduced:
-        faults.append(
-            f"the 4 GB ceiling is {small.get('engine_ceiling_mib')}, not {reduced}"
-        )
+        if unit["file"].endswith(".container") and name not in envelopes:
+            faults.append(f"{name}: a container without a declared envelope")
     return faults
 
 
 def test_R202_resource_inventory_covers_every_unit():
-    faults = inventory_faults(load_toml("resources.toml"), engine_unit_names())
+    faults = inventory_faults(
+        load_toml("resources.toml"),
+        engine_unit_names(),
+        load_toml("engine/image/envelopes.toml"),
+    )
     assert not faults, faults
 
 
@@ -324,40 +299,21 @@ def test_R202_resource_inventory_covers_every_unit_detects_violation():
             "measured": {"memory_peak_mib": 10},
         }
 
-    def proposal(name, memory):
-        return {
-            "unit": name,
-            "memory_mib": memory,
-            "cpu_quota_percent": 100,
-            "tasks": 8,
-        }
+    def envelope(name, memory):
+        return {"unit": name, "memory_mib": memory, "cpu_percent": 100, "tasks": 8}
 
-    good = {
-        "unit": [unit("access"), unit("configure", "shell, one-shot")],
-        "proposal": [proposal("access", 100), proposal("configure", 50)],
-        "proposal_total": {
-            "operating_system_allowance_mib": 10,
-            "long_running_ceiling_mib": 100,
-            "long_running_ceiling_with_mail_mib": 100,
-            "at_start_ceiling_mib": 150,
-            "engine_ceiling_mib": 160,
-            "engine_ceiling_with_mail_mib": 160,
-        },
-        "adopter_4_gb": {
-            "change": {"access_memory_mib": 60, "database_memory_mib": 0},
-            "engine_ceiling_mib": 120,
-        },
-    }
+    inventory = {"unit": [unit("access"), unit("configure", "shell, one-shot")]}
+    declaration = {"envelope": [envelope("access", 100), envelope("configure", 50)]}
     names = {"access", "configure"}
-    assert inventory_faults(good, names) == []
+    assert inventory_faults(inventory, names, declaration) == []
 
-    def changed(**edits):
-        return {**good, **edits}
+    def declared(*envelopes):
+        return {"envelope": list(envelopes)}
 
-    two = [proposal("access", 100), proposal("configure", 50)]
-    assert inventory_faults(good, names | {"b"})
-    assert inventory_faults(good, {"access"})
-    assert inventory_faults(changed(proposal=[proposal("access", 5), two[1]]), names)
+    two = declaration["envelope"]
+    assert inventory_faults(inventory, names | {"b"}, declaration)
+    assert inventory_faults(inventory, {"access"}, declaration)
+    assert inventory_faults(inventory, names, declared(envelope("access", 5), two[1]))
     # An unbounded peak is not compared, the steady use is.
     unit_a = {
         **unit("access"),
@@ -367,17 +323,17 @@ def test_R202_resource_inventory_covers_every_unit_detects_violation():
             "peak_is_unbounded": True,
         },
     }
-    assert inventory_faults(changed(unit=[unit_a, good["unit"][1]]), names) == []
+    other = inventory["unit"][1]
+    assert inventory_faults({"unit": [unit_a, other]}, names, declaration) == []
     unit_b = {**unit_a, "measured": {**unit_a["measured"], "memory_current_mib": 500}}
-    assert inventory_faults(changed(unit=[unit_b, good["unit"][1]]), names)
-    assert inventory_faults(changed(proposal=[two[0]]), names)
-    assert inventory_faults(changed(proposal=two + [two[0]]), names)
-    assert inventory_faults(changed(proposal=two + [proposal("z", 100)]), names)
-    assert inventory_faults(changed(proposal=[proposal("access", 0), two[1]]), names)
-    total = {**good["proposal_total"], "engine_ceiling_mib": 1}
-    assert inventory_faults(changed(proposal_total=total), names)
-    small = {**good["adopter_4_gb"], "engine_ceiling_mib": 1}
-    assert inventory_faults(changed(adopter_4_gb=small), names)
+    assert inventory_faults({"unit": [unit_b, other]}, names, declaration)
+    # The measurement under the envelope's own settings is the one compared.
+    after = {**unit_b, "measured_after": {"memory_peak_mib": 20}}
+    assert inventory_faults({"unit": [after, other]}, names, declaration) == []
+    assert inventory_faults(inventory, names, declared(two[0]))
+    assert inventory_faults(inventory, names, declared(*two, two[0]))
+    assert inventory_faults(inventory, names, declared(*two, envelope("z", 100)))
+    assert inventory_faults(inventory, names, declared(envelope("access", 0), two[1]))
 
 
 # ---- Postmortems --------------------------------------------------------------------------

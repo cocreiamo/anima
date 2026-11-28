@@ -67,6 +67,7 @@ Look here before building something. Each section is derived from its source; th
 | R1 | engine built from pinned sources | written |
 | R125 | engine image cache refreshed | written |
 | R52 | engine parts validated without starting | written |
+| R204 | engine total stays within its limit | written |
 | R128 | entry forwards only declared prefixes | written |
 | R129 | entry never forwards management | written |
 | R132 | entry overwrites forwarded header | written |
@@ -77,6 +78,7 @@ Look here before building something. Each section is derived from its source; th
 | R164 | every build pulls from the mirror | pending |
 | R75 | every capability directory covered | written |
 | R56 | every check seen to fail | written |
+| R207 | every container runs within its declared envelope | written |
 | R11 | every dependency pinned | written |
 | R18 | every file licensed | written |
 | R25 | every gap registered | written |
@@ -84,6 +86,7 @@ Look here before building something. Each section is derived from its source; th
 | R10 | every requirement verified | written |
 | R65 | every setting has production default | pending |
 | R71 | every test verifies requirement | written |
+| R203 | every unit has its declared envelope | written |
 | R3.2 | expired token rejected | pending |
 | R191 | export reads every file of the model | written |
 | R90 | export writes nothing outside cache | written |
@@ -100,6 +103,7 @@ Look here before building something. Each section is derived from its source; th
 | R5 | identity maps to role | written |
 | R168 | identity provider build downloads no build tool | written |
 | R169 | identity provider build retries downloads bounded | written |
+| R208 | identity provider heap follows its envelope | written |
 | R135 | identity provider reachable only through entry | written |
 | R123 | identity provider runs in production mode | written |
 | R32 | idp database only for its role | pending |
@@ -131,6 +135,8 @@ Look here before building something. Each section is derived from its source; th
 | R59 | one adapter active per port | pending |
 | R42 | one start path after crash | written |
 | R93 | only architecture records exist | written |
+| R206 | override is configuration and visible | written |
+| R210 | override reaches the running container | written |
 | R21 | passes upstream regression suite | written |
 | R106 | plan guard refuses undeclared contraction | written |
 | R82 | postmortem guards exist | written |
@@ -158,6 +164,8 @@ Look here before building something. Each section is derived from its source; th
 | R7 | secrets generated | pending |
 | R61 | server serves without secret store | written |
 | R40 | serves only when converged | pending |
+| R205 | service knobs derive from the envelope | written |
+| R209 | service over its envelope is stopped and restarted alone | written |
 | R181 | shared engine stays undisturbed | written |
 | R9 | single command start | written |
 | R81 | size limits kept | written |
@@ -324,11 +332,13 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R190, each requirement in file of its own, at every commit: `test_R190_each_requirement_in_a_file_of_its_own` (written).
 - R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
+- R204, engine total stays within its limit, at every commit: `test_R204_engine_total_stays_within_its_limit` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
 - R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
 - R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (pending).
 - R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
 - R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
+- R207, every container runs within its declared envelope, against the running system: `test_R207_every_container_runs_within_its_declared_envelope` (written).
 - R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
 - R18, every file licensed, at every commit: `test_R18_every_file_licensed` (written).
 - R25, every gap registered, at every commit: `test_R25_every_gap_registered` (written).
@@ -336,6 +346,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
 - R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
 - R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
+- R203, every unit has its declared envelope, at every commit: `test_R203_every_unit_has_its_declared_envelope` (written).
 - R191, export reads every file of the model, at every commit: `test_R191_export_reads_every_file_of_the_model` (written).
 - R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
@@ -362,6 +373,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R179, offline build succeeds and names what is missing, when an image is promoted: `test_R179_offline_build_succeeds_and_names_what_is_missing` (written).
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
+- R206, override is configuration and visible, at every commit: `test_R206_override_is_configuration_and_visible` (written).
 - R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
 - R166, postmortem names root and class options, at every commit: `test_R166_postmortem_names_root_and_class_options` (written).
 - R85, postmortem not open too long, at every commit: `test_R85_postmortem_not_open_too_long` (written).
@@ -381,6 +393,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
 - R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
+- R205, service knobs derive from the envelope, at every commit: `test_R205_service_knobs_derive_from_the_envelope` (written).
 - R181, shared engine stays undisturbed, when an image is promoted: `test_R181_shared_engine_stays_undisturbed` (written).
 - R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
 - R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).

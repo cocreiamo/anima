@@ -234,3 +234,47 @@ def test_R180_system_tests_stay_fast_detects_violation():
     assert session_duration_faults(2100.0, limits, "within the bound", hosted)
     for other in ({}, {"GITHUB_ACTIONS": ""}, {"GITHUB_ACTIONS": "false"}):
         assert not on_hosted_runner(other)
+
+
+DECLARED = {
+    "access": {"memory_mib": 640, "cpu_percent": 200, "tasks": 128},
+    "mail": {"memory_mib": 128, "cpu_percent": 50, "tasks": 64},
+}
+SEEN = {
+    "access": {"memory": "671088640\n", "cpu": "200000 100000\n", "pids": "128\n"},
+    "mail": {"memory": "134217728", "cpu": "50000 100000", "pids": "64"},
+}
+
+
+def test_R207_every_container_runs_within_its_declared_envelope_detects_violation():
+    """A container with no limit (`max`), a wrong limit or no declared envelope is
+    named; the infrastructure container the declaration exempts is not."""
+    from engine_logic import envelope_faults
+
+    assert envelope_faults(DECLARED, SEEN, set()) == []
+    for key, value, what in (
+        ("memory", "max", "no memory limit"),
+        ("cpu", "max 100000", "no CPU bound"),
+        ("pids", "max", "no task limit"),
+        ("memory", "1", "memory.max"),
+        ("cpu", "100000 100000", "cpu.max"),
+        ("pids", "2048", "pids.max"),
+    ):
+        broken = {**SEEN, "mail": {**SEEN["mail"], key: value}}
+        faults = envelope_faults(DECLARED, broken, set())
+        assert faults and what in faults[0] and "mail" in faults[0], (key, faults)
+    stranger = {**SEEN, "other": SEEN["mail"]}
+    assert envelope_faults(DECLARED, stranger, set())
+    assert envelope_faults(DECLARED, stranger, {"other"}) == []
+
+
+def test_R208_identity_provider_heap_follows_its_envelope_detects_violation():
+    """The runtime's own default on this host (70 % of its memory), a heap over
+    the declared share and one over the limit are each named."""
+    from engine_logic import heap_faults
+
+    host = 15353 * 1048576
+    assert heap_faults(285212672, 640, 43, host) == []
+    assert heap_faults(11274289152, 640, 43, host)
+    assert heap_faults(700 * 1048576, 640, 43, host)
+    assert heap_faults(8000 * 1048576, 16000, 43, host)

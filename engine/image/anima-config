@@ -29,8 +29,110 @@ RUN = Path(os.environ.get("ANIMA_CONFIG_RUN_DIR", "/run/anima/config"))
 SECRET_WORDS = ("password", "secret", "token", "key")
 
 
+ENVELOPES = Path(os.environ.get("ANIMA_ENVELOPES_FILE", "/usr/share/anima/envelopes.toml"))
+
+# The three bounds of an envelope: the declaration's field, the setting an adopter
+# may write under `[resources]`, its floor field and its unit in messages.
+BOUNDS = (
+    ("memory_mib", "memory_floor_mib", "memory_mib_max", "MiB"),
+    ("cpu_percent", "cpu_floor_percent", "cpu_percent_max", "percent of one CPU"),
+    ("tasks", "tasks_floor", "tasks_max", "tasks"),
+)
+
+
 class Refused(Exception):
     pass
+
+
+def resource_schema(declared: dict) -> dict:
+    """{capability: {"resources.<bound>": default}} for each overridable envelope."""
+    schema: dict = {}
+    for envelope in declared.get("envelope", []):
+        capability = envelope.get("capability")
+        if capability:
+            schema[capability] = {
+                f"resources.{bound}": envelope[bound] for bound, *_ in BOUNDS
+            }
+    return schema
+
+
+def check_resources(capability, layer, path, given, declared):
+    """An override of an envelope is an integer between the unit's floor and the
+    declared ceiling; zero, a negative number, a word such as "unlimited" and a
+    value below the floor are refused, naming the file and the setting."""
+    envelope = next(
+        e for e in declared["envelope"] if e.get("capability") == capability
+    )
+    for bound, floor, ceiling, unit in BOUNDS:
+        if bound not in given.get("resources", {}):
+            continue
+        value = given["resources"][bound]
+        name = f"{capability}.resources.{bound}"
+        where = f"{path} ({layer})"
+        if type(value) is not int:
+            raise Refused(
+                f"{name}: expected a whole number of {unit}, got {value!r}; a limit "
+                f"cannot be removed, only raised or lowered to the floor ({where})"
+            )
+        if value < envelope[floor]:
+            raise Refused(
+                f"{name}: {value} is below the floor of {envelope[floor]} {unit} "
+                f"under which the {envelope['unit']} is not supported ({where})"
+            )
+        if value > declared["bounds"][ceiling]:
+            raise Refused(
+                f"{name}: {value} is above {declared['bounds'][ceiling]} {unit} ({where})"
+            )
+
+
+def effective_envelopes(declared: dict, effective: dict) -> dict:
+    """{unit: {"memory_mib", "cpu_percent", "tasks"}} for every unit that runs a
+    container: the declared defaults, replaced by the overridable ones written
+    in the configuration."""
+    envelopes = {}
+    for envelope in declared.get("envelope", []):
+        values = {bound: envelope[bound] for bound, *_ in BOUNDS}
+        capability = envelope.get("capability")
+        if capability:
+            values.update(effective.get(capability, {}).get("resources", {}))
+        envelopes[envelope["unit"]] = values
+    return envelopes
+
+
+def native_settings(envelope: dict, values: dict) -> dict:
+    """The service's own knobs, derived from the unit's effective memory and the
+    declared parameters (never a second number): {file: {name: value}} with the
+    environment of the unit in `env` and, for the database server, `conf`."""
+    memory = values["memory_mib"]
+    env = {
+        "ANIMA_MEMORY": f"{memory}m",
+        "ANIMA_CPUS": f"{values['cpu_percent'] / 100:.2f}",
+        "ANIMA_PIDS": str(values["tasks"]),
+    }
+    conf: dict = {}
+    if "go_memlimit_percent" in envelope:
+        env["GOMEMLIMIT"] = f"{memory * envelope['go_memlimit_percent'] // 100}MiB"
+    if "heap_percent" in envelope:
+        # A multiple of 4 MiB, below the share: the runtime rounds a heap up to its
+        # alignment, and the effective maximum must stay within what is declared (R208).
+        heap = memory * envelope["heap_percent"] // 100 // 4 * 4
+        # A serial collector and the first compiler tier only: low traffic, one
+        # node, the least memory; each is measured in resources.toml.
+        env["JAVA_OPTS_KC_HEAP"] = (
+            f"-Xms{min(64, heap)}m -Xmx{heap}m -XX:-UseG1GC -XX:+UseSerialGC"
+        )
+        env["JAVA_OPTS_APPEND"] = "-XX:TieredStopAtLevel=1"
+        env["KC_DB_POOL_MAX_SIZE"] = str(envelope["db_pool_max"])
+        env["KC_HTTP_POOL_MAX_THREADS"] = str(envelope["http_threads"])
+    if "shared_buffers_percent" in envelope:
+        conf = {
+            "shared_buffers": f"{memory * envelope['shared_buffers_percent'] // 100}MB",
+            "maintenance_work_mem": f"{memory * envelope['maintenance_work_mem_percent'] // 100}MB",
+            "work_mem": f"{envelope['work_mem_mib']}MB",
+            "max_connections": str(envelope["max_connections"]),
+            "autovacuum_max_workers": str(envelope["autovacuum_max_workers"]),
+        }
+    return {"env": env, "conf": conf}
 
 
 def load(path: Path) -> dict:
@@ -60,6 +162,24 @@ def unflatten(flat: dict) -> dict:
             node = node.setdefault(part, {})
         node[last] = value
     return tree
+
+
+def write_envelopes(declared: dict, envelopes: dict) -> None:
+    """The effective envelope of every unit that runs a container, for the unit to
+    read (`<unit>.env`), the database server's settings (`database.conf`) and the
+    whole as data (`envelopes.json`, where a status command will read it)."""
+    out = RUN / "envelope"
+    out.mkdir(parents=True, exist_ok=True)
+    for envelope in declared.get("envelope", []):
+        derived = native_settings(envelope, envelopes[envelope["unit"]])
+        lines = [f"{k}={v}" for k, v in derived["env"].items()]
+        (out / f"{envelope['unit']}.env").write_text("\n".join(lines) + "\n")
+        if derived["conf"]:
+            conf = [f"{k} = '{v}'" for k, v in derived["conf"].items()]
+            (out / f"{envelope['unit']}.conf").write_text("\n".join(conf) + "\n")
+    (RUN / "envelopes.json").write_text(
+        json.dumps(envelopes, indent=2, sort_keys=True) + "\n"
+    )
 
 
 def check_layer(capability: str, layer: str, given: dict, schema: dict, meta: dict):
@@ -92,14 +212,16 @@ def main() -> int:
     if not profile and PROFILE_FILE.exists():
         profile = PROFILE_FILE.read_text().strip()
     effective: dict = {}
-    for defaults_file in sorted(DEFAULTS.glob("*.toml")):
-        capability = defaults_file.stem
-        raw = load(defaults_file)
+    declared = load(ENVELOPES)
+    resources = resource_schema(declared)
+    defaults_files = {p.stem: p for p in DEFAULTS.glob("*.toml")}
+    for capability in sorted(set(defaults_files) | set(resources)):
+        raw = load(defaults_files[capability]) if capability in defaults_files else {}
         meta = {
             "forbidden": set(raw.pop("forbidden", [])),
             "drivers": raw.pop("drivers", []),
         }
-        schema = flatten(raw)
+        schema = {**flatten(raw), **resources.get(capability, {})}
         merged = dict(schema)
         layers = [("base", CONFIG / capability / f"{capability}.toml")]
         if profile:
@@ -109,6 +231,8 @@ def main() -> int:
         for layer, path in layers:
             if path.exists():
                 given = load(path)
+                if capability in resources:
+                    check_resources(capability, layer, path, given, declared)
                 check_layer(capability, layer, given, schema, meta)
                 merged.update(flatten(given))
         effective[capability] = unflatten(merged)
@@ -118,11 +242,15 @@ def main() -> int:
             if name.endswith("_file") and value and not Path(value).is_file():
                 if name.split(".")[0] in (settings.get("driver"), "common"):
                     raise Refused(f"{capability}.{name}: the file '{value}' does not exist")
+    envelopes = effective_envelopes(declared, effective)
     RUN.mkdir(parents=True, exist_ok=True)
     staging = RUN / "effective.json.new"
     staging.write_text(json.dumps(effective, indent=2, sort_keys=True) + "\n")
+    write_envelopes(declared, envelopes)
     for capability, settings in effective.items():
         driver = str(settings.get("driver", ""))
+        if not driver:  # a capability with no adapter to select has no marker
+            continue
         (RUN / f"{capability}.driver").write_text(driver + "\n")
         # A unit of an adapter starts only when its marker exists (ConditionPathExists).
         (RUN / f"{capability}.{driver}.active").touch()

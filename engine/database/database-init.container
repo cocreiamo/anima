@@ -7,10 +7,17 @@ Description=Anima database cluster creation (only when the volume is empty)
 # accept (R42).
 ConditionPathExists=!/var/lib/anima/database/cluster/PG_VERSION
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=database-init
 Image=database.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/database-init.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 Volume=/var/lib/anima/database:/var/lib/postgresql/data:U
 # The superuser authenticates as the operating system user of the same name on
 # the local socket; it never gets a password (R12). Host connections are refused.
@@ -18,6 +25,7 @@ Exec=sh -c "rm -rf /var/lib/postgresql/data/cluster.tmp && initdb --pgdata=/var/
 ReadOnly=true
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/database-init.env
 Type=oneshot
 RemainAfterExit=yes
 TimeoutStartSec=90

@@ -6,6 +6,10 @@ Description=Anima configuration: layers merged and checked before anything start
 Before=anima-listen-container.service anima-listen-host.service
 
 [Service]
+# The envelope of the class `host-oneshot` of engine/image/envelopes.toml (R203 proves it equal).
+MemoryMax=64M
+CPUQuota=100%
+TasksMax=64
 Type=oneshot
 RemainAfterExit=yes
 PassEnvironment=ANIMA_PROFILE

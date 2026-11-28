@@ -26,6 +26,7 @@ table). What an adopter declares is `anima-configuration-design`.
 3. **The mail settings have production defaults in the engine, and the adopter writes only what differs** (R65). The password of the mail service is never written in the configuration: the setting names a file that the host provides (R103).
 4. **A declared identity receives a message with a link to set its credential** through this port (R96). Not: a credential written in a file (R63).
 5. **The catcher keeps a message that is sent to it.** Observed on 2026-11-27: a message sent to the stand-in's SMTP port is listed by its API (`tests/system/test_services.py`, R64). Unverified: delivery through an adopter's SMTP service, and the configurator setting the identity provider's outgoing mail (R96, a task is in the backlog).
+6. **The mail stand-in is bounded like every unit** (`engine/image/envelopes.toml`, R203); it is counted apart from the engine's total, because it runs only with the catcher driver (R204).
 
 ## Questions to answer before proposing
 

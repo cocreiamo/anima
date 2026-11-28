@@ -3,10 +3,17 @@ Description=Anima database: roles and databases that the secret store and the id
 Requires=database.service anima-credentials.service
 After=database.service anima-credentials.service
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=database-prepare
 Image=database.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/database-prepare.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 Volume=/run/anima/pgsocket:/run/postgresql
 # The identity provider's database password, derived from the root of trust.
 Volume=/run/anima/configurator/identity_provider_database_password:/run/anima/idp_database_password:ro
@@ -14,6 +21,7 @@ ReadOnly=true
 Exec=psql --host=/run/postgresql --username=postgres --dbname=postgres --no-psqlrc --set=ON_ERROR_STOP=1 --file=/etc/anima/database/prepare.sql
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/database-prepare.env
 Type=oneshot
 RemainAfterExit=yes
 TimeoutStartSec=60

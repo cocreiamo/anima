@@ -10,10 +10,17 @@ After=database.service secrets.service
 # Tried again for as long as it fails; the readiness target says why it is not ready.
 StartLimitIntervalSec=0
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=database-tls
 Image=database.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/database-tls.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 Volume=/run/anima/pgsocket:/run/postgresql
 Volume=/run/anima/pgtls:/run/anima/pgtls
 ReadOnly=true
@@ -36,6 +43,7 @@ HealthOnFailure=kill
 Notify=healthy
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/database-tls.env
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=180

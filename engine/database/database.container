@@ -4,16 +4,25 @@ Requires=database-init.service
 After=database-init.service anima-listen-container.service anima-listen-host.service
 Requires=anima-listen-container.service anima-listen-host.service
 
+Requires=anima-config.service
+After=anima-config.service
+
 [Container]
 ContainerName=database
 Image=database.image
 Pod=anima.pod
+# The envelope: memory, processor and tasks, from the one declaration
+# (engine/image/envelopes.toml) as written by anima-config at every start.
+EnvironmentFile=/run/anima/config/envelope/database.env
+PodmanArgs=--memory=${ANIMA_MEMORY} --memory-swap=${ANIMA_MEMORY} --cpus=${ANIMA_CPUS} --pids-limit=${ANIMA_PIDS}
 Volume=/var/lib/anima/database:/var/lib/postgresql/data:U
 ReadOnly=true
 # The socket directory is shared with the secret store (peer authentication).
 Volume=/run/anima/pgsocket:/run/postgresql
 Volume=/run/anima/pgtls:/run/anima/pgtls:ro
 Volume=/run/anima/listen:/run/anima/listen:ro
+# The memory settings and the connection limit, derived from the envelope.
+Volume=/run/anima/config/envelope:/run/anima/envelope:ro
 Tmpfs=/tmp:rw,mode=1777
 # Startup: the server accepts local connections.
 HealthStartupCmd=pg_isready --host=/run/postgresql
@@ -31,6 +40,7 @@ HealthOnFailure=kill
 Notify=healthy
 
 [Service]
+EnvironmentFile=/run/anima/config/envelope/database.env
 Restart=always
 RestartSec=2
 TimeoutStartSec=180
