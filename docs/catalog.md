@@ -40,6 +40,7 @@ Look here before building something. Each section is derived from its source; th
 | R87 | catalog synonym keys exist | written |
 | R118 | certificate renewed before expiry | written |
 | R172 | change filter decides from the comparison | written |
+| R192 | check validates every file of the model | written |
 | R108 | checks pass from empty cache | written |
 | R55 | checks stay fast | written |
 | R178 | compile stages run with network off | written |
@@ -60,6 +61,7 @@ Look here before building something. Each section is derived from its source; th
 | R54 | directories named by capability | written |
 | R39 | each fact declared once | written |
 | R28 | each port has one default adapter | written |
+| R190 | each requirement in file of its own | written |
 | R15 | encrypted connections only | written |
 | R134 | engine authority certificate obtainable | pending |
 | R1 | engine built from pinned sources | written |
@@ -83,6 +85,7 @@ Look here before building something. Each section is derived from its source; th
 | R65 | every setting has production default | pending |
 | R71 | every test verifies requirement | written |
 | R3.2 | expired token rejected | pending |
+| R191 | export reads every file of the model | written |
 | R90 | export writes nothing outside cache | written |
 | R36 | failed first start repeatable | pending |
 | R119 | failed renewal leaves engine not ready | written |
@@ -301,6 +304,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
 - R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
 - R172, change filter decides from the comparison, at every commit: `test_R172_change_filter_decides_from_the_comparison` (written).
+- R192, check validates every file of the model, at every commit: `test_R192_check_validates_every_file_of_the_model` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
 - R178, compile stages run with network off, at every commit: `test_R178_compile_stages_run_with_network_off` (written).
@@ -314,6 +318,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
 - R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
 - R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
+- R190, each requirement in file of its own, at every commit: `test_R190_each_requirement_in_a_file_of_its_own` (written).
 - R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
@@ -328,6 +333,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
 - R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
 - R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
+- R191, export reads every file of the model, at every commit: `test_R191_export_reads_every_file_of_the_model` (written).
 - R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
 - R177, fork sync passes its arguments and fails loudly, at every commit: `test_R177_fork_sync_passes_its_arguments_to_the_platform_tool` (written).

@@ -1,6 +1,6 @@
 ---
 name: anima-specifying-requirements
-description: "Use when adding or changing Anima behaviour, writing a requirement, verification or test, or touching model/anima.sysml, tests/ or tests/pending.toml: SysML v2 conventions, test naming, traceability."
+description: "Use when adding or changing Anima behaviour, writing a requirement, verification or test, or touching model/, tests/ or tests/pending.toml: SysML v2 conventions, test naming, traceability."
 family: product
 paths:
   - model/**
@@ -9,20 +9,30 @@ paths:
 
 # Specifying requirements
 
-How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
+How behaviour is specified and verified in `model/` and `tests/`.
 
 ## Use this when
 
 - Adding or changing behaviour of Anima.
 - Writing a requirement, a verification or a test.
-- Touching `model/anima.sysml`, `tests/` or `tests/pending.toml`.
+- Touching `model/`, `tests/` or `tests/pending.toml`.
 
 ## Rules
 
-1. **The model is SysML v2 textual notation**, one file, `model/anima.sysml`,
-   in the package `Anima`. Requirements are grouped in the packages `Day0`,
-   `Day1`, `Runtime` and `Day2`, by when the rule must hold: before the
-   system starts, at first start, in service, when a running system changes.
+1. **The model is SysML v2 textual notation**, a directory read as one model:
+   the root file `model/anima.sysml` (package `Anima`: the ports, the parts, the
+   triggers; no requirement) and **one file for each requirement**,
+   `model/requirements/<group>/R<id>-<name>.sysml`, with `<name>` the
+   requirement's own name in kebab case. The groups `day0`, `day1`, `runtime`
+   and `day2` say when the rule must hold: before the system starts, at first
+   start, in service, when a running system changes. The file holds a package
+   `R<id>` that imports `Anima::*` and, in it, the requirement (a sub-requirement
+   such as R3.1 is nested in its parent and stays in its file), its `satisfy`
+   line and its `verification def`s. To add a requirement, add that one file
+   and change no other: the coordinator assigns the id in the brief (R190). Two
+   additions are two files, so they cannot conflict (R150, PM-019). A package
+   declared in two files is not merged, which is why each file has its own; a
+   file refers to the root and the library, not to another requirement file.
 2. **A requirement never names a product.** It states what the system shall
    do, with "shall". Example: R8 says "the database server shall depend on the identity
    provider only through the OpenID Connect issuer contract", not "on
@@ -32,20 +42,19 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
    adapter is a part usage, whether it runs in the database server's process or in its
    own container (ADR 0001).
 4. **A product is a part usage, and `satisfy` links it** to the requirements
-   it fulfils (`satisfy Day1::unattendedStart by anima.engine.openbao;`). Adding or
+   it fulfils (`satisfy unattendedStart by anima.engine.openbao;`). Adding or
    changing an adapter changes usages and `satisfy` lines, never a requirement.
    Each port has one default adapter, alternatives may be selected, exactly
    one is active, and an adapter may fill several ports (R28, R59, tested by
    `tests/repository/test_architecture.py`). Every requirement is linked by
    one `satisfy` line.
 5. **Each requirement has at least one verification** (R10), and each
-   verification is a `verification def` whose objective is `verify <package>::<name>;`.
+   verification is a `verification def` whose objective is `verify <name>;`.
 6. **Naming.** A verification is named exactly like its test:
    `test_<id>_<what>`, with the dot of a sub-requirement written as an
    underscore. Example: R3.1 is `test_R3_1_tampered_token_rejected`.
 7. **Ids are stable and never reused.** A removed requirement leaves its id
-   unused. New requirements take the next number; the order in the file does
-   not matter.
+   unused. New requirements take the next number.
 8. **`tests/pending.toml` only shrinks, and is generated.** It lists the
    verifications whose test is not written, computed from the model's export
    and the names of the tests by `mise run generate`; never edit it. It grows
@@ -59,8 +68,10 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
    by eye. The pilot has no command-line validator (GAP-001); the task is the
    workaround.
 10. **The traceability test reads the model's JSON export** (`mise run model:export`,
-    GAP-002), never the text of the file. Not: a regular
-    expression over `anima.sysml`.
+    GAP-002), never the text of a file. Not: a regular
+    expression over the model's files. The one exception is the layout test
+    (R190), which reads the names and the top-level declarations because the
+    export does not say which file holds which requirement.
 11. **A design decision that a machine can check becomes a requirement and a
     test.** Example: ADR 0004's "every rule that accepts tokens requires a
     scope" is R34; "the identity provider's database stays closed for databases
@@ -103,7 +114,7 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
 
 - Which port or part is the subject?
 - Is any product name in the text? Remove it.
-- Which package: Day 0, Day 1, Runtime or Day 2?
+- Which group: day0, day1, runtime or day2?
 - What is the verification, and what is the test's exact name?
 - Which negative cases does it have, and does each have its own requirement?
 - Is a gap involved (`GAP-nnn`) that a test must forbid?
@@ -113,7 +124,7 @@ How behaviour is specified and verified in `model/anima.sysml` and `tests/`.
 
 ## Where the result goes
 
-The requirement, its `verification def` and its `satisfy` line go to
-`model/anima.sysml`; the test to `tests/repository/` or `tests/system/`; an
+The requirement, its `verification def` and its `satisfy` line go to one new
+file, `model/requirements/<group>/R<id>-<name>.sysml`; the test to `tests/repository/` or `tests/system/`; an
 unwritten test appears in `tests/pending.toml` by generation. If the requirement follows from a
 decision, the ADR cites its id (R-number).

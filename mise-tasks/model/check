@@ -7,22 +7,40 @@
 # on standard input and always exits 0. This script feeds it the files and
 # fails on any ERROR or WARNING it reports.
 #
-# Usage: mise run model:check [file.sysml...]   (default: model/anima.sysml)
+# Usage: mise run model:check [file.sysml | directory]...   (default: model/)
+#
+# The model is a directory (R190, R192): the root file model/anima.sysml, loaded
+# first because every requirement file imports it, then the files under
+# model/requirements/ in the order of their names, each as a cell of its own. A
+# requirement file may refer to the root and to the library, not to another
+# requirement file: a reference to a file loaded later is reported as unresolved.
 set -euo pipefail
 
 : "${SYSML_PILOT_VERSION:?set in mise.toml}"
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 if [ "$#" -eq 0 ]; then
-    set -- "$root/model/anima.sysml"
+    set -- "$root/model"
 fi
+# A directory stands for the files of the model in it, the root file first.
+files=()
+for path in "$@"; do
+    if [ -d "$path" ]; then
+        [ ! -f "$path/anima.sysml" ] || files+=("$path/anima.sysml")
+        while IFS= read -r file; do
+            files+=("$file")
+        done < <(find "$path" -type f -name '*.sysml' ! -path "$path/anima.sysml" -print | LC_ALL=C sort)
+    else
+        files+=("$path")
+    fi
+done
 # The one place that fetches the pilot, safe in parallel (PM-007).
 pilot="$("$root/mise-tasks/model/fetch")"
 jar="$pilot/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
 
 input="$(mktemp)"
 trap 'rm -f "$input"' EXIT
-for file in "$@"; do
+for file in "${files[@]}"; do
     { echo "%"; cat "$file"; echo; echo "%"; } >> "$input"
 done
 # Without this line the shell waits for input forever.
@@ -38,6 +56,13 @@ fi
 out="$(grep -v -e '^log4j' -e '^Reading ' <<< "$raw" || true)"
 printf '%s\n' "$out"
 if grep -q -E '(ERROR|WARNING):' <<< "$out"; then
+    # The shell numbers its cells (1.sysml is the first file) and cell 0 is not
+    # one: say which file each number is.
+    for i in "${!files[@]}"; do
+        if grep -q -E "(ERROR|WARNING):.*\\($((i + 1))\\.sysml " <<< "$out"; then
+            echo "model:check: $((i + 1)).sysml is ${files[$i]}" >&2
+        fi
+    done
     echo "model:check: the model has errors or warnings" >&2
     exit 1
 fi
