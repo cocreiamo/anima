@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build the inner images (database, access, secrets, mail) from the pinned forks, or the ones named; skips an image whose inputs did not change"
+#MISE description="Build the inner images (database, access, secrets, mail, entry) from the pinned forks, or the ones named; skips an image whose inputs did not change"
 #
 # Each image is built from third_party/ at the commit the submodule is pinned
 # to. The tag of an image is a hash of those commits and of its container file,
@@ -7,7 +7,7 @@
 # is recorded in .cache/engine/<name>.id and its reference in <name>.ref. A log
 # of each build is kept in .cache/engine/logs/build-<name>.log.
 #
-# Usage: mise run engine:build [database|database-test-client|access|secrets|secrets-dependencies|mail]...
+# Usage: mise run engine:build [database|database-test-client|access|secrets|secrets-dependencies|mail|entry]...
 set -euo pipefail
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -105,13 +105,21 @@ build_mail() {
     : | build mail engine/mail/Containerfile server
 }
 
-for what in ${*:-database access secrets mail}; do
+# The entry is built from the distribution's packages and a pinned package of the
+# library, not from a fork (GAP-057): no commit is an input, and the pins are in
+# its container file, which the tag covers.
+build_entry() {
+    : | build entry engine/entry/Containerfile server
+}
+
+for what in ${*:-database access secrets mail entry}; do
     case "$what" in
         database) build_database server database ;;
         database-test-client) build_database oauth-test-client database-test-client ;;
         access) build_access ;;
         secrets | secrets-dependencies) build_secrets ;;
         mail) build_mail ;;
+        entry) build_entry ;;
         *)
             echo "unknown image: $what" >&2
             exit 2

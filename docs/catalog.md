@@ -64,11 +64,11 @@ Look here before building something. Each section is derived from its source; th
 | R1 | engine built from pinned sources | written |
 | R125 | engine image cache refreshed | written |
 | R52 | engine parts validated without starting | written |
-| R128 | entry forwards only declared prefixes | pending |
-| R129 | entry never forwards management | pending |
-| R132 | entry overwrites forwarded header | pending |
+| R128 | entry forwards only declared prefixes | written |
+| R129 | entry never forwards management | written |
+| R132 | entry overwrites forwarded header | written |
 | R127 | entry takes renewed certificate without restart | pending |
-| R126 | entry terminates tls with engine certificate | pending |
+| R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
 | R164 | every build pulls from the mirror | pending |
@@ -93,7 +93,7 @@ Look here before building something. Each section is derived from its source; th
 | R6 | identities declared | written |
 | R14 | identities reapplied | written |
 | R5 | identity maps to role | written |
-| R135 | identity provider reachable only through entry | pending |
+| R135 | identity provider reachable only through entry | written |
 | R123 | identity provider runs in production mode | written |
 | R32 | idp database only for its role | pending |
 | R27 | idp role confined to its database | pending |
@@ -201,6 +201,7 @@ Look here before building something. Each section is derived from its source; th
 | mailpit | adapter: outgoing mail (stand-in, local development and CI only) |
 | mailpit-image | stand-in of outgoing mail: the upstream image the engine's mail unit is built from |
 | dotnet | runtime and SDK of the entry's host program: the distribution's packages, built by it from source (not a fork of ours) |
+| fedora-minimal | base of the HTTP entry point's image: the distribution's minimal image, onto which the .NET runtime packages are installed |
 | yarp | adapter: HTTP entry point (the library that forwards requests, hosted by the entry's own program, part of the engine) |
 
 ## Tasks (`mise run <task>`)
@@ -211,7 +212,7 @@ Look here before building something. Each section is derived from its source; th
 | `build` | Build Anima's own code with Bazel |
 | `check` | Run every check |
 | `commit-msg` | Git commit-msg hook: the message follows Conventional Commits |
-| `engine:build` | Build the inner images (database, access, secrets, mail) from the pinned forks, or the ones named; skips an image whose inputs did not change |
+| `engine:build` | Build the inner images (database, access, secrets, mail, entry) from the pinned forks, or the ones named; skips an image whose inputs did not change |
 | `engine:configure-build` | Build the configurator image; its tag is a hash of every input, so an unchanged image is not rebuilt |
 | `engine:configure-check` | Static checks of the configurator's declarations (no secret persisted, seconds, destroy protection, facts declared once, no adapter named, identities file, generated access rules) |
 | `engine:configure-guard` | Guard of expand-only: apply the declarations of a previous state to throwaway containers, plan the current ones, and fail unless planned deletions and replacements equal contractions.toml |
@@ -375,6 +376,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - `anima-database-design` (capability)
 - `anima-designing-a-port` (product)
 - `anima-designing-for-production` (product)
+- `anima-entry-design` (capability)
 - `anima-image-design` (capability)
 - `anima-licensing-and-brand` (product)
 - `anima-mail-design` (capability)

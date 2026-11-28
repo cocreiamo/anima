@@ -14,7 +14,7 @@ out=.cache/engine
 mkdir -p "$out/oci" "$out/logs"
 
 podman image inspect --format "{{.Id}}" "$(cat "$out/configure.ref")" >"$out/configure.id"
-for name in database access secrets mail configure; do
+for name in database access secrets mail entry configure; do
     ref=$(cat "$out/$name.ref")
     if [ ! -f "$out/oci/$name.ref" ] || [ "$(cat "$out/oci/$name.ref")" != "$ref" ]; then
         rm -f "$out/oci/$name.tar"
@@ -26,8 +26,8 @@ done
 
 tag=$(
     {
-        cat "$out"/database.id "$out"/access.id "$out"/secrets.id "$out"/mail.id "$out"/configure.id
-        find engine/image engine/database engine/access engine/secrets engine/mail engine/configure/secret-store-bootstrap.hcl -type f ! -name Containerfile.* | sort | xargs cat
+        cat "$out"/database.id "$out"/access.id "$out"/secrets.id "$out"/mail.id "$out"/entry.id "$out"/configure.id
+        find engine/image engine/database engine/access engine/secrets engine/mail engine/entry engine/configure/secret-store-bootstrap.hcl -type f ! -name Containerfile.* | sort | xargs cat
     } | sha256sum | cut -c1-12
 )
 image="localhost/anima/engine:$tag"

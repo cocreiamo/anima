@@ -10,6 +10,7 @@ removed afterwards.
 """
 
 import re
+import shutil
 import subprocess
 import uuid
 
@@ -37,7 +38,9 @@ def dependencies_ref() -> str:
     return ref.read_text().strip()
 
 
-def build_verified(dependencies: str, tag: str) -> subprocess.CompletedProcess:
+def build_verified(
+    tag: str, source: str = "third_party/openbao"
+) -> subprocess.CompletedProcess:
     """Build the stage that checks the modules offline, from a dependencies image."""
     return podman(
         "build",
@@ -47,9 +50,9 @@ def build_verified(dependencies: str, tag: str) -> subprocess.CompletedProcess:
         "--target",
         "verified",
         "--build-context",
-        "openbao=third_party/openbao",
+        f"openbao={source}",
         "--build-context",
-        f"dependencies=container-image://{dependencies}",
+        f"dependencies=container-image://{dependencies_ref()}",
         "--tag",
         tag,
         ".",
@@ -74,7 +77,7 @@ def test_R179_offline_build_succeeds_and_names_what_is_missing(
     lists every package of the build, with the network off, succeeds."""
     tag = f"localhost/anima/offline-test-verified:{uuid.uuid4().hex[:8]}"
     temporary_images.append(tag)
-    built = build_verified(dependencies_ref(), tag)
+    built = build_verified(tag)
     assert built.returncode == 0, built.stderr[-2000:]
 
     # The guarantee is podman's: a step with `--network=none` cannot download a module,
@@ -94,36 +97,33 @@ def test_R179_offline_build_succeeds_and_names_what_is_missing(
 def test_R179_offline_build_succeeds_and_names_what_is_missing_detects_violation(
     tmp_path, temporary_images
 ):
-    """A dependencies image without one module fails the compile stage, and the error
-    names the module: nothing is downloaded to make up for it."""
-    (tmp_path / "Containerfile").write_text(
-        f"FROM {GOLANG} AS cut\n"
-        "COPY --from=dependencies /mod /deps/mod\n"
-        f"RUN rm -rf /deps/mod/{MISSING}@* /deps/mod/cache/download/{MISSING}\n"
-        "FROM scratch\n"
-        "COPY --from=cut /deps/mod /mod\n"
+    """A dependency that the dependencies image does not hold fails the compile stage,
+    and the error names it: nothing is downloaded to make up for it. The dependency is
+    made missing by asking, in a copy of the fork's source, for the next patch version
+    of a module the image holds (go.sum gets lines for it, as `go get` would write):
+    the cache is not copied, so the stage that checks the modules reuses its layers."""
+    source = tmp_path / "openbao"
+    shutil.copytree(
+        ROOT / "third_party/openbao",
+        source,
+        symlinks=True,
+        ignore=shutil.ignore_patterns(".git"),
     )
-    broken = f"localhost/anima/offline-test-broken:{uuid.uuid4().hex[:8]}"
-    temporary_images.append(broken)
-    made = podman(
-        "build",
-        "--format=docker",
-        "--build-context",
-        f"dependencies=container-image://{dependencies_ref()}",
-        "--tag",
-        broken,
-        str(tmp_path),
-        check=False,
-    )
-    assert made.returncode == 0, made.stderr[-2000:]
+    mod = (source / "go.mod").read_text()
+    wanted = re.search(rf"{re.escape(MISSING)} (v\d+\.\d+)\.(\d+)\n", mod)
+    assert wanted, f"go.mod does not require {MISSING}"
+    newer = f"{wanted.group(1)}.{int(wanted.group(2)) + 1}"
+    (source / "go.mod").write_text(mod.replace(wanted.group(0), f"{MISSING} {newer}\n"))
+    with (source / "go.sum").open("a") as lock:
+        hash_ = "h1:" + "A" * 43 + "="
+        lock.write(f"{MISSING} {newer} {hash_}\n{MISSING} {newer}/go.mod {hash_}\n")
 
     tag = f"localhost/anima/offline-test-verified:{uuid.uuid4().hex[:8]}"
     temporary_images.append(tag)
-    built = build_verified(broken, tag)
+    built = build_verified(tag, str(source))
     assert built.returncode != 0, "the build succeeded without the module"
     output = built.stderr + built.stdout
     # go names the module and the version it wanted and says why it did not get it:
     # "go: <module>@<version>: module lookup disabled by GOPROXY=off".
-    assert re.search(
-        rf"go: {re.escape(MISSING)}@v\S+: module lookup disabled by GOPROXY=off", output
-    ), output[-2000:]
+    expected = f"go: {MISSING}@{newer}: module lookup disabled by GOPROXY=off"
+    assert expected in output, output[-2000:]

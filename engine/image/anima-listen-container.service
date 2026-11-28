@@ -1,7 +1,7 @@
 [Unit]
 Description=Anima listen addresses, run as a container (the outer publish restricts)
 ConditionVirtualization=container
-Before=database.service access.service
+Before=database.service access.service entry.service
 Requires=anima-config.service
 After=anima-config.service
 

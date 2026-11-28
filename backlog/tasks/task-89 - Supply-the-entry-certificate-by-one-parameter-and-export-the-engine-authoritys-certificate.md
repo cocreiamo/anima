@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-28T10:05:38Z'
+updated_date: '2026-11-28T12:54:08Z'
 labels:
   - engine
   - entry
@@ -35,6 +36,12 @@ An adopter chooses between the engine's certificate and a certificate of their o
 - [ ] #2 test_R134_engine_authority_certificate_obtainable
 - [ ] #3 Check: the way a client obtains the authority's certificate is a recommendation reported to the founder before it is built (a file the adopter can read, not a fetch over the channel it is meant to secure)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Nothing of this task is done by TASK-86 (2026-11-28): no installation parameter chooses the certificate (R133), and the engine authority's certificate (R134) exists only as /run/anima/entrytls/ca.crt inside the engine (a public file, mode 0644, written by entry-certificate); tests read it with podman exec. A way for a client to obtain it is this task's.
+<!-- SECTION:NOTES:END -->
 
 ## Brief
 

@@ -17,6 +17,7 @@ import http.cookiejar
 import json
 import re
 import secrets
+import ssl
 import subprocess
 import urllib.error
 import urllib.parse
@@ -65,17 +66,56 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-class Provider:
-    """The identity provider as a person's browser reaches it: through the
-    published port. Its public URL (the issuer) names port 8080, so every address
-    it hands out is moved to the published port; cookies are kept and redirects
-    are followed by hand."""
+class Inside:
+    """The identity provider as the configurator reaches it: on the pod's
+    loopback, in plain HTTP, from inside the engine container. The entry never
+    forwards its administration interface or its administrative realm, so a test
+    that needs them comes this way, as the configurator does."""
+
+    base = "http://127.0.0.1:8080"
 
     def __init__(self, engine):
-        self.base = f"http://127.0.0.1:{engine.container.get_exposed_port(8080)}"
+        self.engine = engine
+
+    def request(self, url, data=None, headers=None, method=None, json_body=None):
+        """(status, body); a redirect is not followed; never raises on a status."""
+        headers = {"Host": "localhost:8080", **(headers or {})}
+        body = None
+        if json_body is not None:
+            body = json.dumps(json_body)
+            headers["Content-Type"] = "application/json"
+        elif data is not None:
+            body = urllib.parse.urlencode(data)
+        command = ["curl", "--silent", "--show-error", "--max-time", "30"]
+        command += ["--write-out", "\n%{http_code}"]
+        command += ["--request", method or ("POST" if body is not None else "GET")]
+        for key, value in headers.items():
+            command += ["--header", f"{key}: {value}"]
+        if body is not None:
+            command += ["--data-raw", body]
+        code, out = self.engine.exec(*command, url)
+        assert code == 0, out
+        text, _, status = out.rpartition("\n")
+        return int(status), text
+
+
+class Provider:
+    """The identity provider as a person's browser reaches it: through the entry,
+    over TLS, trusting the engine's own authority. Its public URL (the issuer)
+    names port 8080, so every address it hands out is moved to the entry's
+    published port; cookies are kept and redirects are followed by hand."""
+
+    def __init__(self, engine):
+        self.base = f"https://127.0.0.1:{engine.container.get_exposed_port(8443)}"
+        code, authority = engine.exec("cat", "/run/anima/entrytls/ca.crt")
+        assert code == 0 and "BEGIN CERTIFICATE" in authority, authority
+        context = ssl.create_default_context(cadata=authority)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         jar = self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(jar), _NoRedirect
+            urllib.request.HTTPCookieProcessor(jar),
+            urllib.request.HTTPSHandler(context=context),
+            _NoRedirect,
         )
 
     def local(self, url: str) -> str:
@@ -131,7 +171,7 @@ def token_answer(engine, provider: Provider, client: str, file: str):
     )
 
 
-def administrator(engine, provider: Provider) -> dict:
+def administrator(engine, provider: Provider | Inside) -> dict:
     """The authorization header of the configurator's permanent client."""
     status, text = token_answer(
         engine, provider, CONFIGURATOR_CLIENT, "identity_provider_configurator_secret"
@@ -140,7 +180,7 @@ def administrator(engine, provider: Provider) -> dict:
     return {"Authorization": f"Bearer {json.loads(text)['access_token']}"}
 
 
-def set_credential(engine, provider: Provider, person: str) -> str:
+def set_credential(engine, provider: Provider | Inside, person: str) -> str:
     """Give `person` a generated password at run time and return it. The
     configurator's own client signs in; its secret is derived inside the engine."""
     auth = administrator(engine, provider)
@@ -172,7 +212,7 @@ def person_token(engine, person: str, role: str) -> str:
     """A token of `person` for the scope `role`, got through the device flow of
     the engine's client with a scripted browser."""
     provider = Provider(engine)
-    password = set_credential(engine, provider, person)
+    password = set_credential(engine, Inside(engine), person)
     endpoint = f"{ISSUER}/protocol/openid-connect"
     status, text = provider.request(
         f"{endpoint}/auth/device", data={"client_id": "anima-engine", "scope": role}
@@ -303,7 +343,7 @@ def test_R116_issuer_is_the_configured_public_url(engine):
     published address and port, an unrelated name), the discovery document and
     the tokens carry the configured public URL as issuer."""
     provider = Provider(engine)
-    port = engine.container.get_exposed_port(8080)
+    port = engine.container.get_exposed_port(8443)
     names = [PUBLIC_HOST, f"127.0.0.1:{port}", "other.example.test"]
     issuers = {}
     for name in names:
@@ -324,7 +364,7 @@ def test_R117_no_temporary_administrator_remains(engine):
     """After the configurator has run, no user of the master realm, service
     accounts included, is a temporary administrator, and the credentials the
     provider was started with obtain no token."""
-    provider = Provider(engine)
+    provider = Inside(engine)
     auth = administrator(engine, provider)
     status, text = provider.request(
         f"{provider.base}/admin/realms/master/users?briefRepresentation=false&max=1000",

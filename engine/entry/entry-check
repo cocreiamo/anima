@@ -1,0 +1,10 @@
+#!/usr/bin/bash
+# The entry's startup and liveness check: its listener accepts a connection. No
+# TLS client is in the image, and a request would need a route, so the check is
+# the connection itself. The address is the one the listener was told to bind
+# (ANIMA_ENTRY_HOST, set by the unit's environment file); every address of the
+# machine is reached on the loopback.
+set -euo pipefail
+host=${ANIMA_ENTRY_HOST:-127.0.0.1}
+[ "$host" = 0.0.0.0 ] && host=127.0.0.1
+exec 3<>"/dev/tcp/${host}/${ANIMA_ENTRY_PORT:-8443}"
