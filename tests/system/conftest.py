@@ -124,8 +124,21 @@ class Engine:
                 return self.ready_after
             time.sleep(2)
         raise TimeoutError(
-            f"engine not ready within {limit} s (health: {self.health()})"
+            f"engine not ready within {limit} s (health: {self.health()})\n"
+            + self.not_ready_report()
         )
+
+    def not_ready_report(self) -> str:
+        """What the engine says about why it is not ready, read before the test
+        removes it: the failed units, and the state and last journal lines of
+        each part the readiness target is bound to that is not active."""
+        lines = [self.exec("systemctl", "list-units", "--failed", "--plain")[1]]
+        bound = self.unit_property("anima-ready.target", "BindsTo").split()
+        for unit in bound:
+            if not self.active(unit):
+                status = ["systemctl", "status", "--no-pager", "--lines=25", unit]
+                lines.append(self.exec(*status)[1])
+        return "\n".join(lines)
 
     def wait_for(self, what: str, check, limit: float = 90.0, every: float = 1.0):
         """Poll `check()` (returns a truthy value) until it holds or `limit` passes."""
@@ -151,7 +164,8 @@ class Engine:
         return out.strip() if code == 0 else ""
 
     def phase(self) -> str:
-        """`running`, `stopped` or `unknown`, as podman inspects the container."""
+        """`running`, `stopping`, `stopped` or `unknown`, as podman inspects the
+        container. `stopped` is a finished stop (Status `exited`)."""
         code, out = self.exec_host(
             "podman", "inspect", "--format", "{{json .State}}", self.name
         )
@@ -161,10 +175,14 @@ class Engine:
         """Send a command (`send()` returns its exit code and output), then wait,
         within `limit`, for the container to be in the phase `wanted`.
 
-        Under load podman can answer 125 ("timed out waiting for file .../exits/<id>")
-        although the command took effect (PM-008), so the exit code decides nothing:
-        the observed phase does. A command that failed is sent again while the
-        phase is not there; a container in another phase is never accepted.
+        `podman kill` and `podman stop` wait only 5 s for the exit file of the
+        container. On timeout they answer 125 ("timed out waiting for file
+        .../exits/<id>") and the container is reported with Status `stopped`,
+        ExitCode -1: podman's guess, not a finished stop (the previous run is
+        cleaned up later, and a start issued before is undone by it). The exit
+        code therefore decides nothing, and only Status `exited` is a finished
+        stop. A command that failed is sent again while the phase is not there; a
+        container in another phase is never accepted.
         """
         code, out = send()
         deadline = time.monotonic() + limit
@@ -176,15 +194,31 @@ class Engine:
             time.sleep(0.5)
         raise AssertionError(
             f"{self.name} is not {wanted} within {limit} s "
-            f"(phase: {self.phase()}; last answer {code}: {out.strip()})"
+            f"(phase: {self.phase()}; last answer {code}: {out.strip()}; "
+            f"state: {self.state_report()})"
         )
 
+    def state_report(self) -> str:
+        """The container's State as podman inspects it, in short."""
+        code, out = self.exec_host(
+            "podman",
+            "inspect",
+            "--format",
+            "Status={{.State.Status}} ExitCode={{.State.ExitCode}} "
+            "FinishedAt={{.State.FinishedAt}} Error={{.State.Error}}",
+            self.name,
+        )
+        return out.strip() if code == 0 else f"not inspectable: {out.strip()}"
+
     def kill(self) -> None:
-        """An abrupt stop: SIGKILL to the engine's first process and everything in it."""
+        """An abrupt stop: SIGKILL to the engine's first process and everything in it.
+        Returns when the stop is finished (Status `exited`), not when podman gives up
+        waiting."""
         self.reach("stopped", lambda: self.exec_host("podman", "kill", self.name))
 
     def stop(self, grace: int = 60) -> None:
-        """A clean stop: SIGTERM, then SIGKILL after `grace` seconds."""
+        """A clean stop: SIGTERM, then SIGKILL after `grace` seconds. Returns when the
+        stop is finished (Status `exited`)."""
         self.reach(
             "stopped",
             lambda: self.exec_host("podman", "stop", "--time", str(grace), self.name),
@@ -210,7 +244,9 @@ class Engine:
         )
 
     def start_again(self) -> None:
-        """The same start command after an abrupt stop: start the same container."""
+        """The same start command after an abrupt stop: start the same container. Only
+        after a finished stop (`kill` and `stop` return then): a start before it is
+        undone when the previous run's exit is applied."""
         self.reach("running", lambda: self.exec_host("podman", "start", self.name))
         self.started_at = time.monotonic()
         self.ready_after = None

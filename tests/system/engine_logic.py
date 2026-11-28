@@ -23,9 +23,12 @@ def regress_tests_passed(result: str) -> int | None:
 
 
 def container_phase(inspected_state: str) -> str:
-    """`running`, `stopped` or `unknown`, from the JSON of `podman inspect --format
-    '{{json .State}}'`. Only a state that says the container is not running and
-    has exited is `stopped`; an empty or unreadable answer is `unknown`."""
+    """`running`, `stopping`, `stopped` or `unknown`, from the JSON of `podman
+    inspect --format '{{json .State}}'`. Only a state that says the container is
+    not running and has `exited` is `stopped`: that status is set when the cleanup
+    of the run has finished. Status `stopped` is podman's guess after its wait for
+    the exit timed out (ExitCode -1); the run is not finished and is `stopping`.
+    An empty or unreadable answer is `unknown`."""
     try:
         state = json.loads(inspected_state)
     except ValueError:
@@ -34,8 +37,28 @@ def container_phase(inspected_state: str) -> str:
         return "unknown"
     if state.get("Running") is True and not state.get("Paused"):
         return "running"
-    if state.get("Running") is False and state.get("Status") in ("exited", "stopped"):
+    if state.get("Running") is False and state.get("Status") == "exited":
         return "stopped"
+    if state.get("Running") is False and state.get("Status") == "stopped":
+        return "stopping"
+    return "unknown"
+
+
+def secret_store_storage_stage(keys: list[str]) -> str:
+    """How far the secret store's first start got, from the keys of its storage
+    table (`path || key`, one per row): `empty`, `barrier` (key ring written,
+    seal configuration not yet), `initialised` (and self-initialisation not
+    marked as started, or finished), `self-initialising` (marked as started and
+    not finished), or `unknown` for rows that fit none of these."""
+    present = set(keys)
+    if not present:
+        return "empty"
+    if "/core/status/self-init" in present:
+        return "self-initialising"
+    if "/core/seal-config" in present:
+        return "initialised"
+    if "/core/keyring" in present:
+        return "barrier"
     return "unknown"
 
 
