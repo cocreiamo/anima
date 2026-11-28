@@ -68,7 +68,7 @@ description = "Lint and check the formatting of Anima's own files"
 run = [
   "ruff check .",
   "ruff format --check .",
-  "shellcheck mise-tasks/model/check mise-tasks/model/export mise-tasks/model/fetch mise-tasks/format mise-tasks/test",
+  "shellcheck mise-tasks/model/check mise-tasks/model/export mise-tasks/model/fetch mise-tasks/format mise-tasks/test mise-tasks/ci/changes mise-tasks/ci/cache-key mise-tasks/ci/cache-load mise-tasks/ci/cache-pack mise-tasks/ci/mirror-copy mise-tasks/ci/sync-fork mise-tasks/ci/test",
   # Listed by name: `-r .` would descend into the forks.
   "buildifier -mode=check -lint=warn MODULE.bazel BUILD.bazel",
   "prettier --check .",

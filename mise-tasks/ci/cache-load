@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Load the inner images from the archive of the restored cache, then remove the archive"
+#
+# Usage: mise run ci:cache-load [cache directory (default: ~/engine-cache)]
+# The archive is removed so that nothing of the restored cache is left to be
+# saved over (`ci:cache-pack` also removes any archive before it saves).
+set -euo pipefail
+
+archive="${1:-$HOME/engine-cache}/images.tar"
+podman load --input "$archive"
+rm -f "$archive"

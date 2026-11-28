@@ -1,0 +1,48 @@
+{
+    "status": "ahead",
+    "ahead_by": 1,
+    "behind_by": 0,
+    "total_commits": 1,
+    "files": [
+        {
+            "sha": "2a0549804e41c161887c08d172b3d161b8c0fe3b",
+            "filename": ".github/workflows/mirror-base-images.yml",
+            "status": "modified",
+            "additions": 23,
+            "deletions": 3,
+            "changes": 26
+        },
+        {
+            "sha": "3b6482bbe5f0ec9fe6d9553846b9a5ed8f209441",
+            "filename": "docs/catalog.md",
+            "status": "modified",
+            "additions": 2,
+            "deletions": 0,
+            "changes": 2
+        },
+        {
+            "sha": "25f586a6c910c6a48ccf0059d628de61520c5471",
+            "filename": "model/anima.sysml",
+            "status": "modified",
+            "additions": 10,
+            "deletions": 0,
+            "changes": 10
+        },
+        {
+            "sha": "0f87a2727498240a7acc8f5c670dab0fa569f05b",
+            "filename": "skills/anima-adopting-a-component.md",
+            "status": "modified",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2
+        },
+        {
+            "sha": "765fedaa8c03945cfd246a449cc36c92ea3fa7d9",
+            "filename": "tests/repository/test_mirror.py",
+            "status": "modified",
+            "additions": 46,
+            "deletions": 0,
+            "changes": 46
+        }
+    ]
+}

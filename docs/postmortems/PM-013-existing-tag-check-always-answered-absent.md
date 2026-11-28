@@ -8,6 +8,9 @@ guards:
   - kind: test
     ref: test_R115_published_tag_is_never_moved_and_unknown_is_not_absent
     added: 2026-11-28
+  - kind: test
+    ref: test_R170_workflow_steps_call_tested_commands
+    added: 2026-11-28
 recurrences: []
 ---
 

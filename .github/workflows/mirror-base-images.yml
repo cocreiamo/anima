@@ -9,9 +9,12 @@ name: Mirror base images
 # by two tags that are never moved: `sha256-<hex>` is the digest itself, and
 # `<tag>-<UTC date>` is the day's copy of the upstream tag. Nothing is deleted.
 #
-# The list of images is read from the register, never written here. The jobs are
-# split so that the one that may write packages runs none of the repository's
-# code: it receives the list as data and runs a pinned image of the copy tool.
+# The list of images is read from the register, never written here. Every step
+# is one call to a command of the repository that has a test that runs it
+# (`mise-tasks/ci/`, `tests/ci/`, R170): the plan is `ci:mirror-plan`, the copy
+# of one image is `ci:mirror-copy`. The job that may write packages holds nothing
+# else, runs no tool of the repository (none is installed) and no code but that
+# one command, and runs a pinned image of the copy tool (R163).
 # The builds do not pull from the mirror yet (anima-adopting-a-component).
 #
 # The upstream rebuild of the engine's base happens around 11:30 UTC (observed
@@ -52,32 +55,9 @@ jobs:
           cache: false
       - id: register
         name: Read the images and the copy tool from the register
-        run: |
-          mise exec python -- python -I - <<'PY'
-          import json
-          import os
-          import tomllib
-
-          with open("components.toml", "rb") as f:
-              register = tomllib.load(f)
-          entries = [
-              c
-              for c in register["component"] + register.get("tool_image", [])
-              if "image" in c
-          ]
-          fields = (
-              ("name", "name"),
-              ("image", "image"),
-              ("tag", "version"),
-              ("digest", "digest"),
-              ("mirror", "mirror"),
-          )
-          images = [{key: c[source] for key, source in fields} for c in entries]
-          skopeo = next(c for c in entries if c["name"] == "skopeo")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-              out.write("images=" + json.dumps({"include": images}) + "\n")
-              out.write("skopeo=" + skopeo["image"] + "@" + skopeo["digest"] + "\n")
-          PY
+        env:
+          MISE_TASK_RUN_AUTO_INSTALL: "false"
+        run: mise run --quiet ci:mirror-plan >> "$GITHUB_OUTPUT"
 
   mirror:
     name: Mirror ${{ matrix.name }}
@@ -85,6 +65,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
+      contents: read
       packages: write
     strategy:
       fail-fast: false
@@ -97,90 +78,19 @@ jobs:
       TAG: ${{ matrix.tag }}
       DIGEST: ${{ matrix.digest }}
       MIRROR: ${{ matrix.mirror }}
+      # No tool of the repository is installed in the job that holds the token.
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.14
+          install: false
+          cache: false
       - name: Copy the digest that the upstream tag names now, then the pinned digest
         env:
           REGISTRY_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
-        run: |
-          set -euo pipefail
-          auth="$RUNNER_TEMP/auth.json"
-          echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin --authfile "$auth"
-
-          # Some upstream images are signed (Red Hat's carry signatures stored as
-          # attachments next to the image). The copy keeps them: the tool reads and
-          # writes attachments only where its registries configuration enables it,
-          # so it is enabled for the upstream scope and for the mirror's. The tool's
-          # policy may require the signatures of an upstream, so they must be read.
-          # Without this the copy of a signed image fails after its manifest is
-          # written ("writing sigstore attachments is disabled by configuration",
-          # first run, 2026-11-28). Not stripping them in the copy: it drops what
-          # the upstream signed, and the digest is the same either way (observed).
-          rd="$RUNNER_TEMP/registries.d"
-          mkdir "$rd"
-          cat > "$rd/mirror.yaml" <<EOF
-          docker:
-            $IMAGE:
-              use-sigstore-attachments: true
-            $MIRROR:
-              use-sigstore-attachments: true
-          EOF
-
-          # The copy tool is a pinned image; only the credentials file and the
-          # configuration reach it, read only, and only the destination is given
-          # the credentials.
-          sk() { podman run --rm --volume "$auth:/auth.json:ro" --volume "$rd:/rd:ro" "$SKOPEO" --registries.d /rd "$@"; }
-
-          die() { echo "::error::$*" >&2; exit 1; }
-
-          # The digest (hex) of the manifest that a reference names: empty when the
-          # registry says there is none, a failure on any other answer. The raw
-          # manifest is what a digest is the hash of.
-          manifest_hex() {
-            local ref="$1"; shift
-            local err="$RUNNER_TEMP/answer.err" hex="$RUNNER_TEMP/answer.hex"
-            if sk inspect --raw "$@" "docker://$ref" 2>"$err" | sha256sum | cut -d ' ' -f 1 >"$hex"; then
-              cat "$hex"
-            elif grep -Eq 'manifest unknown|name unknown|not found|404' "$err"; then
-              echo ""
-            else
-              cat "$err" >&2
-              die "cannot read $ref"
-            fi
-          }
-
-          # Puts a source (a reference by digest) into the mirror under a tag, whole
-          # and with its digest, and reads the result back. A tag that exists is
-          # never moved or deleted: a day's tag that names another digest is kept,
-          # a digest tag that does (it cannot) is a fault.
-          put() {
-            local source="$1" tag="$2" hex="$3" held
-            held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
-            if [ "$held" = "$hex" ]; then
-              echo "$MIRROR:$tag already holds sha256:$hex."
-              return 0
-            elif [ -n "$held" ]; then
-              case "$tag" in
-                sha256-*) die "$MIRROR:$tag holds sha256:$held, not the digest it is named for" ;;
-              esac
-              echo "::warning::$MIRROR:$tag holds sha256:$held, not sha256:$hex: left as it is, a tag is never moved."
-              return 0
-            fi
-            sk copy --all --preserve-digests --retry-times 3 --src-no-creds --dest-authfile /auth.json "docker://$source" "docker://$MIRROR:$tag"
-            held="$(manifest_hex "$MIRROR:$tag" --authfile /auth.json)"
-            [ "$held" = "$hex" ] || die "$MIRROR:$tag holds sha256:$held after the copy, not sha256:$hex: the digest was not preserved"
-            echo "$MIRROR:$tag now holds sha256:$hex."
-          }
-
-          today="$(date -u +%Y%m%d)"
-          current="$(manifest_hex "$IMAGE:$TAG" --no-creds)"
-          [ -n "$current" ] || die "$IMAGE:$TAG does not exist upstream any more"
-          put "$IMAGE@sha256:$current" "sha256-$current" "$current"
-          put "$IMAGE@sha256:$current" "$TAG-$today" "$current"
-
-          pinned="${DIGEST#sha256:}"
-          put "$IMAGE@sha256:$pinned" "sha256-$pinned" "$pinned"
-
-          {
-            echo "- $NAME: $TAG is sha256:$current upstream today, pinned sha256:$pinned; both are in $MIRROR."
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: mise run ci:mirror-copy
