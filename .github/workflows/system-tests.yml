@@ -101,7 +101,7 @@ jobs:
         if: steps.changes.outputs.relevant == 'true' && github.event_name == 'push' && steps.restore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/engine-cache
-          refs=$(cat .cache/engine/{configure,database,database-test-client,access,secrets,mail}.ref)
+          refs=$(cat .cache/engine/{configure,database,database-test-client,access,secrets,secrets-dependencies,mail}.ref)
           # shellcheck disable=SC2086
           podman save --multi-image-archive --output ~/engine-cache/images.tar $refs
 

@@ -575,6 +575,16 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R167'> compileStagesRunWithNetworkOff {
+            doc /* Every stage of a container file of the engine that compiles a component, among those converted, shall run with the network off, with the toolchain of its builder image and with the dependencies taken only from a dependencies image, whose own stage shall be the only one with the network, shall do nothing but fetch the dependencies, and shall check them against the lock file that the component's source carries, so that a build depends on no input that the repository does not hold. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
+        requirement <'R168'> offlineBuildSucceedsAndNamesWhatIsMissing {
+            doc /* The build of a converted component shall succeed with the network off in its compile stage, and when a dependency is missing from the dependencies image the build shall fail at once and its error shall name the missing dependency. */
+            @FitnessFunction { trigger = Trigger::promotion; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1138,6 +1148,8 @@ package Anima {
     satisfy Day0::mirrorHasLeastPrivilege by toolchain;
     satisfy Day0::mirrorKeepsSignaturesOfSignedImages by toolchain;
     satisfy Day0::everyBuildPullsFromTheMirror by toolchain;
+    satisfy Day0::compileStagesRunWithNetworkOff by toolchain;
+    satisfy Day0::offlineBuildSucceedsAndNamesWhatIsMissing by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::recordsMadeFromSharedTemplate by toolchain;
@@ -1799,6 +1811,14 @@ package Anima {
         verification def test_R164_every_build_pulls_from_the_mirror {
             subject tools : Toolchain;
             objective { verify Day0::everyBuildPullsFromTheMirror; }
+        }
+        verification def test_R167_compile_stages_run_with_network_off {
+            subject tools : Toolchain;
+            objective { verify Day0::compileStagesRunWithNetworkOff; }
+        }
+        verification def test_R168_offline_build_succeeds_and_names_what_is_missing {
+            subject tools : Toolchain;
+            objective { verify Day0::offlineBuildSucceedsAndNamesWhatIsMissing; }
         }
         verification def test_R114_system_tests_report_under_one_name {
             subject tools : Toolchain;
