@@ -282,7 +282,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).
 - R105, declarations follow provider guards, at every commit: `test_R105_declarations_follow_the_guards` (written).
 - R107, bare interpreter refused, at every commit: `test_R107_agent_settings_refuse_bare_interpreter` (written).
-- R108, checks pass from empty cache, at every commit: `test_R108_pilot_fetched_in_one_guarded_place` (written).
+- R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 
 ## Skills
 

@@ -7,6 +7,7 @@ import hashlib
 import os
 import subprocess
 import zipfile
+from pathlib import Path
 
 from repo_facts import outside_snapshot, repository_files, submodule_commits
 from sysml_model import ROOT
@@ -210,3 +211,105 @@ def test_R108_pilot_fetched_in_one_guarded_place_detects_violation(tmp_path):
     code, _out, _err = run_fetches(env, 1)[0]
     assert code != 0
     assert not (tmp_path / "root/.cache/sysml-pilot/9.9.9/sysml").exists()
+
+
+# ---- R108: the export of the model runs once for one input -----------------------------------
+
+EXPORT = ROOT / "mise-tasks" / "model" / "export"
+EXPORT_GUARDS = ("flock", "mv -T")
+
+
+def export_faults(text):
+    """The export script holds the lock, looks at the cache again after taking
+    it, and starts the JVM only after that second look."""
+    faults = [f"model/export lacks {g}" for g in EXPORT_GUARDS if g not in text]
+    first = text.find('if [ -f "$cached/model.json" ]')
+    second = text.find('if [ ! -f "$cached/model.json" ]')
+    lock = text.find("flock")
+    if first < 0 or lock < first:
+        faults.append("the fast path does not come before the lock")
+    if second < lock or text.find("java ") < second:
+        faults.append("the cache is not looked at again under the lock")
+    return faults
+
+
+def fake_export_root(tmp_path, script_text, fail_first=False):
+    """A project root with the export script under test, a stand-in for the
+    fetch, and a `java` that waits, counts its runs and writes a model.json.
+    No JVM and no network."""
+    root = tmp_path / "root"
+    (root / "mise-tasks/model").mkdir(parents=True)
+    export = root / "mise-tasks/model/export"
+    export.write_text(script_text)
+    export.chmod(0o755)
+    fetch = root / "mise-tasks/model/fetch"
+    fetch.write_text(f'#!/usr/bin/env bash\necho "{tmp_path}/pilot"\n')
+    fetch.chmod(0o755)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    runs = tmp_path / "runs"
+    java = bin_dir / "java"
+    fail = f'[ "$(wc -l < "{runs}")" -gt 1 ] || exit 1\n' if fail_first else ""
+    java.write_text(
+        f'#!/usr/bin/env bash\necho x >> "{runs}"\nsleep 0.5\n{fail}echo "[]" > model.json\n'
+    )
+    java.chmod(0o755)
+    model = tmp_path / "m.sysml"
+    model.write_text("package P {}\n")
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "MISE_PROJECT_ROOT": str(root),
+        "SYSML_PILOT_VERSION": "9.9.9",
+    }
+    return export, env, model, runs
+
+
+def run_exports(export, env, model, count):
+    procs = [
+        subprocess.Popen(
+            [str(export), str(model)],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        for _ in range(count)
+    ]
+    return [(p.wait(), *p.communicate()) for p in procs]
+
+
+def test_R108_export_runs_once_for_one_input(tmp_path):
+    """Proves, with a stand-in for the JVM and the fetch: six callers started
+    together on an empty export cache start one run between them, all succeed
+    and print the same file; a caller that finds the cache starts none; if the
+    first run fails the next tries for itself and succeeds. It does not prove
+    the real exporter."""
+    assert export_faults(EXPORT.read_text()) == []
+    export, env, model, runs = fake_export_root(tmp_path, EXPORT.read_text())
+    results = run_exports(export, env, model, 6)
+    assert [code for code, _o, _e in results] == [0] * 6, results
+    assert len(runs.read_text().splitlines()) == 1
+    assert len({o for _c, o, _e in results}) == 1
+    cached = Path(results[0][1].decode().strip())
+    assert cached.is_file()
+    left = [p.name for p in cached.parents[1].iterdir() if p.name.startswith("run.")]
+    assert left == []
+    assert run_exports(export, env, model, 1)[0][0] == 0
+    assert len(runs.read_text().splitlines()) == 1  # the fast path
+    # The first run fails: one of the waiting callers runs it again.
+    other = tmp_path / "other"
+    other.mkdir()
+    export, env, model, runs = fake_export_root(other, EXPORT.read_text(), True)
+    results = run_exports(export, env, model, 3)
+    assert sorted(code for code, _o, _e in results) == [0, 0, 1], results
+    assert len(runs.read_text().splitlines()) == 2
+
+
+def test_R108_export_runs_once_for_one_input_detects_violation(tmp_path):
+    text = EXPORT.read_text()
+    assert export_faults("java x\n")
+    unlocked = text.replace("flock 9", "true")
+    assert export_faults(unlocked)
+    export, env, model, runs = fake_export_root(tmp_path, unlocked)
+    run_exports(export, env, model, 6)
+    assert len(runs.read_text().splitlines()) > 1
