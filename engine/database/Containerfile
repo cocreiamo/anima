@@ -31,7 +31,7 @@ RUN apt-get update \
  && g++ --version | head -n 1
 
 FROM toolchain AS postgres-build
-COPY --from=postgres / /src/postgres
+COPY --from=postgres@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e / /src/postgres
 WORKDIR /src/postgres
 RUN ./configure \
       --prefix=/usr/local \
