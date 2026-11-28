@@ -12,6 +12,7 @@ from engine_logic import (
     form_submission,
     inner_start_times,
     issuer_faults,
+    on_hosted_runner,
     production_faults,
     regress_tests_passed,
     renewal_failure_faults,
@@ -223,3 +224,13 @@ def test_R180_system_tests_stay_fast_detects_violation():
     assert session_duration_faults(900.0, {"maxSystemTestTime": (1500, "B")}, "x")
     assert session_duration_faults(900.0, {"maxSystemTestTime": (0, "s")}, "x")
     assert session_duration_faults(900.0, limits, "within 25 minutes")
+    # Off the hosted runner the time is reported, not judged; a wrong limit still is.
+    assert session_duration_faults(2100.0, limits, "within the bound", False) == []
+    assert session_duration_faults(2100.0, {}, "within the bound", False)
+    # On the hosted runner an over-budget session fails, and the runner is told
+    # apart by GitHub's variable only: absent, empty or another value is not it.
+    hosted = on_hosted_runner({"GITHUB_ACTIONS": "true"})
+    assert hosted
+    assert session_duration_faults(2100.0, limits, "within the bound", hosted)
+    for other in ({}, {"GITHUB_ACTIONS": ""}, {"GITHUB_ACTIONS": "false"}):
+        assert not on_hosted_runner(other)

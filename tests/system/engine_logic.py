@@ -413,10 +413,20 @@ def shared_engine_faults(before: dict | None, after: dict | None) -> list[str]:
     return faults
 
 
-def session_duration_faults(elapsed: float, limits: dict, doc: str) -> list[str]:
+def on_hosted_runner(environment: dict[str, str]) -> bool:
+    """True on the hosted runner that the merge gate runs in: GitHub sets
+    `GITHUB_ACTIONS` to `true` there (documented by GitHub). Anywhere else the
+    machine is not the one the limit was set for."""
+    return environment.get("GITHUB_ACTIONS") == "true"
+
+
+def session_duration_faults(
+    elapsed: float, limits: dict, doc: str, enforced: bool = True
+) -> list[str]:
     """What is wrong with the duration of the system tests (R180): the limit is held
     in the model as `maxSystemTestTime`, in seconds, positive; the text of the
-    requirement states no number; and the session did not take longer."""
+    requirement states no number; and, where the limit is enforced (the hosted
+    runner), the session did not take longer. Elsewhere the time is only reported."""
     name = "maxSystemTestTime"
     if name not in limits:
         return [f"the requirement has no attribute {name}"]
@@ -426,7 +436,7 @@ def session_duration_faults(elapsed: float, limits: dict, doc: str) -> list[str]
         faults.append(f"{name} is in {unit}, not in seconds")
     if not isinstance(value, int | float) or value <= 0:
         faults.append(f"{name} is not a positive number")
-    elif elapsed > value:
+    elif enforced and elapsed > value:
         faults.append(f"the system tests took {elapsed:.0f} s; the limit is {value} s")
     if re.search(r"\d", doc):
         faults.append("the text of the requirement states a number of its own")
