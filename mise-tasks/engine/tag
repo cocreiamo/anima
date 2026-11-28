@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Print the tag of an inner image: a hash of its source commits (standard input), its container file and every file that it copies"
+#
+# Usage: printf '%s\n' <commit>... | mise run engine:tag <containerfile> [directory]
+# The directory (default: the repository) is where the container file and the
+# files it copies are read, so that a test can compute the tag on a copy.
+# A COPY without --from names files of the repository: they are inputs.
+set -euo pipefail
+
+file=$1
+cd "${2:-${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}}"
+
+copied="${ANIMA_TAG_EXTRA:-} $(awk '/^COPY / && !/--from=/ { for (i = 2; i < NF; i++) if ($i !~ /^--/) print $i }' "$file")"
+{
+    cat
+    cat "$file"
+    for f in $copied; do
+        echo "$f"
+        cat "$f"
+    done
+} | sha256sum | cut -c1-12

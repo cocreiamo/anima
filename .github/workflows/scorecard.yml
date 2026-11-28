@@ -1,0 +1,16 @@
+name: Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions: {}
+
+jobs:
+  analysis:
+    permissions:
+      contents: read
+      id-token: write
+    uses: cocreiamo/.github/.github/workflows/scorecard.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main

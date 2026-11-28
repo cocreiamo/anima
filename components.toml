@@ -1,0 +1,245 @@
+# Components shipped in Anima: the single list of what is adopted, at which
+# exact version, and under which licence. tests/repository/test_repository.py checks it.
+#
+# A component built from source is a git submodule pinned by commit.
+# A component whose fork is not yet a submodule is pinned by the commit of its
+# release. A component consumed as an image is pinned by digest.
+
+[policy]
+# SPDX identifiers a shipped component may declare. Adding one is a decision.
+allowed_licenses = [
+  "AGPL-3.0-only",
+  "Apache-2.0",
+  "MIT",
+  "MPL-2.0",
+  "PostgreSQL",
+  # A distribution image whose packages carry their own licences; see its entry.
+  "LicenseRef-Fedora-Distribution",
+  # The same kind of reference for the base images of the inner images (see
+  # their entries). The founder confirmed on 2026-11-27 that the three below
+  # are allowed, because the engine's container files use these bases.
+  "LicenseRef-Debian-Distribution",
+  "LicenseRef-UBI-Distribution",
+  "LicenseRef-Alpine-Distribution",
+]
+
+[[component]]
+name = "postgresql"
+role = "database server: PostgreSQL fork (part of the engine)"
+version = "18.7"
+license = "PostgreSQL"
+upstream = "https://github.com/postgres/postgres"
+submodule = "third_party/postgres"
+commit = "f5c41f6681c910b3f69951bf6fb97c6d74605d25"
+
+[[component]]
+name = "pg_oidc_validator"
+role = "adapter: token validation (runs in the database server's process)"
+version = "1.1.0"
+license = "Apache-2.0"
+upstream = "https://github.com/percona/pg_oidc_validator"
+submodule = "third_party/pg_oidc_validator"
+commit = "ba9c4cb2dc9bd2e9779c7a33f7a30c9bb8c97862"
+
+[[component]]
+name = "pgvector"
+role = "adapter: vector search (runs in the database server's process)"
+version = "0.8.7"
+license = "PostgreSQL"
+upstream = "https://github.com/pgvector/pgvector"
+submodule = "third_party/pgvector"
+commit = "f37c13f68b57d2c3472b2214fbcff699d6d34876"
+
+[[component]]
+name = "pgbackrest"
+role = "adapter: backup and restore (runs inside the database server's container, invoked by it)"
+version = "2.60.1"
+license = "MIT"
+upstream = "https://github.com/pgbackrest/pgbackrest"
+submodule = "third_party/pgbackrest"
+commit = "7aeba299c49abd768ca741506569007a5cab0870"
+
+[[component]]
+name = "openbao"
+role = "adapter: secret store (part of the engine)"
+version = "2.7.3"
+license = "MPL-2.0"
+upstream = "https://github.com/openbao/openbao"
+submodule = "third_party/openbao"
+commit = "0439ef5812538733afb277b4445a54706edc1db7"
+
+[[component]]
+name = "keycloak"
+role = "adapter: identity provider (part of the engine)"
+version = "26.8.2"
+license = "Apache-2.0"
+upstream = "https://github.com/keycloak/keycloak"
+submodule = "third_party/keycloak"
+commit = "e514445f9dcdabc5bdcf67cab56c1e49655de067"
+
+# The configurator and its three providers (ADR 0006). Each is a fork of ours
+# (cocreiamo/anima-opentofu and the three anima-terraform-provider-* forks) that
+# is not yet a submodule. Until it is, the entry is pinned by the commit of the
+# upstream release tag, looked up with `gh api repos/<owner>/<repo>/commits/<tag>
+# --jq .sha`; the `submodule` field is added with the fork. They are fetched
+# and built from this commit, never by a floating reference.
+[[component]]
+name = "opentofu"
+role = "adapter: configurator, the one that applies all declared state (part of the engine)"
+version = "1.13.10"
+license = "MPL-2.0"
+upstream = "https://github.com/opentofu/opentofu"
+commit = "4dcfb2efaaf7d3e95a92d1c10b7fd000e82bc51f"
+
+# The binary of the configurator is taken from the project's official image
+# (minimal variant) and copied into a small base, because that image refuses to
+# be a base image (GAP-030, closed). The source of the same release is the
+# `opentofu` entry above; the digest here pins the image the binary comes from.
+[[component]]
+name = "opentofu-image"
+role = "binary of the configurator: copied from the official image into the configurator's image"
+version = "1.13.10-minimal"
+license = "MPL-2.0"
+upstream = "https://github.com/opentofu/opentofu"
+image = "ghcr.io/opentofu/opentofu"
+digest = "sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c"
+
+[[component]]
+name = "terraform-provider-postgresql"
+role = "provider of the configurator: the database server's roles, privileges and extensions"
+version = "1.27.0"
+license = "MPL-2.0"
+upstream = "https://github.com/cyrilgdn/terraform-provider-postgresql"
+commit = "ff936b9548c1076f498523a2bd116915ff977142"
+
+[[component]]
+name = "terraform-provider-vault"
+role = "provider of the configurator: the secret store, used against the secret store's compatible API"
+version = "5.14.0"
+license = "MPL-2.0"
+upstream = "https://github.com/hashicorp/terraform-provider-vault"
+commit = "137fcd197d87b0eed92405b709a3bc13d2b4090f"
+
+[[component]]
+name = "terraform-provider-keycloak"
+role = "provider of the configurator: the token issuer's realm, roles, scopes, clients and users"
+version = "5.11.0"
+license = "Apache-2.0"
+upstream = "https://github.com/keycloak/terraform-provider-keycloak"
+commit = "2ca2e76f85424e6bc68e76b14df56dd99f98b4ac"
+
+# Fedora bootc is a distribution image: a collection of packages, each with its
+# own licence (GPL, LGPL, MIT, Apache-2.0 and others, among them systemd, podman
+# and the kernel). No single SPDX identifier is true of it, and naming one (MIT
+# is the licence of Fedora's own packaging) would claim more than it says. It is
+# therefore declared with a LicenseRef, listed in `policy.allowed_licenses`: the
+# licence of each package is the one the package declares, and it is recorded in
+# the image's software bill of materials (R16). The founder confirmed on
+# 2026-11-27 that this LicenseRef is an allowed licence for the base image of
+# the engine (`anima-licensing-and-brand`, ADR 0005).
+# Tags move: the 45 tag is rebuilt every day, which is why the digest is the pin.
+[[component]]
+name = "fedora-bootc"
+role = "base of the engine image: operating system, systemd, container runtime"
+version = "45"
+license = "LicenseRef-Fedora-Distribution"
+upstream = "https://gitlab.com/fedora/bootc/base-images"
+image = "quay.io/fedora/fedora-bootc"
+digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7"
+
+# The base images of the inner images of the engine: each is the first line of a
+# container file under engine/. Each is a distribution image, a collection of
+# packages with their own licences, so each is declared with a LicenseRef like
+# the base of the engine image, and the licence of each package is the one the
+# package declares. The founder confirmed on 2026-11-27 that the three
+# references added for them (Debian, UBI, Alpine) are allowed licences
+# (`anima-licensing-and-brand`). Tags move, so the digest is the pin.
+[[component]]
+name = "debian"
+role = "base of the database server's image: operating system of the inner container"
+version = "trixie-slim"
+license = "LicenseRef-Debian-Distribution"
+upstream = "https://github.com/debuerreotype/docker-debian-artifacts"
+image = "docker.io/library/debian"
+digest = "sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+
+[[component]]
+name = "ubi9"
+role = "base of the identity provider's image: the stage that installs its packages (the upstream container file's own base)"
+version = "9.9"
+license = "LicenseRef-UBI-Distribution"
+upstream = "https://registry.access.redhat.com/ubi9"
+image = "registry.access.redhat.com/ubi9"
+digest = "sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd"
+
+[[component]]
+name = "ubi9-micro"
+role = "base of the identity provider's image: the final stage (the upstream container file's own base)"
+version = "9.9"
+license = "LicenseRef-UBI-Distribution"
+upstream = "https://registry.access.redhat.com/ubi9-micro"
+image = "registry.access.redhat.com/ubi9-micro"
+digest = "sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db"
+
+[[component]]
+name = "alpine"
+role = "base of the secret store's image (the upstream container file's own base) and of the configurator's image"
+version = "3.24.4"
+license = "LicenseRef-Alpine-Distribution"
+upstream = "https://github.com/alpinelinux/docker-alpine"
+image = "docker.io/library/alpine"
+digest = "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
+
+# The mail catcher: the stand-in of the outgoing mail port, for local
+# development and CI. Our fork is cocreiamo/anima-mailpit, not yet a submodule,
+# so it is pinned by the commit of the upstream release tag, looked up with
+# `gh api repos/axllent/mailpit/commits/<tag> --jq .sha`. Unverified: the
+# release was chosen as the latest at the time of writing, not by the engine's
+# builder.
+[[component]]
+name = "mailpit"
+role = "adapter: outgoing mail (stand-in, local development and CI only)"
+version = "1.34.0"
+license = "MIT"
+upstream = "https://github.com/axllent/mailpit"
+commit = "55a301791fed4c757850bf7afb9672a1dace30bb"
+
+# The image of the same release, which the engine's mail container file starts
+# from until the fork is built from source: it holds the one program of the
+# release.
+[[component]]
+name = "mailpit-image"
+role = "stand-in of outgoing mail: the upstream image the engine's mail unit is built from"
+version = "v1.34.0"
+license = "MIT"
+upstream = "https://github.com/axllent/mailpit"
+image = "docker.io/axllent/mailpit"
+digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e"
+
+# ---- Images used only by tools, tests and builds: not shipped ----------------
+#
+# An image that a tool, a test or a build stage starts, and that is not part of
+# what Anima ships (for example the helper image of a test library, or the
+# stage that compiles a program and is then discarded), is declared here, apart
+# from the components above, with the same fields and as an array
+# `[[tool_image]]`. It is pinned by digest like every image (`anima-repository-conventions`, R11), and
+# the Renovate manager of .github/renovate.json updates it like the others.
+# Its licence is not checked against `policy.allowed_licenses`: nothing of it
+# ships. The licence stated is that of the program the image exists for.
+[[tool_image]]
+name = "eclipse-temurin"
+role = "build stage of the identity provider's image: the Java toolchain that compiles it"
+version = "21-jdk"
+license = "GPL-2.0-only WITH Classpath-exception-2.0"
+upstream = "https://github.com/adoptium/containers"
+image = "docker.io/library/eclipse-temurin"
+digest = "sha256:8ad118b146aa92da815b576441acd6b42b38236797ad0b6edc8c200b85bb0734"
+
+[[tool_image]]
+name = "golang"
+role = "build stage of the secret store's image: the Go toolchain that compiles it"
+version = "1.27"
+license = "BSD-3-Clause"
+upstream = "https://github.com/docker-library/golang"
+image = "docker.io/library/golang"
+digest = "sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666"

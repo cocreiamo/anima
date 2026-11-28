@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#MISE description="Run the configurator's tests, including the ones that need the pod of throwaway containers (CONFIGURE_PROOF=1)"
+#
+# Runs the standalone proof once (engine:configure-prove, which needs the
+# images of engine:build) and then every test of tests/configure/. Without this
+# task, `pytest` runs the static tests and skips the rest.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+export CONFIGURE_PROOF=1
+exec uv run --locked pytest tests/configure "$@"

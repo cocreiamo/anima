@@ -1,0 +1,18 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": ["github>cocreiamo/.github"],
+    "git-submodules": {
+        "enabled": false
+    },
+    "customManagers": [
+        {
+            "customType": "regex",
+            "description": "Images listed in components.toml, shipped or used only by tools and tests",
+            "managerFilePatterns": ["/^components\\.toml$/"],
+            "matchStrings": [
+                "version = \"(?<currentValue>[^\"]+)\"\\n(?:[a-z_]+ = .*\\n)*?image = \"(?<depName>[^\"]+)\"\\ndigest = \"(?<currentDigest>sha256:[0-9a-f]+)\""
+            ],
+            "datasourceTemplate": "docker"
+        }
+    ]
+}

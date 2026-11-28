@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#MISE description="Generate the database server's access rules (pg_hba.conf) and identity map from the declaration of the fixed roles, into .cache/configure/"
+#MISE depends=["engine:configure-build"]
+#
+# The configurator's own templating renders them; nothing here is edited by
+# hand. The one installation parameter they need is the identity provider's
+# public URL (ANIMA_IDENTITY_PROVIDER_URL, no default).
+#
+# Output: .cache/configure/pg_hba.conf and .cache/configure/pg_ident.conf
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+: "${ANIMA_IDENTITY_PROVIDER_URL:?set the public URL of the identity provider (scheme, host, port)}"
+image=$(cat .cache/engine/configure.ref)
+out=.cache/configure
+mkdir -p "$out"
+
+render() {
+    podman run --rm --tmpfs /work:mode=1777 --tmpfs /tmp:mode=1777 --read-only \
+        -e ANIMA_IDENTITY_PROVIDER_URL "$image" render "$1"
+}
+
+render access_rules >"$out/pg_hba.conf.new"
+render identity_map >"$out/pg_ident.conf.new"
+mv "$out/pg_hba.conf.new" "$out/pg_hba.conf"
+mv "$out/pg_ident.conf.new" "$out/pg_ident.conf"
+echo "configure: wrote $out/pg_hba.conf and $out/pg_ident.conf"

@@ -1,0 +1,52 @@
+#!/usr/bin/bash
+# Writes the addresses the engine's services listen on, for the parts that read
+# them before they start (the database server's configuration include and the
+# identity provider's environment file).
+#
+#   anima-listen container   run as a container: the services listen on every
+#                            address of the container's network namespace, and
+#                            the outer `podman run --publish` decides what is
+#                            reachable (the loopback of the host by default).
+#   anima-listen host        booted as the operating system of a machine: nothing
+#                            restricts the services from outside, so they listen
+#                            only on the address the machine's operator wrote in
+#                            /etc/anima/listen-address (default 127.0.0.1).
+#
+# Directory of the output: ANIMA_LISTEN_DIR (default /run/anima/listen); the
+# address file: ANIMA_LISTEN_ADDRESS_FILE (default /etc/anima/listen-address).
+set -euo pipefail
+
+mode=${1:?usage: anima-listen container|host}
+dir=${ANIMA_LISTEN_DIR:-/run/anima/listen}
+file=${ANIMA_LISTEN_ADDRESS_FILE:-/etc/anima/listen-address}
+
+case "$mode" in
+    container)
+        database='*'
+        access=0.0.0.0
+        ;;
+    host)
+        address=127.0.0.1
+        if [ -s "$file" ]; then
+            address=$(tr -d '[:space:]' <"$file")
+        fi
+        # An address and nothing else: it ends up in a configuration file.
+        if ! [[ $address =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ || $address =~ ^[0-9a-fA-F:]+$ ]]; then
+            echo "anima-listen: $file does not hold an address: '$address'" >&2
+            exit 1
+        fi
+        database=$address
+        access=$address
+        ;;
+    *)
+        echo "anima-listen: unknown mode '$mode'" >&2
+        exit 2
+        ;;
+esac
+
+mkdir -p "$dir"
+printf "listen_addresses = '%s'\n" "$database" >"$dir/database.conf.new"
+printf 'KC_HTTP_HOST=%s\n' "$access" >"$dir/access.env.new"
+chmod 0644 "$dir/database.conf.new" "$dir/access.env.new"
+mv "$dir/database.conf.new" "$dir/database.conf"
+mv "$dir/access.env.new" "$dir/access.env"

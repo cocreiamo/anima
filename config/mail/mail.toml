@@ -1,0 +1,7 @@
+# Outgoing mail, production-shaped: the organisation's own mail service. Only what
+# differs from the engine's defaults is written. No password: `password_file`
+# names the file in which the host provides it, when the service needs one.
+from = "anima@example.org"
+
+[smtp]
+host = "smtp.example.org"

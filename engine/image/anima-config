@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+"""Reads the layered configuration, checks it and writes the effective one.
+
+Layers, in this order, each overriding the previous one:
+  1. the engine's defaults  /usr/share/anima/defaults/<capability>.toml
+  2. the base               <config>/<capability>/<capability>.toml
+  3. the profile            <config>/profiles/<profile>/<capability>/<capability>.toml
+
+The defaults file of a capability is also its schema: a key that it does not
+declare is unknown and refused, a key listed under `forbidden` is refused, a
+value must have the type of its default, and `driver` must be one of `drivers`.
+A setting that needs a secret names a file (a key ending in `_file`); a value is
+never read from the configuration. Nothing is written unless everything is valid.
+
+Output (in <run>): effective.json, and <capability>.driver for each capability.
+Exit status 1 and a message naming the setting when the configuration is refused.
+"""
+
+import json
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+DEFAULTS = Path(os.environ.get("ANIMA_DEFAULTS_DIR", "/usr/share/anima/defaults"))
+CONFIG = Path(os.environ.get("ANIMA_CONFIG_DIR", "/etc/anima/config"))
+PROFILE_FILE = Path(os.environ.get("ANIMA_PROFILE_FILE", "/etc/anima/profile"))
+RUN = Path(os.environ.get("ANIMA_CONFIG_RUN_DIR", "/run/anima/config"))
+SECRET_WORDS = ("password", "secret", "token", "key")
+
+
+class Refused(Exception):
+    pass
+
+
+def load(path: Path) -> dict:
+    try:
+        return tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as error:
+        raise Refused(f"{path}: not valid TOML: {error}") from error
+
+
+def flatten(table: dict, prefix: str = "") -> dict:
+    flat = {}
+    for key, value in table.items():
+        name = f"{prefix}{key}"
+        if isinstance(value, dict):
+            flat.update(flatten(value, f"{name}."))
+        else:
+            flat[name] = value
+    return flat
+
+
+def unflatten(flat: dict) -> dict:
+    tree: dict = {}
+    for name, value in flat.items():
+        node = tree
+        *parents, last = name.split(".")
+        for part in parents:
+            node = node.setdefault(part, {})
+        node[last] = value
+    return tree
+
+
+def check_layer(capability: str, layer: str, given: dict, schema: dict, meta: dict):
+    for name, value in flatten(given).items():
+        full = f"{capability}.{name}"
+        leaf = name.rsplit(".", 1)[-1]
+        if name in meta["forbidden"]:
+            raise Refused(f"{full}: this setting is not the adopter's to change ({layer})")
+        if name not in schema:
+            if any(word in leaf for word in SECRET_WORDS) and not leaf.endswith("_file"):
+                raise Refused(
+                    f"{full}: a secret is never written in the configuration; "
+                    f"name a file with `{leaf}_file` ({layer})"
+                )
+            raise Refused(f"{full}: unknown setting ({layer})")
+        if type(value) is not type(schema[name]):
+            raise Refused(
+                f"{full}: expected {type(schema[name]).__name__}, "
+                f"got {type(value).__name__} ({layer})"
+            )
+    driver = flatten(given).get("driver")
+    if driver is not None and driver not in meta["drivers"]:
+        raise Refused(f"{capability}.driver: '{driver}' is not one of {meta['drivers']} ({layer})")
+
+
+def main() -> int:
+    # The profile: the environment of the engine's first process (the `--env` of
+    # the run command), else the file the machine's operator writes when booted.
+    profile = os.environ.get("ANIMA_PROFILE", "")
+    if not profile and PROFILE_FILE.exists():
+        profile = PROFILE_FILE.read_text().strip()
+    effective: dict = {}
+    for defaults_file in sorted(DEFAULTS.glob("*.toml")):
+        capability = defaults_file.stem
+        raw = load(defaults_file)
+        meta = {
+            "forbidden": set(raw.pop("forbidden", [])),
+            "drivers": raw.pop("drivers", []),
+        }
+        schema = flatten(raw)
+        merged = dict(schema)
+        layers = [("base", CONFIG / capability / f"{capability}.toml")]
+        if profile:
+            layers.append(
+                (f"profile {profile}", CONFIG / "profiles" / profile / capability / f"{capability}.toml")
+            )
+        for layer, path in layers:
+            if path.exists():
+                given = load(path)
+                check_layer(capability, layer, given, schema, meta)
+                merged.update(flatten(given))
+        effective[capability] = unflatten(merged)
+    # A setting that names a file must name one that exists, for the active driver.
+    for capability, settings in effective.items():
+        for name, value in flatten(settings).items():
+            if name.endswith("_file") and value and not Path(value).is_file():
+                if name.split(".")[0] in (settings.get("driver"), "common"):
+                    raise Refused(f"{capability}.{name}: the file '{value}' does not exist")
+    RUN.mkdir(parents=True, exist_ok=True)
+    staging = RUN / "effective.json.new"
+    staging.write_text(json.dumps(effective, indent=2, sort_keys=True) + "\n")
+    for capability, settings in effective.items():
+        driver = str(settings.get("driver", ""))
+        (RUN / f"{capability}.driver").write_text(driver + "\n")
+        # A unit of an adapter starts only when its marker exists (ConditionPathExists).
+        (RUN / f"{capability}.{driver}.active").touch()
+    staging.replace(RUN / "effective.json")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Refused as error:
+        print(f"anima-config: {error}", file=sys.stderr)
+        sys.exit(1)

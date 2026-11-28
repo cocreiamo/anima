@@ -1,0 +1,9 @@
+# Only Anima's own TOML files: never the forks, generated files or caches (PM-002).
+include = [
+  "*.toml",
+  ".taplo.toml",
+  "tests/*.toml",
+  "skills/*.toml",
+  "docs/*.toml",
+]
+exclude = ["mise.lock"]

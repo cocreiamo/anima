@@ -1,0 +1,36 @@
+# Generated from the declaration of the fixed roles. Do not edit.
+# First match wins: the order below is part of the rules.
+
+# The superuser: the local socket only, as the operating-system user of the same
+# name, no password.
+local all ${superuser} peer
+
+# Roles that reach the server on the local socket by the peer credentials of an
+# operating-system user, each into its own database only.
+%{ for r in peer_roles ~}
+local ${databases[r]} ${r} peer map=${roles[r].peer_map}
+%{ endfor ~}
+
+# Service roles: a password, only from the pod's loopback, only into their own
+# databases. No rule admits a token for them.
+%{ for r in password_roles ~}
+host ${databases[r]} ${r} 127.0.0.1/32 scram-sha-256
+host ${databases[r]} ${r} ::1/128 scram-sha-256
+%{ endfor ~}
+
+# Closed databases: every role not admitted above is rejected, whatever it
+# holds, and so is every database created later that is declared closed here.
+%{ for d in closed ~}
+local ${d} all reject
+host ${d} all all reject
+%{ endfor ~}
+
+# Token roles: TLS, a bearer token, and a scope with the same name as the role.
+# The mapping is delegated to the validator; the scope is never empty.
+%{ for r in token_roles ~}
+hostssl ${databases[r]} ${r} all oauth issuer="${issuer}" scope="${r}" delegate_ident_mapping=1
+%{ endfor ~}
+
+# Everything else is refused.
+local all all reject
+host all all all reject

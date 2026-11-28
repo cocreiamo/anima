@@ -1,0 +1,12 @@
+[Unit]
+Description=Anima configuration: layers merged and checked before anything starts
+# A configuration that is refused leaves this unit failed, and the units that
+# require it do not start: the engine stays closed and not ready, and the journal
+# names the setting (R48).
+Before=anima-listen-container.service anima-listen-host.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+PassEnvironment=ANIMA_PROFILE
+ExecStart=/usr/libexec/anima/config

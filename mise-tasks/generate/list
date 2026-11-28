@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+# MISE description="Print the generated files that an agent may not edit, one per line"
+#
+# The one list that the agent settings and the stale check share (R86).
+# Usage: mise run generate:list
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import generators
+
+print("\n".join(generators.wholly_generated()))

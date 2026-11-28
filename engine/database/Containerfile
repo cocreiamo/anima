@@ -1,0 +1,109 @@
+# The database server: PostgreSQL 18 built from the fork, and the three adapters
+# that run in its process, each built against that same build.
+#
+# Build context: this repository's root. Each source is a named build context
+# pointing at its submodule (mise run engine:build passes them), so that every
+# source is exactly the pinned commit and nothing is downloaded but packages.
+#
+#   postgres          third_party/postgres
+#   pgvector          third_party/pgvector
+#   pg_oidc_validator third_party/pg_oidc_validator
+#   pgbackrest        third_party/pgbackrest
+#
+# Targets: `server` (the default, shipped), `oauth-test-client` (tests only),
+# `regress` (runs PostgreSQL's own regression suite; produces no image worth
+# keeping).
+#
+# The configure flags follow the official docker-library/postgres image's
+# source build (the Alpine variant), plus --with-libcurl, which PostgreSQL 18
+# needs for OAuth in libpq and for its oauth_validator test module.
+
+ARG BASE=docker.io/library/debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
+
+FROM ${BASE} AS toolchain
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates build-essential g++ bison flex perl pkg-config meson ninja-build \
+      libreadline-dev zlib1g-dev libssl-dev libcurl4-openssl-dev libicu-dev \
+      libxml2-dev libxslt1-dev uuid-dev liblz4-dev libzstd-dev libbz2-dev \
+      libyaml-dev libssh2-1-dev libsystemd-dev libperl-dev libipc-run-perl python3-yaml \
+ && rm -rf /var/lib/apt/lists/* \
+ && g++ --version | head -n 1
+
+FROM toolchain AS postgres-build
+COPY --from=postgres / /src/postgres
+WORKDIR /src/postgres
+RUN ./configure \
+      --prefix=/usr/local \
+      --enable-integer-datetimes --enable-thread-safety --disable-rpath \
+      --with-uuid=e2fs --with-gnu-ld --with-pgport=5432 \
+      --with-system-tzdata=/usr/share/zoneinfo \
+      --with-openssl --with-libxml --with-libxslt --with-icu \
+      --with-lz4 --with-zstd --with-libcurl --with-systemd \
+      --enable-tap-tests \
+ && make -j"$(nproc)" world-bin \
+ && make install-world-bin
+
+FROM postgres-build AS adapters-build
+COPY --from=pgvector / /src/pgvector
+COPY --from=pg_oidc_validator / /src/pg_oidc_validator
+COPY --from=pgbackrest / /src/pgbackrest
+RUN make -C /src/pgvector USE_PGXS=1 -j"$(nproc)" \
+ && make -C /src/pgvector USE_PGXS=1 install
+RUN make -C /src/pg_oidc_validator USE_PGXS=1 -j"$(nproc)" \
+ && make -C /src/pg_oidc_validator USE_PGXS=1 install
+RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig meson setup /src/pgbackrest-build /src/pgbackrest \
+      --prefix=/usr/local --buildtype=release \
+ && ninja -C /src/pgbackrest-build \
+ && ninja -C /src/pgbackrest-build install
+
+# PostgreSQL's own test client for OAuth (src/test/modules/oauth_validator).
+FROM postgres-build AS oauth-test-client-build
+RUN make -C src/test/modules/oauth_validator -j"$(nproc)" oauth_hook_client \
+ && install -D src/test/modules/oauth_validator/oauth_hook_client /out/oauth_hook_client
+
+FROM ${BASE} AS runtime-base
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      libreadline8t64 zlib1g libssl3t64 libcurl4t64 libicu76 libxml2 libxslt1.1 \
+      libuuid1 liblz4-1 libzstd1 libbz2-1.0 libyaml-0-2 libssh2-1t64 libsystemd0 \
+      tzdata locales ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen \
+ && groupadd --system --gid 999 postgres \
+ && useradd --system --uid 999 --gid 999 --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres \
+ && useradd --system --uid 1010 --user-group --no-create-home --shell /usr/sbin/nologin secrets \
+ && install -d -o postgres -g postgres -m 0700 /var/lib/postgresql/data \
+ && install -d -o postgres -g postgres -m 0755 /run/postgresql
+
+FROM runtime-base AS server
+COPY --from=adapters-build /usr/local /usr/local
+COPY engine/database/postgresql.conf engine/database/prepare.sql /etc/anima/database/
+# The access rules and the identity map are generated from the one declaration of the
+# roles (mise run engine:configure-render) and passed as the build context `rules`.
+COPY --from=rules pg_hba.conf pg_ident.conf /etc/anima/database/
+COPY --chmod=555 engine/database/tls-enable /usr/local/bin/tls-enable
+ENV PATH=/usr/local/bin:$PATH LANG=en_US.utf8 PGDATA=/var/lib/postgresql/data
+RUN ldconfig && postgres --version
+# The commit of every source, read from the submodules by the build task.
+ARG SOURCE_COMMIT_POSTGRES SOURCE_COMMIT_PGVECTOR SOURCE_COMMIT_PG_OIDC_VALIDATOR SOURCE_COMMIT_PGBACKREST
+LABEL org.opencontainers.image.title="anima database server" \
+      org.opencontainers.image.licenses="PostgreSQL AND Apache-2.0 AND MIT" \
+      org.anima.source.postgresql="${SOURCE_COMMIT_POSTGRES}" \
+      org.anima.source.pgvector="${SOURCE_COMMIT_PGVECTOR}" \
+      org.anima.source.pg_oidc_validator="${SOURCE_COMMIT_PG_OIDC_VALIDATOR}" \
+      org.anima.source.pgbackrest="${SOURCE_COMMIT_PGBACKREST}"
+USER postgres
+WORKDIR /var/lib/postgresql
+STOPSIGNAL SIGINT
+CMD ["postgres", "-c", "config_file=/etc/anima/database/postgresql.conf"]
+
+FROM server AS oauth-test-client
+COPY --from=oauth-test-client-build /out/oauth_hook_client /usr/local/bin/oauth_hook_client
+
+# PostgreSQL's regression suite against this build (R21): `make check` runs
+# a temporary instance as a non-root user. Fails the build when a test fails.
+FROM postgres-build AS regress
+RUN useradd --create-home regress && chown -R regress /src/postgres
+USER regress
+RUN make check 2>&1 | tee /tmp/regress.log | tail -n 30

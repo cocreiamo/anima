@@ -1,0 +1,45 @@
+# The engine image: the operating system, its init, the container runtime and the
+# engine's units, in one image that is booted or run as a container (ADR 0005).
+#
+# Nothing is installed at run time and nothing is fetched: the inner images are
+# in the image as OCI archives (`images` is a named build context made by
+# `mise run engine:image` from the images of `mise run engine:build`), loaded
+# by the units named `*.image` that every container unit depends on.
+
+FROM quay.io/fedora/fedora-bootc:45@sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7
+
+COPY --from=images / /usr/lib/anima/images/
+
+# The units, each kept beside the capability it belongs to.
+COPY engine/image/anima.pod /usr/share/containers/systemd/
+COPY engine/database/database.image engine/database/database-init.container engine/database/database.container /usr/share/containers/systemd/
+COPY engine/access/access.image engine/access/access.container /usr/share/containers/systemd/
+COPY engine/secrets/secrets.image engine/secrets/secrets.container /usr/share/containers/systemd/
+COPY engine/database/database-prepare.container engine/database/database-tls.container /usr/share/containers/systemd/
+COPY engine/secrets/secrets-root-of-trust.service engine/image/anima-ready.target /usr/lib/systemd/system/
+COPY engine/image/anima-state.conf /usr/lib/tmpfiles.d/anima-state.conf
+COPY --chmod=555 engine/image/anima-listen /usr/libexec/anima/listen
+COPY engine/image/anima-listen-container.service engine/image/anima-listen-host.service engine/image/anima-config.service /usr/lib/systemd/system/
+COPY --chmod=555 engine/image/anima-config /usr/libexec/anima/config
+COPY engine/mail/defaults.toml /usr/share/anima/defaults/mail.toml
+COPY engine/mail/mail.image engine/mail/mail.container /usr/share/containers/systemd/
+COPY --chmod=555 engine/image/anima-credentials /usr/libexec/anima/credentials
+COPY engine/image/anima-credentials.service /usr/lib/systemd/system/
+COPY engine/image/configure.image engine/image/configure.container /usr/share/containers/systemd/
+COPY engine/image/anima-ready-upheld.conf /usr/lib/systemd/system/multi-user.target.d/50-anima-ready-upheld.conf
+COPY engine/secrets/openbao.hcl /etc/anima/secrets/openbao.hcl
+COPY engine/configure/secret-store-bootstrap.hcl /etc/anima/secrets/secret-store-bootstrap.hcl
+
+RUN systemctl enable anima-ready.target secrets-root-of-trust.service \
+ && bootc container lint
+
+# State lives only in the database server's volume. The others are the root of
+# trust (kept apart from state and from backups) and the inner runtime's image store. Everything else can be read-only.
+VOLUME ["/var/lib/anima/database", "/var/lib/anima/root-of-trust", "/var/lib/containers"]
+
+# systemd stops cleanly on this signal.
+STOPSIGNAL SIGRTMIN+3
+# The one readiness answer, asked of the engine's own init (R41).
+HEALTHCHECK --interval=5s --timeout=4s --start-period=170s --retries=3 \
+  CMD ["systemctl", "is-active", "--quiet", "anima-ready.target"]
+CMD ["/sbin/init"]

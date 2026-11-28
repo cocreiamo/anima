@@ -1,0 +1,66 @@
+name: Sync forks
+
+# Fast-forwards the upstream branches mirrored in each fork (`anima-maintaining-a-fork`).
+# Needs the secret FORK_SYNC_TOKEN: a token that can write to the forks.
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {
+              fork: cocreiamo/anima-postgres,
+              upstream: postgres/postgres,
+              branch: master,
+            }
+          - {
+              fork: cocreiamo/anima-postgres,
+              upstream: postgres/postgres,
+              branch: REL_18_STABLE,
+            }
+          - {
+              fork: cocreiamo/anima-keycloak,
+              upstream: keycloak/keycloak,
+              branch: main,
+            }
+          - {
+              fork: cocreiamo/anima-keycloak,
+              upstream: keycloak/keycloak,
+              branch: release/26.8,
+            }
+          - {
+              fork: cocreiamo/anima-pg-oidc-validator,
+              upstream: percona/pg_oidc_validator,
+              branch: main,
+            }
+          - {
+              fork: cocreiamo/anima-pgvector,
+              upstream: pgvector/pgvector,
+              branch: master,
+            }
+          - {
+              fork: cocreiamo/anima-pgbackrest,
+              upstream: pgbackrest/pgbackrest,
+              branch: main,
+            }
+          - {
+              fork: cocreiamo/anima-openbao,
+              upstream: openbao/openbao,
+              branch: main,
+            }
+    steps:
+      - run: gh repo sync "$FORK" --source "$UPSTREAM" --branch "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          FORK: ${{ matrix.fork }}
+          UPSTREAM: ${{ matrix.upstream }}
+          BRANCH: ${{ matrix.branch }}

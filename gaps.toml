@@ -1,0 +1,626 @@
+# Register of known gaps and defects of adopted components and platforms.
+#
+# Each entry is to be resolved sooner or later, often by contributing upstream
+# through our fork (`anima-maintaining-a-fork`). Where the repository holds a workaround, the
+# workaround names its entry in a comment (for example `# GAP-002`). A resolved
+# entry is not deleted: its status becomes "closed" and its ids stay taken.
+# An entry that turns out not to be a gap (a defect of our own build) is withdrawn the same way: closed, with its task named in its summary.
+# tests/repository/test_repository.py checks that every GAP-nnn mentioned in a file is
+# registered here, that ids are sequential and unique, and that every
+# workaround that is a repository path names its entry.
+#
+# Fields
+#   id             GAP-001, GAP-002, ... never reused
+#   component      the adopted component or platform
+#   version        the version the gap was observed in
+#   summary        what is missing or broken
+#   impact         what it means for Anima
+#   workaround     a repository path, a short description, or "none"
+#   upstream       URL of the upstream issue, or "not reported"
+#   resolved_when  the condition under which the entry is closed
+#   status         "open" or "closed"
+
+[[gap]]
+id = "GAP-001"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "There is no command-line validator. Its interactive shell reads a model on standard input and always exits 0, even when the model has errors."
+impact = "A model error would not fail a build by itself."
+workaround = "mise-tasks/model/check"
+upstream = "not reported"
+resolved_when = "The pilot implementation offers a validator whose exit status reports errors and warnings."
+status = "open"
+
+[[gap]]
+id = "GAP-002"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "The SysML2JSON exporter looks library files up by URL-encoded path and fails on the spaces in the directory names of its own library."
+impact = "The JSON export of the model, which the traceability test reads, fails without a workaround."
+workaround = "mise-tasks/model/export"
+upstream = "not reported"
+resolved_when = "SysML2JSON resolves its own library without aliases."
+status = "open"
+
+[[gap]]
+id = "GAP-003"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "SysML2JSON names its output by cutting the input path at the first dot, so a path that contains a dotted directory writes the JSON somewhere else."
+impact = "The exported file is not where the caller expects it."
+workaround = "mise-tasks/model/export"
+upstream = "not reported"
+resolved_when = "SysML2JSON writes the JSON next to the input whatever the path."
+status = "open"
+
+[[gap]]
+id = "GAP-004"
+component = "pgdsat"
+version = "2.0"
+summary = "pgdsat implements the CIS Benchmark for PostgreSQL 17. No benchmark is declared for PostgreSQL 18."
+impact = "Some controls may not apply to the database server as written."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "A CIS Benchmark for PostgreSQL 18 exists and pgdsat implements it, or we decide on our own control list."
+status = "open"
+
+[[gap]]
+id = "GAP-005"
+component = "pg_oidc_validator"
+version = "nightly package (version 0.2), spike of 2026-11-27 with PostgreSQL 18.7"
+summary = "The nightly package logged FATAL: could not find block containing chunk when the first successful session ended, then Failed to attach to HTTP cache on every later connection. Logins kept working. The defect belongs to that package, which turned out to be version 0.2; it does not occur with the 1.1.0 source build (0 occurrences over 20 sessions, spike of 2026-11-27)."
+impact = "None for the pinned source build. The nightly package must not be used."
+workaround = "Build the validator only from the pinned source (components.toml); never install the nightly package."
+upstream = "not reported"
+resolved_when = "The pinned source build, 1.1.0, was tested and shows no such error (2026-11-27)."
+status = "closed"
+
+[[gap]]
+id = "GAP-006"
+component = "pg_oidc_validator"
+version = "1.1.0"
+summary = "The audience (aud) of a token is not checked. Confirmed in the 1.1.0 source: a token issued to another client of the same realm opened a session."
+impact = "A token issued for another client of the same issuer is accepted unless the role's scope was not granted to that client."
+workaround = "Role scopes are granted only to the database server's own client in the identity provider, so the scope acts as audience (ADR 0004, R33)."
+upstream = "not reported"
+resolved_when = "The validator checks the audience of a token."
+status = "open"
+
+[[gap]]
+id = "GAP-007"
+component = "libpq"
+version = "18"
+summary = "No connection parameter accepts a bearer token that was already obtained. Only the device flow is built in."
+impact = "Tests and scripts cannot log in with a token without an OAuth hook."
+workaround = "Tests use oauth_hook_client from PostgreSQL's own test modules (`anima-tech-postgresql-oauth`); not yet in the repository."
+upstream = "not reported"
+resolved_when = "libpq accepts a bearer token as a connection parameter."
+status = "open"
+
+[[gap]]
+id = "GAP-008"
+component = "GitHub rulesets"
+version = "platform, 2026-11-27"
+summary = "The GitHub Actions app cannot be a bypass actor, so main-green cannot be restricted to the Promote workflow."
+impact = "Anyone allowed to push could move main-green; the ruleset only forbids force pushes and deletion."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "A GitHub App of the organization moves main-green and is the only bypass actor, or GitHub allows the Actions app as bypass actor."
+status = "open"
+
+[[gap]]
+id = "GAP-009"
+component = "pgBackRest"
+version = "2.60.1"
+summary = "The repository was archived in April 2026, then resumed under a coalition of sponsors with releases in October 2026, so its governance is young. PostgreSQL 18 support: the release notes announce experimental support in 2.55.0 (2025-04-21) and finalize the PostgreSQL 18 catalog number in 2.57.0; they do not state that the experimental label was lifted. The pinned source knows the PostgreSQL 18 version and, since 2.59.0, PostgreSQL 19 betas."
+impact = "The backup tool of the database server depends on a project whose continuity is not yet proven, and its PostgreSQL 18 support is to be confirmed by our own restore test (R20)."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The restore test of R20 passes on PostgreSQL 18 and the project has kept a regular release cadence for a year."
+status = "open"
+
+[[gap]]
+id = "GAP-010"
+component = "pg_oidc_validator"
+version = "1.1.0"
+summary = "A token without an expiry claim is accepted."
+impact = "A token that never expires is a permanent credential."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The validator refuses a token without an expiry claim."
+status = "open"
+
+[[gap]]
+id = "GAP-011"
+component = "pg_oidc_validator"
+version = "1.1.0"
+summary = "A rule with an empty scope and delegated mapping admits any valid token of the issuer."
+impact = "A misconfigured rule would let every identity of the realm in."
+workaround = "A test on our configuration forbids an empty scope in every rule that accepts tokens (R34)."
+upstream = "not reported"
+resolved_when = "The validator refuses an empty scope when the mapping is delegated."
+status = "open"
+
+[[gap]]
+id = "GAP-012"
+component = "pg_oidc_validator"
+version = "1.1.0"
+summary = "The refusal messages are generic, and a refusal for signature or issuer carries no identity."
+impact = "A refused login is hard to diagnose and cannot be attributed to a person in the log."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "A refusal says why and, where the token can be read, whom it was for."
+status = "open"
+
+[[gap]]
+id = "GAP-013"
+component = "libpq"
+version = "18"
+summary = "The discovery round of libpq makes every token login log one FATAL first, before the login that succeeds."
+impact = "The server log of a healthy system holds a FATAL line for each token login, which hides real failures."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "libpq no longer opens a connection that the server must refuse, or the server does not log it as FATAL."
+status = "open"
+
+[[gap]]
+id = "GAP-014"
+component = "PostgreSQL"
+version = "18.7"
+summary = "A statement log line carries only the role, not the person; the person is found by joining with the authentication line of the same session."
+impact = "Audit by person needs a join of two log lines."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The log line of a statement can carry the system user of the session."
+status = "open"
+
+[[gap]]
+id = "GAP-015"
+component = "OpenBao"
+version = "2.7.3"
+summary = "Self-initialization from declarative stanzas has no rollback: a failure leaves the storage unusable and the server then refuses to unseal."
+impact = "A failed first start cannot be repaired in place; it needs an empty state (R36)."
+workaround = "The first start is repeatable from an empty state, and the configuration is validated in continuous integration."
+upstream = "not reported"
+resolved_when = "Self-initialization is transactional, or a failed one can be resumed."
+status = "open"
+
+[[gap]]
+id = "GAP-016"
+component = "OpenBao"
+version = "2.7.3"
+summary = "Cloud key-management seals are external plugins fetched as images, not part of the server."
+impact = "The next adapter of the root of trust (Google Cloud KMS) adds an image to pin by digest."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The cloud seals are part of the server, or the plugin images are pinned and verified in components.toml."
+status = "open"
+
+[[gap]]
+id = "GAP-017"
+component = "Keycloak"
+version = "26.8.2"
+summary = "Keycloak does not reload its database password while running."
+impact = "The identity provider's database password cannot be rotated under a running process; it must be restarted."
+workaround = "The identity provider's service role is static; its password is set by the secret store and its rotation is outside the first release (ADR 0003)."
+upstream = "not reported"
+resolved_when = "Keycloak reloads the database password without a restart."
+status = "open"
+
+[[gap]]
+id = "GAP-018"
+component = "podman"
+version = "4.9.3"
+summary = "podman copies the host's /etc/hosts into the containers of a pod."
+impact = "A name that must resolve to the pod itself can be shadowed by the host's own entry."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "No longer applies: the engine is declared as Quadlet units (ADR 0005). Closed because the design that copied the host file, `podman kube play` on the host's podman, is no longer used."
+status = "closed"
+
+[[gap]]
+id = "GAP-019"
+component = "podman"
+version = "4.9.3"
+summary = "podman 4.9.3 ignores readinessProbe and does not restart a container on a failed livenessProbe."
+impact = "The runtime cannot decide readiness or heal a hung container."
+workaround = "None any longer: readiness and start order are declared in the engine's units (ADR 0005). The workaround of the earlier design, start by restarts, is not used."
+upstream = "not reported"
+resolved_when = "No longer applies: the engine is declared as Quadlet units (ADR 0005). Closed because the design that ignored the probes, `podman kube play` on the host's podman, is no longer used."
+status = "closed"
+
+[[gap]]
+id = "GAP-020"
+component = "OpenBao"
+version = "2.7.3"
+summary = "Self-initialization runs once only, on an empty storage. What it creates (the certificate authority, the seed values, the first machine credential) is not reconciled at later starts, and a declaration that is removed leaves its object behind."
+impact = "An upgrade that must change what the initialization created does not reach an installation that already exists (R37). The secret store's policies, engines and roles are not affected: the configurator converges them at every start."
+workaround = "The configurator converges the policies, engines and roles at every start (ADR 0006); the certificate authority is created by the initialization only, on purpose, so that a lost configurator state cannot create a second one."
+upstream = "not reported"
+resolved_when = "OpenBao reconciles what its initialization created at every start, or an upgrade that must change it has a declared path (ADR 0006)."
+status = "open"
+
+[[gap]]
+id = "GAP-021"
+component = "development container"
+version = "devcontainers/base ubuntu-24.04 and the mise dev container feature, as pinned in .devcontainer/devcontainer.json"
+summary = "The development-container specification and its features assume a Debian-family image and a Docker-compatible engine. How to install the pinned tools in a Fedora-based development container, the family of the engine image, is not settled."
+impact = "The development container is not yet in the same family as the engine. Until it is replaced, the development container is a Debian-family image and the engine image is not."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "A Fedora-based development container with podman 5 installs every pinned tool with `mise install` and is used by developers and by CI, and .devcontainer/devcontainer.json is replaced."
+status = "open"
+
+[[gap]]
+id = "GAP-022"
+component = "Testcontainers"
+version = "testcontainers 4.15.0 with rootless podman 4.9.3, spike of 2026-11-27"
+summary = "Testcontainers assumes a Docker-compatible API. A spike confirmed that a test can start the system through podman's own API service, started for the session with `podman system service` on a Unix socket and `DOCKER_HOST` pointing at it, with no daemon and no host service, and that it leaves nothing behind. Two limits remain. A Unix socket path is limited to 108 bytes and podman rejects a relative socket URL, so the socket cannot live under a long `.cache/` path. Testcontainers also pulls its own reaper image, at a version it chooses."
+impact = "The socket of the API service needs a short absolute path, and the reaper image is a container image that is not pinned by digest unless it is pinned or disabled."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The tests start the API service on a short absolute socket path, and the reaper image is pinned by digest in components.toml (tool images) or the reaper is disabled."
+status = "open"
+
+[[gap]]
+id = "GAP-023"
+component = "adrs"
+version = "0.13.0"
+summary = "The tool generates a table of contents with no status, and has no mode that fails when a generated index is stale."
+impact = "The ADR index needs glue of ours: `adrs export json` filtered with `jq`, and the generate:check of this repository to detect a stale index (`anima-repository-conventions`)."
+workaround = "mise-tasks/generate/generators.py"
+upstream = "not reported"
+resolved_when = "The tool's table of contents carries the status of each record and a check mode fails on a stale index; to be proposed upstream."
+status = "open"
+
+[[gap]]
+id = "GAP-024"
+component = "adrs"
+version = "0.13.0"
+summary = "The tool is a version 0.x project with one maintainer, so its format checks, its configuration keys and its JSON export may change without notice, and its continuity is not assured."
+impact = "The decision records depend on a tool whose governance is thin; `anima-repository-conventions` pins it to an exact version."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The tool reaches a stable release with more than one maintainer, or we change the tool; the records stay MADR 4.0.0, a plain format that other tools read."
+status = "open"
+
+[[gap]]
+id = "GAP-025"
+component = "podman"
+version = "4.9.3, spike of 2026-11-27"
+summary = "A container-storage image store cannot be shipped inside an image layer, because of the overlay whiteout devices it contains. Inner images can only be shipped as an archive loaded at first start."
+impact = "The engine image cannot carry its inner images ready to run: shipping them as an archive costs image size and start time (ADR 0005, R9)."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The spike for the bootc design settles how the engine image carries its inner images, and the cost is measured against the start time of R9."
+status = "open"
+
+[[gap]]
+id = "GAP-026"
+component = "terraform-provider-postgresql"
+version = "1.27.0, spike of 2026-11-27"
+summary = "The provider has no data source that lists databases."
+impact = "An extension in every existing database cannot be declared: the list of databases is not known to the declaration."
+workaround = "A contribution to propose upstream through our fork."
+upstream = "not reported"
+resolved_when = "The upstream project fixes it, or the contribution of our fork is merged."
+status = "open"
+
+[[gap]]
+id = "GAP-027"
+component = "terraform-provider-postgresql"
+version = "1.27.0, spike of 2026-11-27"
+summary = "Declaring a role's memberships together with a separate role grant flaps forever, and ADMIN OPTION cannot be stated in the role's memberships."
+impact = "The declaration of memberships must use one form only, and a membership with ADMIN OPTION cannot be declared in the role itself."
+workaround = "A contribution to propose upstream through our fork."
+upstream = "not reported"
+resolved_when = "The upstream project fixes it, or the contribution of our fork is merged."
+status = "open"
+
+[[gap]]
+id = "GAP-028"
+component = "terraform-provider-vault"
+version = "5.14.0, spike of 2026-11-27"
+summary = "A duration written as 720h instead of in seconds is reported as a perpetual difference."
+impact = "Every plan shows a change that is not one; durations must be written in seconds."
+workaround = "A contribution to propose upstream through our fork."
+upstream = "not reported"
+resolved_when = "The upstream project fixes it, or the contribution of our fork is merged."
+status = "open"
+
+[[gap]]
+id = "GAP-029"
+component = "terraform-provider-keycloak"
+version = "5.11.0, spike of 2026-11-27"
+summary = "The provider imports roles, scopes, clients and users only by internal id."
+impact = "A lost state cannot be healed by declared imports: the internal ids are not known to the declaration."
+workaround = "A contribution to propose upstream through our fork."
+upstream = "not reported"
+resolved_when = "The upstream project fixes it, or the contribution of our fork is merged."
+status = "open"
+
+[[gap]]
+id = "GAP-030"
+component = "OpenTofu"
+version = "1.13.10, spike of 2026-11-27"
+summary = "The official image of the configurator refuses to be used as a base image."
+impact = "None: the refusal is upstream's design (an ONBUILD step fails on purpose), not a defect. The image of the configurator is built from the pinned source."
+workaround = "Build the configurator image from the pinned source (components.toml); how the official image behaves is a rule of `anima-tech-opentofu`."
+upstream = "not reported"
+resolved_when = "Closed: not a defect of an adopted technology but its design, recorded as a rule of `anima-tech-opentofu`."
+status = "closed"
+
+[[gap]]
+id = "GAP-031"
+component = "podman"
+version = "spike of 2026-11-27"
+summary = "A read-only root filesystem together with podman secrets fails when the secrets directory is not a temporary filesystem: the mount point cannot be created. It works when `/run/secrets` is a temporary filesystem (observed on 2026-11-27 with the configurator)."
+impact = "A container that holds a secret and has a read-only root filesystem needs a temporary filesystem on its secrets directory."
+workaround = "Give the container a temporary filesystem on `/run/secrets` (`engine/configure/proof/pod.sh`)."
+upstream = "not reported"
+resolved_when = "Podman creates the mount point of a secret on a read-only root without a temporary filesystem, or every unit of the engine that holds a secret carries that filesystem."
+status = "open"
+
+[[gap]]
+id = "GAP-032"
+component = "Quadlet"
+version = "spike of 2026-11-27"
+summary = "Quadlet's static validation does not catch an invalid value for some keys."
+impact = "A unit with an invalid value passes the dry run and fails only when it is started (R52)."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The condition is gone, or the implementation of the engine image settles it."
+status = "open"
+
+[[gap]]
+id = "GAP-033"
+component = "Quadlet"
+version = "spike of 2026-11-27"
+summary = "In an image unit the tag setting is ignored when the source is an OCI directory: the name is derived from the OCI reference."
+impact = "A tag written in such a unit has no effect; the image is identified by its digest only, and the dependent unit tries to pull from https://localhost/ and fails when the reference does not carry the full final name."
+workaround = "Give the OCI reference the full final name (the skill anima-tech-podman-quadlet-bootc, rule 3)."
+upstream = "not reported"
+resolved_when = "The condition is gone, or the implementation of the engine image settles it."
+status = "open"
+
+[[gap]]
+id = "GAP-034"
+component = "podman"
+version = "spike of 2026-11-27"
+summary = "Inside the nested engine container every exec into an inner container failed (container create failed, no logs from conmon; failed to read the exec pidfile), so health checks never passed. Cause found on 2026-11-27: the inner container runtime opens the namespace files of the target process when it executes a command, which needs the capability to trace processes, and the outer container did not hold it."
+impact = "Running the engine image as a container needs a second added capability besides the one for nested mounts (ADR 0005, R41); with it the readiness target, the restart on a failing check and the target staying unreached when the configurator fails were observed on 2026-11-27."
+workaround = "Run the outer container with the second added capability, and with no full privilege (the skill anima-tech-podman-quadlet-bootc, rule 5)."
+upstream = "not reported"
+resolved_when = "No longer a defect: the cost of nesting is stated in ADR 0005 and the skill. Closed on 2026-11-27 because a container became healthy through its declared checks with the second capability."
+status = "closed"
+
+[[gap]]
+id = "GAP-035"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "The Pilot Implementation does not check that the unit of a value fits the quantity of the attribute: a number of bytes bound to a duration validates."
+impact = "A threshold with a wrong unit passes the model check."
+workaround = "tests/repository/test_fitness.py"
+upstream = "not reported"
+resolved_when = "The pilot implementation checks that the unit of a value fits the quantity of its attribute. Until then a test asserts the unit name of every threshold it reads (R68)."
+status = "open"
+
+[[gap]]
+id = "GAP-036"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "The Pilot Implementation does not report a missing required attribute of a metadata annotation: a fitness-function marker without a trigger validates."
+impact = "A marker without a trigger passes the model check."
+workaround = "tests/repository/test_fitness.py"
+upstream = "not reported"
+resolved_when = "The pilot implementation checks it. A test fails on a marker that has no valid trigger."
+status = "open"
+
+[[gap]]
+id = "GAP-037"
+component = "SysML v2 Pilot Implementation"
+version = "0.63.1"
+summary = "The standard library has no prefixed byte units such as the megabyte."
+impact = "A limit in megabytes needs a unit defined in the model."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "The standard library has prefixed byte units, or the model defines one with a conversion by prefix when a limit in bytes is needed; none is needed today."
+status = "open"
+
+[[gap]]
+id = "GAP-038"
+component = "Quadlet"
+version = "spike of 2026-11-27"
+summary = "The pod service that Quadlet generates has Restart=on-failure with the default start limit, reaches the start limit within a second, and every container unit then fails with result 'dependency'."
+impact = "The cause of a failing pod is hidden behind failures of every container unit; the first look at a container unit misleads."
+workaround = "Read the pod service's journal first (the skill anima-tech-podman-quadlet-bootc, rule 9)."
+upstream = "not reported"
+resolved_when = "Quadlet's pod service does not reach its start limit within a second, or the engine's units set the limit explicitly and a test shows the cause is visible."
+status = "open"
+
+[[gap]]
+id = "GAP-039"
+component = "podman"
+version = "spike of 2026-11-27"
+summary = "The offline import of an inner image from an OCI directory records the per-architecture digest, not the index digest."
+impact = "The digest pinned in the lock is not the digest the engine stores; a check that compares them fails."
+workaround = "Keep both digests in the lock (the skill anima-tech-podman-quadlet-bootc, rule 4)."
+upstream = "not reported"
+resolved_when = "The import records the digest that was pinned, or the lock holds both digests and a test compares each with the right one."
+status = "open"
+
+[[gap]]
+id = "GAP-040"
+component = "OpenTofu"
+version = "1.13.10, spike of 2026-11-27"
+summary = "The PostgreSQL state backend accepts an older state without any warning."
+impact = "A lost or stale state is applied as if it were current: roles, mounts and the realm fail with already exists, policies and connections are silently overwritten, and a certificate authority created by the configurator was silently duplicated."
+workaround = "The certificate authority is created once outside the configurator, and the plan guard compares deletions with a declared list (the skill anima-tech-opentofu, rules 4 and 10)."
+upstream = "not reported"
+resolved_when = "The backend refuses or warns on an older state, or the configurator checks the state's serial against a recorded one before it applies."
+status = "open"
+
+[[gap]]
+id = "GAP-041"
+component = "OpenTofu"
+version = "1.13.10, spike of 2026-11-27"
+summary = "A key provider that depends on the secret store cannot key the run that configures the secret store: the run fails before planning."
+impact = "The state of the run that sets up the secret store cannot be keyed from the secret store."
+workaround = "Key the state from something that exists before the secret store (the skill anima-tech-opentofu, rule 5)."
+upstream = "not reported"
+resolved_when = "The state of that run is keyed by a provider that does not need the secret store, and a test shows the first start converges."
+status = "open"
+
+[[gap]]
+id = "GAP-042"
+component = "OpenTofu providers"
+version = "spike of 2026-11-27"
+summary = "No configurator provider is published for the secret store itself; the provider for another product, used against its compatible API, is the one in use."
+impact = "The configurator depends on a provider whose product is not the one it configures, so a difference between the two interfaces is found only by running it."
+workaround = "Use the provider for the compatible product against the secret store (components.toml, terraform-provider-vault)."
+upstream = "not reported"
+resolved_when = "A provider for the secret store is published and pinned, or a contribution of our fork (cocreiamo/anima-terraform-provider-vault) makes the compatible API a tested contract."
+status = "open"
+
+[[gap]]
+id = "GAP-043"
+component = "Keycloak"
+version = "26.8.2, spike of 2026-11-27"
+summary = "A scope that is assigned to the client but that the user is not entitled to (the user lacks the mapped realm role) is dropped silently from the token: the token request does not fail. A scope that is not assigned to the client at all is refused with `invalid_scope`, which is the right behaviour and is not this gap."
+impact = "A missing scope is found only by decoding the token; a test that only checks that a token is issued passes."
+workaround = "A test decodes the token and checks its scope claim (the skill anima-tech-keycloak, rule 3)."
+upstream = "not reported"
+resolved_when = "The token request fails or warns when a requested scope is not granted, or a test of ours checks the claim for every role."
+status = "open"
+
+[[gap]]
+id = "GAP-044"
+component = "adrs"
+version = "0.13.0"
+summary = "A decision record that lacks its number in the front matter is silently left out of the listings, and no error is shown."
+impact = "A converted record can vanish from the index and from the export without any check failing."
+workaround = "After a conversion, count the records of adrs export json (the skill anima-tech-adrs-madr, rule 2)."
+upstream = "not reported"
+resolved_when = "The tool reports a record without a number, or a test of ours counts the files against the listing."
+status = "open"
+
+[[gap]]
+id = "GAP-045"
+component = "adrs"
+version = "0.13.0"
+summary = "adrs doctor checks neither plain-text references to other records nor the considered-options section."
+impact = "A reference written as a bare number is never verified, and a record may omit the options it considered."
+workaround = "References are written as Markdown links, and the considered options are kept by review (`anima-writing-a-decision-record`)."
+upstream = "not reported"
+resolved_when = "The doctor checks plain-text references and the presence of the considered-options section, or a test of ours does."
+status = "open"
+
+[[gap]]
+id = "GAP-046"
+component = "GitHub"
+version = "platform, 2026-11-27"
+summary = "A repository cannot let GitHub Actions create and approve pull requests until the organization allows it: the repository call fails with 409."
+impact = "A workflow that opens a pull request (the release preparation) needs an organization setting that only the founder can change."
+workaround = "The founder sets the organization setting first (the backlog task for it)."
+upstream = "not reported"
+resolved_when = "The organization allows it and the repository setting is applied by the file that describes the repository."
+status = "open"
+
+[[gap]]
+id = "GAP-047"
+component = "mise"
+version = "2026.11, 2026-11-27"
+summary = "A user-level configuration of the task runner leaks its tools into a project: extra tools at latest were installed from one."
+impact = "A run in a project is not isolated from the user's own configuration; a tool that is not pinned by the project can appear."
+workaround = "Point the data, cache, state and trusted paths inside the project when isolation matters (the skill anima-tech-mise, rule 8)."
+upstream = "not reported"
+resolved_when = "The project can state that it ignores the user-level configuration, or the isolation is a task of the repository."
+status = "open"
+
+[[gap]]
+id = "GAP-048"
+component = "bootc"
+version = "base image of 2026-11-27"
+summary = "The units that the base image ships and that fail harmlessly in a container (the bootloader update, the policy kit, the out-of-memory daemon, the resolver and one mount of the network file system) are not yet masked in the engine image, so a container run of it reports failed units."
+impact = "A run as a container is not clean: a reader or a check that looks at failed units sees noise, and a real failure is harder to see."
+workaround = "none; the units are not masked yet (the skill anima-tech-podman-quadlet-bootc, rule 6)."
+upstream = "not reported"
+resolved_when = "The engine image masks them, and a container run of it reports no failed unit that is not a real fault."
+status = "open"
+
+[[gap]]
+id = "GAP-049"
+component = "engine image"
+version = "withdrawn"
+summary = "Withdrawn: the secret store's build reports a placeholder version. It is a defect of our own build, not of something adopted."
+impact = "None as a gap; it is the backlog task TASK-42."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "Withdrawn: not a gap. The id stays taken."
+status = "closed"
+
+[[gap]]
+id = "GAP-050"
+component = "engine image"
+version = "withdrawn"
+summary = "Withdrawn: the builds of the inner images are not reproducible. It is a defect of our own builds, not of something adopted."
+impact = "None as a gap; it is the backlog task TASK-43."
+workaround = "none"
+upstream = "not reported"
+resolved_when = "Withdrawn: not a gap. The id stays taken."
+status = "closed"
+
+[[gap]]
+id = "GAP-051"
+component = "terraform-provider-postgresql"
+version = "1.27.0, 2026-11-27"
+summary = "The provider has no setting for the directory of a Unix socket: a connection over the local socket works only with an empty host and the environment variable PGHOST."
+impact = "The configurator's connection to the database server's superuser, by peer authentication, depends on an environment variable that the provider reads implicitly."
+workaround = "An empty host and PGHOST set by the run script (`engine/configure/declarations/providers.tf`, `engine/configure/converge.sh`)."
+upstream = "not reported"
+resolved_when = "The provider accepts the socket directory as a setting."
+status = "open"
+
+[[gap]]
+id = "GAP-052"
+component = "terraform-provider-keycloak"
+version = "5.11.0, 2026-11-27"
+summary = "The provider persists the generated secret of a confidential client in the state, also with the signed-token client authenticator, unless the write-only attribute `client_secret_wo` is used; the state then holds an empty value."
+impact = "A client declared without the write-only attribute would put a secret into the state (R7)."
+workaround = "Every confidential client sets `client_secret_wo` (`engine/configure/declarations/identities.tf`); a test of the decrypted state checks that it holds no secret."
+upstream = "not reported"
+resolved_when = "The provider does not persist a generated client secret, or a check refuses a confidential client without the write-only attribute."
+status = "open"
+
+[[gap]]
+id = "GAP-053"
+component = "terraform-provider-keycloak"
+version = "5.11.0, 2026-11-27"
+summary = "The resource that sets the optional scopes of a client is deprecated upstream."
+impact = "The declarations use a resource that upstream will remove; an upgrade of the provider may break them."
+workaround = "none; the deprecated resource is used (`engine/configure/declarations/identity-provider.tf`, `engine/configure/declarations/identities.tf`)."
+upstream = "not reported"
+resolved_when = "The declarations use the resource that replaces it, and the provider's pinned version still accepts them."
+status = "open"
+
+[[gap]]
+id = "GAP-054"
+component = "podman"
+version = "6.2, nested in the engine image, 2026-11-27"
+summary = "Concurrent starts of containers into one pod, together with the cleanup of an exiting container, hung the nested podman (a futex wait)."
+impact = "The engine's containers cannot start at the same time: a hang is a failed start that no check names."
+workaround = "The starts are ordered, the identity provider last, and run-to-completion units retry (`engine/access/access.container`, `engine/database/database-prepare.container`)."
+upstream = "not reported"
+resolved_when = "Concurrent starts into a pod do not hang, or the cause is found and reported upstream and the ordering is no longer needed."
+status = "open"
+
+[[gap]]
+id = "GAP-055"
+component = "podman"
+version = "4.9.3 on the host, 2026-11-27"
+summary = "`podman wait --condition=healthy` returns at once with -1 on this version instead of waiting for the container to be healthy."
+impact = "A script or a test that waits for health with that command goes on at once; the engine's wait task reads the health state instead."
+workaround = "Poll the health state (`mise-tasks/engine/wait`)."
+upstream = "not reported"
+resolved_when = "The command waits on the host's supported podman versions, or the engine documents a minimum host version that has it."
+status = "open"

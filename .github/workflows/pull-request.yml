@@ -1,0 +1,20 @@
+name: Pull request
+
+# The two checks of the called workflow are required checks, so they must also
+# report in the merge queue, where there is no pull request to look at: there
+# they succeed without work (the called workflow decides on the event of this
+# one).
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+  merge_group:
+
+permissions: {}
+
+jobs:
+  pull-request:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: cocreiamo/.github/.github/workflows/pull-request.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main

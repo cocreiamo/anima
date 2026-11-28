@@ -1,0 +1,26 @@
+# Words that help an agent find an entry of docs/catalog.md: key -> synonyms.
+# A key is the name of a capability, a port, a component, a role, a skill or a
+# task. An entry whose key no longer exists is an error (tests/repository);
+# a key of the catalog with no entry here is not.
+
+access = [
+  "login",
+  "log in",
+  "sign in",
+  "authentication",
+  "users",
+  "identities",
+  "roles",
+  "tokens",
+]
+secrets = ["password", "credential", "certificate", "key", "unseal", "vault"]
+database = ["postgres", "sql", "server", "pg_hba"]
+backup = ["restore", "recovery", "archive"]
+vectors = ["embeddings", "similarity search", "pgvector"]
+image = ["container", "boot", "systemd", "quadlet", "deployment"]
+configuration = ["settings", "profile", "adopter", "defaults"]
+"token issuer" = ["oidc", "identity provider", "idp", "openid connect"]
+"outgoing mail" = ["email", "smtp", "mailbox"]
+"secret keeping" = ["store", "kv"]
+"root of trust" = ["seal", "kms", "master key"]
+generate = ["derived files", "stale", "index"]

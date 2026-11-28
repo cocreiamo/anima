@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#MISE description="Start the engine image as a container with rootless podman (name: anima-engine)"
+#MISE depends=["engine:image"]
+#
+# The whole command, with the fewest flags that were found to work:
+#   --cap-add SYS_ADMIN   the container runtime inside needs to mount
+#   --cap-add SYS_PTRACE  crun execs into inner containers (health checks) by opening
+#                         /proc/<pid>/ns/mnt of their processes: denied without it
+#   -p 127.0.0.1:...      the two declared ports, on the loopback by default
+# Volumes of state are declared by the image (VOLUME) and need no flag.
+# Variables: ANIMA_ADDRESS (default 127.0.0.1), ANIMA_DATABASE_PORT (5432),
+# ANIMA_ACCESS_PORT (8080), ANIMA_NAME (anima-engine).
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+image=$(cat .cache/engine/engine.ref)
+address=${ANIMA_ADDRESS:-127.0.0.1}
+name=${ANIMA_NAME:-anima-engine}
+
+extra=()
+if [ -n "${ANIMA_PROFILE:-}" ]; then
+    # A profile overlays the production-shaped base in config/ (selection and data only).
+    extra+=(--env "ANIMA_PROFILE=$ANIMA_PROFILE" --volume "$root/config:/etc/anima/config:ro")
+fi
+
+exec podman run --detach --name "$name" --cap-add SYS_ADMIN --cap-add SYS_PTRACE "${extra[@]}" \
+    --publish "$address:${ANIMA_DATABASE_PORT:-5432}:5432" \
+    --publish "$address:${ANIMA_ACCESS_PORT:-8080}:8080" \
+    "$image"

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#MISE description="Start (up), remove (down) or run the configurator once in (run) the throwaway pod of its proof: database server, secret store and identity provider from the engine's images"
+#
+# Usage: mise run engine:configure-pod up|down|run <identities file>
+# up renders the access rules from the declaration of the roles first.
+set -euo pipefail
+
+ROOT="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$ROOT"
+# shellcheck source=../../engine/configure/proof/pod.sh
+. engine/configure/proof/pod.sh
+
+case "${1:-}" in
+    up)
+        cfg_down
+        ANIMA_IDENTITY_PROVIDER_URL="$CFG_PUBLIC_URL" mise-tasks/engine/configure-render
+        cfg_up
+        ;;
+    down) cfg_down ;;
+    run)
+        # run <identities file> [arguments of the image]: one run of the configurator in the pod
+        file=${2:?usage: configure-pod run <identities file> [converge|plan-json <file>]}
+        shift 2
+        cfg_run "$(realpath "$file")" -- "$@"
+        ;;
+    *)
+        echo "usage: configure-pod up|down" >&2
+        exit 2
+        ;;
+esac

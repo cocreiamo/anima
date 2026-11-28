@@ -1,0 +1,12 @@
+[Unit]
+Description=Anima database server image, loaded from the archive in the engine image
+
+[Image]
+# The engine image carries each inner image as an OCI archive (an image store
+# cannot be shipped inside an image layer). Loading it is this unit; every
+# container of the image depends on it, so nothing is fetched from a registry.
+Image=oci-archive:/usr/lib/anima/images/database.tar
+ImageTag=localhost/anima/database:engine
+
+[Service]
+TimeoutStartSec=300

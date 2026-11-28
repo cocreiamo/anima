@@ -1,0 +1,11 @@
+[Unit]
+Description=Anima listen addresses, run as a container (the outer publish restricts)
+ConditionVirtualization=container
+Before=database.service access.service
+Requires=anima-config.service
+After=anima-config.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/anima/listen container

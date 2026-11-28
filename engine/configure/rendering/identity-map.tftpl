@@ -1,0 +1,5 @@
+# Generated from the declaration of the fixed roles. Do not edit.
+# map            operating system user   database role
+%{ for r in peer_roles ~}
+${roles[r].peer_map}    ${roles[r].peer_user}    ${r}
+%{ endfor ~}

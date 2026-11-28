@@ -1,0 +1,7 @@
+// Providers come only from the mirror inside the image; no registry is reached.
+provider_installation {
+  filesystem_mirror {
+    path    = "/opt/configure/mirror"
+    include = ["registry.opentofu.org/*/*"]
+  }
+}

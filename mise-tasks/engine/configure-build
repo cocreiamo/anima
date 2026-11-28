@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#MISE description="Build the configurator image; its tag is a hash of every input, so an unchanged image is not rebuilt"
+#
+# The tag hashes every file of engine/configure (the container file, the
+# declarations, the lock file, the roles, the run script) and the container file
+# is the only place the base images are named, by digest. The reference is
+# recorded in .cache/engine/configure.ref and the id in configure.id.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+out=.cache/engine
+mkdir -p "$out/logs"
+
+tag=$(find engine/configure -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-12)
+image="localhost/anima/configure:$tag"
+
+if podman image exists "$image"; then
+    echo "configure: up to date ($image)"
+else
+    echo "configure: building $image (log: $out/logs/build-configure.log)"
+    start=$SECONDS
+    podman build --format docker --file engine/configure/Containerfile --tag "$image" \
+        ${ANIMA_BUILD_DNS:+--dns="$ANIMA_BUILD_DNS"} . >"$out/logs/build-configure.log" 2>&1 || {
+        echo "configure: FAILED, last lines of the log:" >&2
+        tail -n 25 "$out/logs/build-configure.log" >&2
+        exit 1
+    }
+    echo "configure: built in $((SECONDS - start)) s"
+fi
+podman image inspect --format '{{.Id}}' "$image" >"$out/configure.id"
+echo "$image" >"$out/configure.ref"

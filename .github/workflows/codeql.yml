@@ -1,0 +1,20 @@
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * 1"
+
+permissions: {}
+
+jobs:
+  analyze:
+    permissions:
+      contents: read
+      security-events: write
+    # First-party code only; the forks in submodules are not checked out.
+    uses: cocreiamo/.github/.github/workflows/codeql.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main
+    with:
+      languages: '["actions", "python"]'

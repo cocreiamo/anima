@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Static checks of the configurator's declarations (no secret persisted, seconds, destroy protection, facts declared once, no adapter named, identities file, generated access rules)"
+#
+# Reads files only: no container, no network. The same functions are tested by
+# tests/configure/. When the access rules have been generated
+# (engine:configure-render) they are checked too.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+exec mise exec -- python -I -B engine/configure/checks.py

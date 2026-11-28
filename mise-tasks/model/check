@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#MISE description="Validate the SysML v2 requirements model"
+#
+# Validate SysML v2 files with the OMG SysML v2 Pilot Implementation.
+#
+# GAP-001: the pilot has no command line. Its interactive shell reads a model
+# on standard input and always exits 0. This script feeds it the files and
+# fails on any ERROR or WARNING it reports.
+#
+# Usage: mise run model:check [file.sysml...]   (default: model/anima.sysml)
+set -euo pipefail
+
+: "${SYSML_PILOT_VERSION:?set in mise.toml}"
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+if [ "$#" -eq 0 ]; then
+    set -- "$root/model/anima.sysml"
+fi
+# The one place that fetches the pilot, safe in parallel (PM-007).
+pilot="$("$root/mise-tasks/model/fetch")"
+jar="$pilot/jupyter-sysml-kernel-$SYSML_PILOT_VERSION-all.jar"
+
+input="$(mktemp)"
+trap 'rm -f "$input"' EXIT
+for file in "$@"; do
+    { echo "%"; cat "$file"; echo; echo "%"; } >> "$input"
+done
+# Without this line the shell waits for input forever.
+echo "%exit" >> "$input"
+
+if ! raw="$(timeout 300 java -cp "$jar" org.omg.sysml.interactive.SysMLInteractive \
+        "$pilot/sysml.library" < "$input" 2>&1)"; then
+    printf '%s\n' "$raw"
+    echo "model:check: the pilot implementation failed or timed out" >&2
+    exit 1
+fi
+
+out="$(grep -v -e '^log4j' -e '^Reading ' <<< "$raw" || true)"
+printf '%s\n' "$out"
+if grep -q -E '(ERROR|WARNING):' <<< "$out"; then
+    echo "model:check: the model has errors or warnings" >&2
+    exit 1
+fi

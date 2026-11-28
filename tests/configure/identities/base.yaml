@@ -1,0 +1,12 @@
+# Fixture of the configurator's proof: the first declaration.
+people:
+  - name: alice
+    email: alice@example.org
+    roles: [admin, monitor]
+  - name: carol
+    email: carol@example.org
+    roles: [readwrite]
+
+applications:
+  - name: reporting
+    roles: [readonly]

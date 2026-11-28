@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+#MISE description="Build the inner images (database, access, secrets, mail) from the pinned forks, or the ones named; skips an image whose inputs did not change"
+#
+# Each image is built from third_party/ at the commit the submodule is pinned
+# to. The tag of an image is a hash of those commits and of its container file,
+# so an image that exists for the same inputs is not built again. The image id
+# is recorded in .cache/engine/<name>.id and its reference in <name>.ref. A log
+# of each build is kept in .cache/engine/logs/build-<name>.log.
+#
+# Usage: mise run engine:build [database|database-test-client|access|secrets|mail]...
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+out=.cache/engine
+mkdir -p "$out/logs"
+
+commit() { git -C "third_party/$1" rev-parse HEAD; }
+
+# build <name> <containerfile> <target> <podman build args...>
+# The commits that make the tag are read from standard input, one per line.
+build() {
+    local name=$1 file=$2 target=$3
+    shift 3
+    local tag
+    # The tag covers the commits (standard input), the container file and every
+    # file of the repository that the container file copies (see `tag`).
+    tag=$("$(dirname "$0")/tag" "$file")
+    local image="localhost/anima/$name:$tag"
+    if podman image exists "$image"; then
+        echo "$name: up to date ($image)"
+    else
+        echo "$name: building $image (log: $out/logs/build-$name.log)"
+        local start=$SECONDS
+        podman build --format docker --file "$file" --target "$target" --tag "$image" "$@" . \
+            >"$out/logs/build-$name.log" 2>&1 || {
+            echo "$name: FAILED, last lines of the log:" >&2
+            tail -n 25 "$out/logs/build-$name.log" >&2
+            exit 1
+        }
+        echo "$name: built in $((SECONDS - start)) s"
+    fi
+    podman image inspect --format '{{.Id}}' "$image" >"$out/$name.id"
+    echo "$image" >"$out/$name.ref"
+}
+
+build_database() {
+    local target=$1 name=$2
+    local pg vec oidc bkr
+    pg=$(commit postgres) vec=$(commit pgvector) oidc=$(commit pg_oidc_validator) bkr=$(commit pgbackrest)
+    # The access rules and the identity map are generated from the one declaration
+    # of the roles by the configurator's own templating; they are inputs of the tag.
+    # The identity provider's public URL is an installation parameter: the default
+    # is the local engine's own address.
+    ANIMA_IDENTITY_PROVIDER_URL=${ANIMA_IDENTITY_PROVIDER_URL:-http://localhost:8080} \
+        mise run engine:configure-render >/dev/null
+    mkdir -p "$out/rules"
+    cp .cache/configure/pg_hba.conf .cache/configure/pg_ident.conf "$out/rules/"
+    printf '%s\n' "$pg" "$vec" "$oidc" "$bkr" | ANIMA_TAG_EXTRA="$out/rules/pg_hba.conf $out/rules/pg_ident.conf" build "$name" engine/database/Containerfile "$target" \
+        --build-context "rules=$out/rules" \
+        --build-context "postgres=third_party/postgres" \
+        --build-context "pgvector=third_party/pgvector" \
+        --build-context "pg_oidc_validator=third_party/pg_oidc_validator" \
+        --build-context "pgbackrest=third_party/pgbackrest" \
+        --build-arg "SOURCE_COMMIT_POSTGRES=$pg" \
+        --build-arg "SOURCE_COMMIT_PGVECTOR=$vec" \
+        --build-arg "SOURCE_COMMIT_PG_OIDC_VALIDATOR=$oidc" \
+        --build-arg "SOURCE_COMMIT_PGBACKREST=$bkr"
+}
+
+build_access() {
+    local kc
+    kc=$(commit keycloak)
+    mkdir -p "$out/m2"
+    printf '%s\n' "$kc" | build access engine/access/Containerfile server \
+        --build-context "keycloak=third_party/keycloak" \
+        --volume "$root/$out/m2:/root/.m2" \
+        --ulimit nofile=65536:65536 \
+        --build-arg "KEYCLOAK_VERSION=26.8.2" \
+        --build-arg "SOURCE_COMMIT_KEYCLOAK=$kc"
+}
+
+build_secrets() {
+    local bao
+    bao=$(commit openbao)
+    printf '%s\n' "$bao" | build secrets engine/secrets/Containerfile server \
+        --build-context "openbao=third_party/openbao" \
+        ${ANIMA_BUILD_DNS:+--dns="$ANIMA_BUILD_DNS"} \
+        --build-arg "SOURCE_COMMIT_OPENBAO=$bao"
+}
+
+build_mail() {
+    : | build mail engine/mail/Containerfile server
+}
+
+for what in ${*:-database access secrets mail}; do
+    case "$what" in
+        database) build_database server database ;;
+        database-test-client) build_database oauth-test-client database-test-client ;;
+        access) build_access ;;
+        secrets) build_secrets ;;
+        mail) build_mail ;;
+        *)
+            echo "unknown image: $what" >&2
+            exit 2
+            ;;
+    esac
+done

@@ -1,0 +1,7 @@
+# The outgoing mail stand-in: a mail catcher that accepts every message and shows
+# it through an API. It stands in for the organisation's mail service in local
+# development and CI; it is never the production adapter. Pinned by tag and
+# digest, not built: the engine's own fork of it is not a submodule yet.
+FROM docker.io/axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e AS server
+LABEL org.anima.capability="mail" \
+      org.anima.role="stand-in"

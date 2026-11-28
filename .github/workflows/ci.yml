@@ -1,0 +1,25 @@
+name: CI
+
+# Thin callers of the reusable workflows of the organization, pinned by the
+# commit of cocreiamo/.github that carries them (`anima-tech-github-governance`).
+# The Pilot Implementation is cached on its checksum.
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: cocreiamo/.github/.github/workflows/check.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main
+    with:
+      mise-version: 2026.11.10
+      cache-path: .cache/sysml-pilot
+      cache-key-variable: SYSML_PILOT_SHA256
+
+  reuse:
+    uses: cocreiamo/.github/.github/workflows/reuse.yml@0b4136b26adc6cf8adbc6b7ec046dab36501d7fe # shared, main

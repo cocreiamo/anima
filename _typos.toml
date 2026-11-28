@@ -1,0 +1,9 @@
+[files]
+extend-exclude = [
+  "third_party",
+  "shared/",
+  ".cache/",
+  "LICENSE",
+  "LICENSES/",
+  "*.lock",
+]

@@ -1,0 +1,11 @@
+[Unit]
+Description=Anima listen addresses, booted as the operating system (the configured address only)
+ConditionVirtualization=!container
+Before=database.service access.service
+Requires=anima-config.service
+After=anima-config.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/anima/listen host

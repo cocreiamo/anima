@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Wait until the engine container (ANIMA_NAME, default anima-engine) is healthy; prints the seconds it took"
+#
+# `podman wait --condition=healthy` returned at once with -1 on podman 4.9, so the
+# health state is read instead. Exit 1 when the limit (ANIMA_WAIT_SECONDS, 180) passes.
+set -euo pipefail
+
+name=${ANIMA_NAME:-anima-engine}
+limit=${ANIMA_WAIT_SECONDS:-180}
+start=$SECONDS
+while [ $((SECONDS - start)) -lt "$limit" ]; do
+    state=$(podman inspect --format '{{.State.Health.Status}}' "$name" 2>/dev/null || echo missing)
+    if [ "$state" = healthy ]; then
+        echo "$name: healthy after $((SECONDS - start)) s"
+        exit 0
+    fi
+    sleep 1
+done
+echo "$name: not healthy after $limit s (last state: $state)" >&2
+exit 1

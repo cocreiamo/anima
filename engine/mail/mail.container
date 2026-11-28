@@ -1,0 +1,35 @@
+[Unit]
+Description=Anima outgoing mail stand-in (a mail catcher; started only when the mail driver is catcher)
+# The stand-in is selected by the configuration, never by a change to this unit.
+# The marker is written by anima-config when `mail.driver` is `catcher`.
+ConditionPathExists=/run/anima/config/mail.catcher.active
+Requires=anima-config.service
+After=anima-config.service access.service
+
+[Container]
+ContainerName=mail
+Image=mail.image
+Pod=anima.pod
+# Everything the catcher keeps is in memory; its API (messages as data) and its
+# SMTP port are on the pod's loopback and are never published.
+Exec=--smtp 127.0.0.1:1025 --listen 127.0.0.1:8025
+ReadOnly=true
+Tmpfs=/tmp:rw,mode=1777
+# Startup, liveness and readiness: the API answers.
+HealthStartupCmd=/mailpit readyz
+HealthStartupInterval=2s
+HealthStartupRetries=30
+HealthCmd=/mailpit readyz
+HealthInterval=5s
+HealthTimeout=4s
+HealthRetries=2
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=2
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

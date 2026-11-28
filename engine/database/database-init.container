@@ -1,0 +1,28 @@
+[Unit]
+Description=Anima database cluster creation (only when the volume is empty)
+# A mechanism that runs on an empty cluster only creates it. What is declared is
+# applied at every start by the configurator, not here (skill anima-product-principles).
+# The cluster is built in a staging directory and renamed when complete, so that
+# an abrupt stop never leaves a half-made cluster that this condition would
+# accept (R42).
+ConditionPathExists=!/var/lib/anima/database/cluster/PG_VERSION
+
+[Container]
+ContainerName=database-init
+Image=database.image
+Pod=anima.pod
+Volume=/var/lib/anima/database:/var/lib/postgresql/data:U
+# The superuser authenticates as the operating system user of the same name on
+# the local socket; it never gets a password (R12). Host connections are refused.
+Exec=sh -c "rm -rf /var/lib/postgresql/data/cluster.tmp && initdb --pgdata=/var/lib/postgresql/data/cluster.tmp --username=postgres --auth-local=peer --auth-host=reject --encoding=UTF8 --locale=en_US.utf8 && mv /var/lib/postgresql/data/cluster.tmp /var/lib/postgresql/data/cluster"
+ReadOnly=true
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=90
+# A run-to-completion container can hang in podman's own cleanup after it has exited
+# (observed under load); the unit is then retried, and the condition above makes
+# a retry after a finished creation a no-op.
+Restart=on-failure
+RestartSec=2

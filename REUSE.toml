@@ -1,0 +1,25 @@
+version = 1
+
+# Everything Cocreiamo writes in this repository.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Cocreiamo di Bilotta Francesco"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Derived from the Model Trademark Guidelines 1.0, which are CC BY 4.0.
+[[annotations]]
+path = "TRADEMARKS.md"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Cocreiamo di Bilotta Francesco"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Postmortem template adapted from the one of PagerDuty, Inc. (Apache-2.0).
+[[annotations]]
+path = "docs/postmortems/TEMPLATE.md"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2019 PagerDuty, Inc.",
+  "2026 Cocreiamo di Bilotta Francesco",
+]
+SPDX-License-Identifier = "Apache-2.0"

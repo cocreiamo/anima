@@ -1,0 +1,3 @@
+# The local profile selects the stand-in of the outgoing mail port: a mail
+# catcher in the engine. It selects and nothing else.
+driver = "catcher"

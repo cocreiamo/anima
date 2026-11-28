@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#MISE description="Run the system tests (they start the engine image as a container); extra arguments go to pytest"
+#MISE depends=["engine:image"]
+#
+# The tests start podman's API service for the session; nothing else is assumed.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+mkdir -p .cache/engine/logs
+mise run engine:build database-test-client
+ANIMA_SYSTEM_TESTS=1 exec uv run --locked pytest tests/system "$@"

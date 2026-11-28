@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Generated files: collapsed in diffs and left out of language statistics.
+uv.lock linguist-generated
+mise.lock linguist-generated
+MODULE.bazel.lock linguist-generated

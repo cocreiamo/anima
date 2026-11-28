@@ -1,0 +1,16 @@
+{
+    "name": "main-green",
+    "target": "branch",
+    "enforcement": "active",
+    "conditions": {
+        "ref_name": {
+            "include": ["refs/heads/main-green"],
+            "exclude": []
+        }
+    },
+    "rules": [
+        { "type": "non_fast_forward" },
+        { "type": "deletion" },
+        { "type": "required_signatures" }
+    ]
+}

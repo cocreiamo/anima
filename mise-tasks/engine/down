@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Stop the engine container and remove it with its volumes"
+set -euo pipefail
+
+name=${ANIMA_NAME:-anima-engine}
+if podman container exists "$name"; then
+    podman stop --time 30 "$name"
+    podman rm --volumes "$name"
+else
+    echo "$name: not running"
+fi

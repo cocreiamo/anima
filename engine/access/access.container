@@ -1,0 +1,40 @@
+[Unit]
+Description=Anima identity provider (development mode: no configurator yet)
+# The database server does not need the identity provider (R13); the reverse
+# order is not declared either: in this slice the identity provider keeps its own
+# state in memory and needs nothing from the other units.
+Requires=anima-listen-container.service anima-listen-host.service anima-credentials.service
+After=anima-credentials.service anima-listen-container.service anima-listen-host.service database.service secrets.service database-tls.service
+# Ordering only (no Requires): the identity provider is not needed by the database
+# server (R13), but two `podman run` into the same pod at the same moment were seen
+# to hang each other, so the starts are serialised: it starts after the others.
+
+[Container]
+ContainerName=access
+Image=access.image
+EnvironmentFile=/run/anima/listen/access.env
+# The administrator of the identity provider (a credential derived into memory).
+EnvironmentFile=/run/anima/configurator/access.env
+Environment=KC_HTTP_MANAGEMENT_HOST=127.0.0.1
+Pod=anima.pod
+# Development mode needs no database and no certificate. The state is lost when
+# the container stops: acceptable until the configurator exists.
+Exec=start-dev --http-port=8080 --health-enabled=true
+Mount=type=tmpfs,destination=/opt/keycloak/data,tmpfs-mode=1777
+Tmpfs=/tmp:rw,mode=1777
+# Startup, liveness and readiness through the management port (no curl in the
+# image: the shell's own TCP redirection is used).
+HealthStartupCmd=bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/started HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3 && grep -q "\"status\": \"UP\"" <&3'
+HealthStartupInterval=3s
+HealthStartupRetries=100
+HealthCmd=bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/ready HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3 && grep -q "\"status\": \"UP\"" <&3'
+HealthInterval=5s
+HealthTimeout=4s
+HealthRetries=2
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=2
+TimeoutStartSec=300
