@@ -12,7 +12,7 @@ set -euo pipefail
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 dir="${1:-$HOME/engine-cache}"
 refs_dir="${ANIMA_ENGINE_REFS:-$root/.cache/engine}"
-names="${ANIMA_INNER_IMAGES:-configure database database-test-client access secrets mail}"
+names="${ANIMA_INNER_IMAGES:-configure database database-test-client access secrets secrets-dependencies mail}"
 
 refs=()
 for name in $names; do

@@ -43,6 +43,7 @@ Look here before building something. Each section is derived from its source; th
 | R192 | check validates every file of the model | written |
 | R108 | checks pass from empty cache | written |
 | R55 | checks stay fast | written |
+| R178 | compile stages run with network off | written |
 | R17 | component licenses allowed | written |
 | R49 | configuration names no adapter | written |
 | R48 | configuration validated before ready | written |
@@ -126,6 +127,7 @@ Look here before building something. Each section is derived from its source; th
 | R94 | no reference to missing record | written |
 | R117 | no temporary administrator remains | written |
 | R30 | nothing reachable by default | written |
+| R179 | offline build succeeds and names what is missing | written |
 | R59 | one adapter active per port | pending |
 | R42 | one start path after crash | written |
 | R93 | only architecture records exist | written |
@@ -303,6 +305,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R192, check validates every file of the model, at every commit: `test_R192_check_validates_every_file_of_the_model` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
+- R178, compile stages run with network off, at every commit: `test_R178_compile_stages_run_with_network_off` (written).
 - R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
 - R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (written).
 - R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
@@ -351,6 +354,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
 - R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
 - R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
+- R179, offline build succeeds and names what is missing, when an image is promoted: `test_R179_offline_build_succeeds_and_names_what_is_missing` (written).
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
 - R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
