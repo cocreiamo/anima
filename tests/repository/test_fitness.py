@@ -283,7 +283,6 @@ EXCEPTIONS = {
     **dict.fromkeys(
         [
             "test_R1_engine_built_from_pinned_sources",
-            "test_R2_valid_token_opens_session",
             "test_R5_identity_maps_to_role",
             "test_R9_single_command_start",
             "test_R13_database_server_starts_without_identity_provider",

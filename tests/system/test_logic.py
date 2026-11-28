@@ -6,8 +6,10 @@ No container is started: each feeds the pure decision a recorded wrong input.
 import json
 
 from engine_logic import (
+    audit_names_person,
     certificate_facts,
     container_phase,
+    form_submission,
     regress_tests_passed,
     renewal_failure_faults,
     renewal_faults,
@@ -77,3 +79,43 @@ def test_R119_failed_renewal_leaves_engine_not_ready_detects_violation():
     assert renewal_failure_faults("healthy", said)
     assert renewal_failure_faults("unhealthy", "")
     assert renewal_failure_faults("unhealthy", "not ready\naccess.service: failed")
+
+
+LOGIN_PAGE = (
+    '<form id="kc-form-login" action="http://localhost:8080/a?x=1&amp;y=2" method="post">'
+    '<input name="username" type="text"/><input name="password" type="password"/>'
+    '<input type="hidden" name="credentialId" value=""/>'
+    '<input name="login" type="submit" value="Sign In"/></form>'
+)
+GRANT_PAGE = (
+    '<form action="/g" method="post"><input type="hidden" name="code" value="c1"/>'
+    '<input name="accept" type="submit" value="Yes"/>'
+    '<input name="cancel" type="submit" value="No"/></form>'
+)
+AUTHENTICATED = '2026-11-28 10:00:00 UTC [{n}] LOG:  connection authenticated: identity="carol" method=oauth\n'
+AUTHORIZED = "2026-11-28 10:00:00 UTC [{n}] LOG:  connection authorized: user=readwrite database=postgres\n"
+
+
+def test_R2_valid_token_opens_session_detects_violation():
+    """The scripted browser fills the sign-in form and accepts the grant, never
+    refuses it; the audit counts only when one session shows the person and the
+    role together."""
+    action, data = form_submission(LOGIN_PAGE, "carol", "pw")
+    assert action == "http://localhost:8080/a?x=1&y=2"
+    assert data == {
+        "username": "carol",
+        "password": "pw",
+        "credentialId": "",
+        "login": "Sign In",
+    }
+    _, grant = form_submission(GRANT_PAGE, "carol", "pw")
+    assert grant == {"code": "c1", "accept": "Yes"}
+    assert form_submission("<p>You may close this window</p>", "carol", "pw") is None
+
+    same_session = AUTHENTICATED.format(n=41) + AUTHORIZED.format(n=41)
+    assert audit_names_person(same_session, "carol", "readwrite")
+    assert not audit_names_person(same_session, "alice", "readwrite")
+    assert not audit_names_person(same_session, "carol", "readonly")
+    two_sessions = AUTHENTICATED.format(n=41) + AUTHORIZED.format(n=42)
+    assert not audit_names_person(two_sessions, "carol", "readwrite")
+    assert not audit_names_person("", "carol", "readwrite")

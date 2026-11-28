@@ -4,6 +4,7 @@ title: Run the identity provider in production mode
 status: To Do
 assignee: []
 created_date: '2026-11-27T20:19:47Z'
+updated_date: '2026-11-28T05:21:28Z'
 labels:
   - engine
 dependencies: []
@@ -27,6 +28,7 @@ The engine starts the identity provider in its development mode, with a bootstra
 <!-- AC:BEGIN -->
 - [ ] #1 Check: the identity provider starts in production mode in the engine and the token tests still pass
 - [ ] #2 Check: no bootstrap administrator remains after the configurator has run
+- [ ] #3 Check: the issuer of a token is the configured public URL whatever name the request used, with a test (no requirement of the model fixes the issuer today; R2 and R3.3 name 'the configured issuer', so a requirement is added with it)
 <!-- AC:END -->
 
 ## Brief
