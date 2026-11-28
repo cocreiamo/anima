@@ -1,0 +1,142 @@
+name: Spike system tests on a hosted runner
+
+# Throwaway workflow of the spike "can a GitHub-hosted runner build the engine
+# image and pass `mise run engine:test`". Not for main.
+
+on:
+  push:
+    branches: [spike/system-tests-hosted]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Runner facts
+        run: |
+          set -x
+          uname -a; nproc; free -g; df -h
+          podman version
+          id; cat /etc/subuid /etc/subgid
+          echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"; ls -ld "/run/user/$(id -u)" || true
+          cat /sys/fs/cgroup/cgroup.controllers
+          cat "/sys/fs/cgroup/user.slice/user-$(id -u).slice/cgroup.controllers" || true
+          sysctl kernel.apparmor_restrict_unprivileged_userns || true
+          podman info --format '{{.Host.CgroupManager}} {{.Host.CgroupsVersion}} {{.Store.GraphDriverName}} {{.Store.GraphRoot}}'
+          du -sh third_party/* || true
+
+      # Hack: a user session gives rootless podman a systemd cgroup manager with
+      # delegated controllers, as on a developer machine; and the larger /mnt
+      # disk holds the image store.
+      - name: User session and image store on /mnt
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          for _ in $(seq 30); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 1; done
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+          sudo mkdir -p /mnt/containers && sudo chown "$(id -u):$(id -g)" /mnt/containers
+          mkdir -p ~/.config/containers
+          printf '[storage]\ndriver = "overlay"\ngraphroot = "/mnt/containers/storage"\n' > ~/.config/containers/storage.conf
+          XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          export XDG_RUNTIME_DIR
+          podman system migrate || true
+          podman info --format '{{.Host.CgroupManager}} {{.Host.CgroupsVersion}} {{.Store.GraphDriverName}} {{.Store.GraphRoot}}'
+          cat "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers" || true
+
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.10
+
+      - name: Cache key
+        id: key
+        run: |
+          echo "value=$( { git submodule status; find engine mise-tasks/engine config -type f | LC_ALL=C sort | xargs sha256sum; } | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the inner images
+        id: restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /mnt/cache
+          key: spike-engine-${{ steps.key.outputs.value }}
+          restore-keys: spike-engine-
+
+      - name: Load the restored images
+        if: steps.restore.outputs.cache-matched-key != ''
+        run: |
+          s=$SECONDS
+          podman load --input /mnt/cache/images.tar
+          echo "load: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Build configurator
+        run: |
+          s=$SECONDS; mise run engine:configure-build; echo "configure: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build database
+        run: |
+          s=$SECONDS; mise run engine:build database; echo "database: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build database test client
+        run: |
+          s=$SECONDS; mise run engine:build database-test-client; echo "database-test-client: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build secrets
+        run: |
+          s=$SECONDS; mise run engine:build secrets; echo "secrets: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build mail
+        run: |
+          s=$SECONDS; mise run engine:build mail; echo "mail: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build access
+        run: |
+          s=$SECONDS; mise run engine:build access; echo "access: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+          df -h / /mnt
+
+      - name: Save the inner images
+        id: pack
+        if: steps.restore.outputs.cache-hit != 'true'
+        run: |
+          s=$SECONDS
+          mkdir -p /mnt/cache
+          refs=$(cat .cache/engine/{configure,database,database-test-client,access,secrets,mail}.ref)
+          # shellcheck disable=SC2086
+          podman save --multi-image-archive --output /mnt/cache/images.tar $refs
+          du -sh /mnt/cache/*
+          echo "pack: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Cache the inner images
+        if: steps.pack.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /mnt/cache
+          key: spike-engine-${{ steps.key.outputs.value }}
+
+      - name: Build engine image
+        run: |
+          s=$SECONDS; mise run engine:image; echo "engine image: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+          podman images
+          df -h / /mnt
+
+      - name: System tests
+        run: |
+          s=$SECONDS
+          mise run engine:test -- -v -rA --durations=0
+          echo "tests: $((SECONDS - s)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Engine logs on failure
+        if: failure()
+        run: |
+          podman ps -a || true
+          for c in $(podman ps -aq); do podman logs --tail 200 "$c" > ".cache/engine/logs/container-$c.log" 2>&1 || true; done
+          df -h / /mnt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: engine-logs
+          path: .cache/engine/logs
+          if-no-files-found: ignore
