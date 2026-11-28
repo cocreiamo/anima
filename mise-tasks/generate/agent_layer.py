@@ -591,7 +591,7 @@ def requirement_row_order(row):
 
 
 def requirements_table(rows):
-    return "| Id | Name | Verification |\n| --- | --- | --- |\n" + "\n".join(
+    return "| Alias | Name | Verification |\n| --- | --- | --- |\n" + "\n".join(
         f"| {a} | {b} | {c} |" for a, b, c in rows
     )
 
@@ -613,7 +613,7 @@ def requirement_rows(model, tests):
             state = "pending"
         rows.append(
             [
-                element["declaredShortName"],
+                m.alias(element) or "",
                 humanize(element["declaredName"]),
                 state,
             ]

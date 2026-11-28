@@ -146,7 +146,7 @@ def test_R118_certificate_renewed_before_expiry(own_engine, tmp_path):
     assert engine.inner_container_started_at("database") == container
     assert engine.active("anima-ready.target")
     # The shipped unit carries the thresholds of the model, and nothing else does.
-    limits, _ = model_thresholds("R118")
+    limits, _ = model_thresholds("certificateRenewedBeforeExpiry")
     assert limits["certificateLifetime"][1] == "s"
     unit = unit_environment(TLS_UNIT)
     assert unit["ANIMA_TLS_LIFETIME_SECONDS"] == str(limits["certificateLifetime"][0])

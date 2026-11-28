@@ -17,15 +17,15 @@ import os
 import re
 import subprocess
 
-from sysml_model import ROOT
+from sysml_model import ROOT, thresholds
 
 MODEL = ROOT / "model"
 ROOT_FILE = "anima.sysml"
-FILE_NAME = re.compile(r"^R(\d+)-([a-z0-9]+(?:-[a-z0-9]+)*)\.sysml$")
+FILE_NAME = re.compile(r"^(?:R(\d+)-)?([a-z0-9]+(?:-[a-z0-9]+)*)\.sysml$")
 COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 TOKEN = re.compile(
     r"\bpackage\s+(?P<package>\w+)\s*\{"
-    r"|\brequirement\s+<'(?P<id>R[\d.]+)'>\s*(?P<name>\w+)"
+    r"|\brequirement\s+(?:<'(?P<alias>R[\d.]+)'>\s*)?(?P<name>(?!def\b)\w+)"
     r"|\bverification\s+def\s+(?P<test>\w+)"
     r"|(?P<open>\{)|(?P<close>\})"
 )
@@ -36,18 +36,28 @@ def kebab(name):
     return re.sub(r"(?<=[a-z0-9])([A-Z])", r"-\1", name).lower()
 
 
+def snake(name):
+    """`everyGapRegistered` is `every_gap_registered`."""
+    return kebab(name).replace("-", "_")
+
+
+def pascal(name):
+    """`everyGapRegistered` is `EveryGapRegistered`."""
+    return name[0].upper() + name[1:]
+
+
 def declarations(text):
     """(packages, requirements, tests) of a file: the root packages by name; the
-    requirements as (id, name, depth) where depth 1 is directly in a package;
-    the names of the verification definitions."""
+    requirements as (alias or None, name, depth) where depth 1 is directly in a
+    package; the names of the verification definitions."""
     packages, requirements, tests, depth = [], [], [], 0
     for token in TOKEN.finditer(COMMENT.sub(" ", text)):
         if token["package"]:
             if depth == 0:
                 packages.append(token["package"])
             depth += 1
-        elif token["id"]:
-            requirements.append((token["id"], token["name"], depth))
+        elif token["name"]:
+            requirements.append((token["alias"], token["name"], depth))
         elif token["test"]:
             tests.append(token["test"])
         elif token["open"]:
@@ -57,10 +67,18 @@ def declarations(text):
     return packages, requirements, tests
 
 
+def number_of(alias):
+    return int(re.match(r"R(\d+)", alias)[1])
+
+
 def layout_faults(files):
     """Faults of the layout of the model. `files` maps the path of each file,
-    relative to model/, to its text."""
-    faults, claimed = [], {}
+    relative to model/, to its text. A requirement is identified by its name:
+    its file is `<kebab-case name>.sysml`, its package the name with a capital,
+    its verifications `test_<snake_case name>...`. One that had a number before
+    keeps it as an alias: `R<n>-<kebab-case name>.sysml`, package `R<n>`,
+    verifications `test_R<n>_...`."""
+    faults, names, aliases = [], {}, {}
     for path, text in sorted(files.items()):
         packages, requirements, tests = declarations(text)
         parts = path.split("/")
@@ -75,32 +93,47 @@ def layout_faults(files):
             continue
         named = FILE_NAME.match(parts[2])
         if not named:
-            faults.append(f"{path}: the name is not R<id>-<kebab-case name>.sysml")
+            faults.append(f"{path}: the name is not [R<n>-]<kebab-case name>.sysml")
             continue
-        number = named[1]
         top = [r for r in requirements if r[2] == 1]
         if len(top) != 1:
             faults.append(f"{path}: {len(top)} requirements, not exactly one")
             continue
-        short, name, _depth = top[0]
-        claimed.setdefault(short, []).append(path)
-        if short != f"R{number}":
-            faults.append(f"{path}: holds {short}, the name says R{number}")
+        alias, name, _depth = top[0]
+        names.setdefault(name, []).append(path)
+        if alias:
+            aliases.setdefault(alias, []).append(path)
+        if alias != (f"R{named[1]}" if named[1] else None):
+            faults.append(f"{path}: holds alias {alias}, the file name says {named[1]}")
         if named[2] != kebab(name):
             faults.append(
                 f"{path}: the name says {named[2]}, the requirement is {name}"
             )
-        if packages != [f"R{number}"]:
-            faults.append(f"{path}: the package is {packages}, not [R{number}]")
-        for sub, sub_name, depth in requirements:
-            if depth > 1 and not sub.startswith(f"R{number}."):
-                faults.append(f"{path}: {sub} is nested in R{number}")
+        wanted = f"R{named[1]}" if alias else pascal(name)
+        if packages != [wanted]:
+            faults.append(f"{path}: the package is {packages}, not [{wanted}]")
+        for sub, _sub_name, depth in requirements:
+            if depth > 1 and sub and not sub.startswith(f"{alias}."):
+                faults.append(f"{path}: {sub} is nested in {alias}")
+        stem = f"test_{alias}_" if alias else f"test_{snake(name)}"
         for test in tests:
-            if not test.startswith(f"test_R{number}_"):
-                faults.append(f"{path}: the verification {test} is not of R{number}")
-    for short, paths in claimed.items():
-        if len(paths) > 1:
-            faults.append(f"{short} is in {len(paths)} files: {sorted(paths)}")
+            if not test.startswith(stem):
+                faults.append(f"{path}: the verification {test} is not of {name}")
+    for kind, found in (("name", names), ("alias", aliases)):
+        for key, paths in found.items():
+            if len(paths) > 1:
+                faults.append(f"{kind} {key} is in {len(paths)} files: {sorted(paths)}")
+    return faults
+
+
+def number_faults(files, frozen):
+    """A requirement added now carries no number: any short name `R<n>` above the
+    highest number that was frozen when the names became the identifiers."""
+    faults = []
+    for path, text in sorted(files.items()):
+        for alias, name, _depth in declarations(text)[1]:
+            if alias and number_of(alias) > frozen:
+                faults.append(f"{path}: {name} has the number {alias}, above {frozen}")
     return faults
 
 
@@ -160,6 +193,51 @@ def test_R190_each_requirement_in_a_file_of_its_own_detects_violation():
     # A requirement named in a comment is not one.
     commented = GOOD + "// requirement <'R9'> notOne { }\n"
     assert layout_faults({ROOT_FILE: root, PATH: commented}) == []
+    # A requirement with no number: the name is the identifier.
+    assert layout_faults({ROOT_FILE: root, NAMED_PATH: NAMED}) == []
+    assert layout_faults({ROOT_FILE: root, NAMED_PATH.replace("every", "each"): NAMED})
+    assert layout_faults({ROOT_FILE: root, NAMED_PATH: NAMED.replace("EveryGap", "x")})
+    assert layout_faults(
+        {ROOT_FILE: root, NAMED_PATH: NAMED.replace("test_every", "test_each")}
+    )
+    # A name already taken by a file with a number, and an alias given to a file
+    # whose name has none.
+    assert any(
+        "2 files" in f
+        for f in layout_faults(
+            {
+                ROOT_FILE: root,
+                NAMED_PATH: NAMED,
+                "requirements/day0/R7-every-gap-registered.sysml": GOOD,
+            }
+        )
+    )
+    assert layout_faults({ROOT_FILE: root, NAMED_PATH: GOOD})
+
+
+NAMED = (
+    "package EveryGapRegistered {\n    private import Anima::*;\n"
+    "    requirement everyGapRegistered {\n        doc /* x */\n    }\n"
+    "    satisfy everyGapRegistered by toolchain;\n"
+    "    verification def test_every_gap_registered { }\n"
+    "}\n"
+)
+NAMED_PATH = "requirements/day0/every-gap-registered.sysml"
+
+
+def test_new_requirements_carry_no_number(model):
+    files = model_files()
+    frozen = thresholds(model)["newRequirementsCarryNoNumber"]["maxLegacyNumber"]
+    assert frozen[1] is None
+    assert number_faults(files, frozen[0]) == []
+
+
+def test_new_requirements_carry_no_number_detects_violation():
+    assert number_faults({"a": GOOD}, 7) == []
+    assert number_faults({"a": GOOD}, 6)
+    assert number_faults({"a": NAMED}, 0) == []
+    nested = GOOD.replace("R7.1", "R70.1")
+    assert number_faults({"a": nested}, 7)
 
 
 # ---- R192: the check validates every file, root first, and names the faulty one ----------

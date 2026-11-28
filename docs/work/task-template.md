@@ -23,7 +23,7 @@ What and why.
 
 ## Acceptance Criteria
 
-- [ ] #1 test_R<id>_<what>
+- [ ] #1 test_<name in snake case>
 - [ ] #2 Check: <an explicit check, for a task that is not about a requirement>
 
 ## Brief

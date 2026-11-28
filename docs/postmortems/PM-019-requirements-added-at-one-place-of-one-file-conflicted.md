@@ -36,6 +36,8 @@ The class is a file whose shape makes independent additions touch the same lines
 
 Each requirement, with its verifications and its `satisfy` line, is a file of its own under `model/requirements/<group>/`, named `R<id>-<name>.sysml`, in a package of its own. The root file `model/anima.sysml` holds the structure they refer to (the ports, the parts, the triggers) and no requirement. The pilot reads a directory as one model and resolves packages across files (observed on 2026-11-28 with the pinned release); a package declared in two files is not merged, which is why each file has its own. A new requirement is one new file and changes no file that exists, so two additions cannot conflict. The move was made by a script and shown equivalent: the export of the model before and after has the same elements once the layout-dependent fields are left out.
 
+A second step removes the allocation of identifiers, which collided the same way (R165 to R167, PM-014 claimed three times): the name of a requirement is its identifier, and a new requirement carries no number (`newRequirementsCarryNoNumber`); postmortems are named by date and slug from now on. Two branches that choose one name make one file, which git reports.
+
 ## Impact
 
 Time and CI rounds of the pull requests that conflicted. No defect reached `main`.
