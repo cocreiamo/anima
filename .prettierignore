@@ -11,6 +11,9 @@ CLA.md
 PLUGIN-EXCEPTION.md
 TRADEMARKS.md
 
+# Written by the release tool in its own layout (PM-012, R155).
+CHANGELOG.md
+
 # Generated. The ADR index is a table written by `mise run generate`, which does
 # not pad the columns the way Prettier does.
 docs/adr/README.md

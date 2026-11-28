@@ -121,7 +121,28 @@ jobs:
           REF: ${{ steps.load.outputs.ref }}
         run: |
           echo "$REGISTRY_TOKEN" | podman login ghcr.io --username "$ACTOR" --password-stdin
-          if podman manifest inspect "docker://ghcr.io/cocreiamo/anima:$VERSION" >/dev/null 2>&1; then
+          # Asks the registry about the tag, with three answers, not two. `manifest
+          # inspect` takes a bare reference: with a `docker://` prefix podman 4.9.3
+          # looks the name up among local images and always fails. Only the
+          # registry's own "manifest unknown" or "name unknown" means the tag is
+          # absent; any other failure (no network, 401, 403) is unknown, and the
+          # step stops on it: a tag is never pushed over one that may exist.
+          tag_state() {
+            local err rc=0
+            err="$(podman manifest inspect "$1" 2>&1 >/dev/null)" || rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo exists
+            elif printf '%s' "$err" | grep -Eiq 'manifest unknown|name unknown'; then
+              echo absent
+            else
+              echo "Cannot tell whether $1 exists: $err" >&2
+              echo unknown
+            fi
+          }
+          state="$(tag_state "ghcr.io/cocreiamo/anima:$VERSION")"
+          if [ "$state" = "unknown" ]; then
+            exit 1
+          elif [ "$state" = "exists" ]; then
             # An earlier run pushed the tag and failed before the release: the tag
             # is never moved; the release points at the digest it already holds.
             echo "ghcr.io/cocreiamo/anima:$VERSION exists: not pushed again."

@@ -70,6 +70,7 @@ Look here before building something. Each section is derived from its source; th
 | R126 | entry terminates tls with engine certificate | written |
 | R67 | every adapter is part of the engine | written |
 | R58 | every adapter passes its contract suite | pending |
+| R164 | every build pulls from the mirror | pending |
 | R75 | every capability directory covered | written |
 | R56 | every check seen to fail | written |
 | R11 | every dependency pinned | written |
@@ -103,6 +104,11 @@ Look here before building something. Each section is derived from its source; th
 | R116 | issuer is the configured public url | written |
 | R68 | limits held in model | written |
 | R64 | mail delivered through configured service | written |
+| R160 | mirror covers every base image | written |
+| R163 | mirror has least privilege | written |
+| R165 | mirror keeps signatures of signed images | written |
+| R162 | mirror never deletes or moves atag | written |
+| R161 | mirror preserves digests | written |
 | R91 | no bytecode outside cache | written |
 | R4 | no password access | pending |
 | R53 | no product in requirement | written |
@@ -125,6 +131,7 @@ Look here before building something. Each section is derived from its source; th
 | R98 | readiness negative when configurator fails | written |
 | R145 | records made from shared template | written |
 | R24 | release only from verified commit | written |
+| R155 | release tool files not formatted and licensed | written |
 | R110 | releases stay patch only | written |
 | R77 | role files well formed | written |
 | R31 | roles authenticate by kind | pending |
@@ -242,6 +249,7 @@ Look here before building something. Each section is derived from its source; th
 | --- | --- | --- |
 | `ci.yml` | CI | pull_request, merge_group, push |
 | `codeql.yml` | CodeQL | pull_request, push, schedule |
+| `mirror-base-images.yml` | Mirror base images | schedule, workflow_dispatch |
 | `prepare-release.yml` | Prepare release | push |
 | `promote.yml` | Promote | schedule, workflow_dispatch |
 | `pull-request.yml` | Pull request | pull_request, merge_group |
@@ -275,6 +283,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
 - R58, every adapter passes its contract suite, when an image is promoted: `test_R58_every_adapter_passes_its_contract_suite` (pending).
+- R164, every build pulls from the mirror, at every commit: `test_R164_every_build_pulls_from_the_mirror` (pending).
 - R75, every capability directory covered, at every commit: `test_R75_every_capability_directory_has_a_skill` (written).
 - R56, every check seen to fail, at every commit: `test_R56_every_check_seen_to_fail` (written).
 - R11, every dependency pinned, at every commit: `test_R11_every_dependency_pinned` (written).
@@ -290,6 +299,11 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
 - R150, independent additions do not conflict in generated files, at every commit: `test_R150_independent_additions_do_not_conflict_in_generated_files` (written).
 - R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
+- R160, mirror covers every base image, at every commit: `test_R160_mirror_covers_every_base_image` (written).
+- R163, mirror has least privilege, at every commit: `test_R163_mirror_has_least_privilege` (written).
+- R165, mirror keeps signatures of signed images, at every commit: `test_R165_mirror_keeps_the_signatures_of_signed_images` (written).
+- R162, mirror never deletes or moves atag, at every commit: `test_R162_mirror_never_deletes_or_moves_a_tag` (written).
+- R161, mirror preserves digests, at every commit: `test_R161_mirror_preserves_digests` (written).
 - R91, no bytecode outside cache, at every commit: `test_R91_no_bytecode_outside_cache` (written).
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
 - R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
@@ -305,6 +319,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R115, publish only what was verified, at every commit: `test_R115_promotion_publishes_only_what_it_verified` (written).
 - R145, records made from shared template, at every commit: `test_R145_records_made_from_the_shared_template` (written).
 - R24, release only from verified commit, at every commit: `test_R24_release_only_from_verified_commit` (written).
+- R155, release tool files not formatted and licensed, at every commit: `test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed` (written).
 - R110, releases stay patch only, at every commit: `test_R110_releases_stay_patch_only` (written).
 - R77, role files well formed, at every commit: `test_R77_role_files_well_formed` (written).
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).

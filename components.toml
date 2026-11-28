@@ -4,6 +4,12 @@
 # A component built from source is a git submodule pinned by commit.
 # A component whose fork is not yet a submodule is pinned by the commit of its
 # release. A component consumed as an image is pinned by digest.
+#
+# Every entry with an `image` also has a `mirror`: the package of the
+# organization's mirror (`ghcr.io/cocreiamo/anima-mirror/<name>`) that holds the
+# same image under the same digest, copied by `.github/workflows/mirror-base-images.yml`
+# because the upstream registries delete the manifest of a digest (GAP-060). The
+# builds still pull from `image`; they move to `mirror` in a later change.
 
 [policy]
 # SPDX identifiers a shipped component may declare. Adding one is a decision.
@@ -103,6 +109,7 @@ license = "MPL-2.0"
 upstream = "https://github.com/opentofu/opentofu"
 image = "ghcr.io/opentofu/opentofu"
 digest = "sha256:5c6cef27227e50060139fec7122c83d14088b5dd2677162545f0e699e1f6196c"
+mirror = "ghcr.io/cocreiamo/anima-mirror/opentofu-image"
 
 [[component]]
 name = "terraform-provider-postgresql"
@@ -145,7 +152,8 @@ version = "45"
 license = "LicenseRef-Fedora-Distribution"
 upstream = "https://gitlab.com/fedora/bootc/base-images"
 image = "quay.io/fedora/fedora-bootc"
-digest = "sha256:28d699682aa6f6b48c96864032717c596020d5d9890f83f488454e0d72f955b7"
+digest = "sha256:27650ded85a0319c30d8978a1c10c89084de07fbbb125f85bb054910be081244"
+mirror = "ghcr.io/cocreiamo/anima-mirror/fedora-bootc"
 
 # The base images of the inner images of the engine: each is the first line of a
 # container file under engine/. Each is a distribution image, a collection of
@@ -162,6 +170,7 @@ license = "LicenseRef-Debian-Distribution"
 upstream = "https://github.com/debuerreotype/docker-debian-artifacts"
 image = "docker.io/library/debian"
 digest = "sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+mirror = "ghcr.io/cocreiamo/anima-mirror/debian"
 
 [[component]]
 name = "ubi9"
@@ -171,6 +180,7 @@ license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9"
 image = "registry.access.redhat.com/ubi9"
 digest = "sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd"
+mirror = "ghcr.io/cocreiamo/anima-mirror/ubi9"
 
 [[component]]
 name = "ubi9-micro"
@@ -180,6 +190,7 @@ license = "LicenseRef-UBI-Distribution"
 upstream = "https://registry.access.redhat.com/ubi9-micro"
 image = "registry.access.redhat.com/ubi9-micro"
 digest = "sha256:dbd325b96bcd432dd42816d31412bdf1dc0fb973b79ed310344bc23c76c068db"
+mirror = "ghcr.io/cocreiamo/anima-mirror/ubi9-micro"
 
 [[component]]
 name = "alpine"
@@ -189,6 +200,7 @@ license = "LicenseRef-Alpine-Distribution"
 upstream = "https://github.com/alpinelinux/docker-alpine"
 image = "docker.io/library/alpine"
 digest = "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
+mirror = "ghcr.io/cocreiamo/anima-mirror/alpine"
 
 # The mail catcher: the stand-in of the outgoing mail port, for local
 # development and CI. Our fork is cocreiamo/anima-mailpit, not yet a submodule,
@@ -215,6 +227,7 @@ license = "MIT"
 upstream = "https://github.com/axllent/mailpit"
 image = "docker.io/axllent/mailpit"
 digest = "sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e"
+mirror = "ghcr.io/cocreiamo/anima-mirror/mailpit-image"
 
 # The HTTP entry point (ADR 0008). Three entries, the first two recorded as
 # exceptions to building from source in a fork (GAP-057), pinned the way a fork
@@ -253,6 +266,7 @@ license = "LicenseRef-Fedora-Distribution"
 upstream = "https://fedoraproject.org/"
 image = "quay.io/fedora/fedora-minimal"
 digest = "sha256:7c06ebfe11ce10d5f3df9b901ff03627981d15c7168e0a4988f56dab481160e8"
+mirror = "ghcr.io/cocreiamo/anima-mirror/fedora-minimal"
 
 # The library that forwards requests. Pinned by version and by the content hash
 # of the package, which is the SHA-256 of the file
@@ -288,6 +302,7 @@ license = "GPL-2.0-only WITH Classpath-exception-2.0"
 upstream = "https://github.com/adoptium/containers"
 image = "docker.io/library/eclipse-temurin"
 digest = "sha256:8ad118b146aa92da815b576441acd6b42b38236797ad0b6edc8c200b85bb0734"
+mirror = "ghcr.io/cocreiamo/anima-mirror/eclipse-temurin"
 
 [[tool_image]]
 name = "golang"
@@ -297,3 +312,18 @@ license = "BSD-3-Clause"
 upstream = "https://github.com/docker-library/golang"
 image = "docker.io/library/golang"
 digest = "sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666"
+mirror = "ghcr.io/cocreiamo/anima-mirror/golang"
+
+# The tool that copies the images above into the mirror. The mirror workflow
+# (`.github/workflows/mirror-base-images.yml`) runs it with podman and takes
+# this entry's reference from here, so that it is pinned and updated like every
+# image.
+[[tool_image]]
+name = "skopeo"
+role = "tool of the mirror workflow: copies an image between registries and keeps its digest"
+version = "v1.25.1"
+license = "Apache-2.0"
+upstream = "https://github.com/containers/skopeo"
+image = "quay.io/skopeo/stable"
+digest = "sha256:9ce297b1309340cb31cf4cd7529a638b912da0bbe30894e210dbf9aae9d8a5d5"
+mirror = "ghcr.io/cocreiamo/anima-mirror/skopeo"

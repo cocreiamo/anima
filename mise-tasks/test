@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 #MISE description="Run the automated verifications (waits for a running format)"
+#MISE depends=["model:export"]
+#
+# The export of the model (a JVM, 30 s or more when the model changed) runs first,
+# as a task of its own and cached by the hash of the model: R55 bounds the checks
+# "on a warm cache", so the session it times starts with the export warm.
 #
 # Takes the lock that `mise run format` holds exclusively (PM-006); shared here,
 # so test sessions may run together but never with a formatter rewriting files.

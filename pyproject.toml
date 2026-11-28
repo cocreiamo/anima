@@ -19,3 +19,5 @@ include = ["*.py", "*.pyi", "**/pyproject.toml", "mise-tasks/generate/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 cache_dir = ".cache/pytest"
+# Always show the slowest tests: a failure of R55 is then diagnosable from the log.
+addopts = "--durations=15"

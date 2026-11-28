@@ -6,7 +6,11 @@ GitHub runs them as written is shown only by their first runs on `main`
 has a `_detects_violation` companion that feeds it a deliberately wrong one.
 """
 
+import json
 import re
+import subprocess
+import textwrap
+import tomllib
 
 from sysml_model import ROOT
 
@@ -411,3 +415,189 @@ def test_R115_promotion_publishes_only_what_it_verified_detects_violation():
     assert publish_faults(
         good.replace("      - id: pilot", cache + "      - id: pilot")
     )
+
+
+# ---- R115: a published tag is never moved; the registry is asked, and "cannot tell" stops (PM-013)
+
+# What the pinned podman (4.9.3, as on the hosted runner) printed and returned, recorded on
+# 2026-11-28 against public images and unreachable names; the tag is stated as the workflow asks.
+RECORDED = {
+    "exists": (0, ""),
+    "absent": (
+        125,
+        'Error: reading image "docker://<ref>": reading manifest 0.0.1 in ghcr.io/cocreiamo/anima: manifest unknown',
+    ),
+    "unknown denied": (
+        125,
+        'Error: reading image "docker://<ref>": Requesting bearer token: invalid status code from registry 403 (Forbidden)',
+    ),
+    "unknown unauthorized": (
+        125,
+        'Error: reading image "docker://<ref>": reading manifest 0.0.1 in ghcr.io/cocreiamo/anima: unauthorized: authentication required',
+    ),
+    "unknown unreachable": (
+        125,
+        'Error: reading image "docker://<ref>": pinging container registry ghcr.io: Get "https://ghcr.io/v2/": dial tcp: lookup ghcr.io: no such host',
+    ),
+}
+# What the same podman answers to the prefixed form, whatever the registry holds.
+PREFIXED = (
+    125,
+    'Error: unsupported transport "docker" for looking up local images',
+)
+TAG_REF = "ghcr.io/cocreiamo/anima" + ":0.0.1"
+
+
+def tag_state_function(workflow):
+    """The shell function of the push step that classifies the tag, dedented."""
+    m = re.search(
+        r"^( +)tag_state\(\) \{\n.*?^\1\}\n", workflow, re.MULTILINE | re.DOTALL
+    )
+    if not m:
+        return None
+    return textwrap.dedent(m.group(0))
+
+
+def run_tag_state(function, recorded, tmp_path):
+    """Run the function with a `podman` that answers as recorded, and that answers
+    as the pinned podman does to a reference with the `docker://` prefix. Returns
+    (what it printed, its exit status)."""
+    stub = tmp_path / "podman"
+    stub.write_text(
+        "#!/bin/bash\n"
+        'case "$3" in docker://*)'
+        f" echo '{PREFIXED[1]}' >&2; exit {PREFIXED[0]};; esac\n"
+        'echo "$STUB_ERR" >&2; exit "$STUB_RC"\n'
+    )
+    stub.chmod(0o755)
+    rc, err = recorded
+    done = subprocess.run(
+        ["bash", "-c", f'{function}\ntag_state "$1"', "bash", TAG_REF],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": f"{tmp_path}:/usr/bin:/bin",
+            "STUB_RC": str(rc),
+            "STUB_ERR": err.replace("<ref>", TAG_REF),
+        },
+    )
+    return done.stdout.strip(), done.returncode
+
+
+def tag_check_faults(workflow, tmp_path):
+    """What would let a version tag be pushed over one that exists, or when the
+    registry could not say (R115, PM-013)."""
+    faults = []
+    function = tag_state_function(workflow)
+    if function is None:
+        return ["the push step has no tag_state function"]
+    if re.search(r"manifest inspect[^\n]*docker://", workflow):
+        faults.append("manifest inspect is given the docker:// transport prefix")
+    for name, recorded in RECORDED.items():
+        want = name.split()[0]
+        got = run_tag_state(function, recorded, tmp_path)[0]
+        if got != want:
+            faults.append(f"{name}: classified as {got!r}, not {want!r}")
+    push = steps(promotion_jobs(workflow)["publish"])[-1]
+    if 'tag_state "ghcr.io/cocreiamo/anima:$VERSION"' not in push:
+        faults.append("the push step does not classify the version tag")
+    elif not re.search(
+        r'"\$state" = "unknown" \]; then\n\s+exit 1', push
+    ) or push.index("exit 1") > push.index("podman push"):
+        faults.append("an unknown state does not stop the push step before it pushes")
+    return faults
+
+
+def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent(tmp_path):
+    """Proves the shell function of the push step against recorded outputs of the
+    pinned podman for the three answers (exists, absent, cannot tell) and that the
+    step stops on the third. It does not prove the registry's real answers for the
+    first release: that is the first publishing run."""
+    assert tag_check_faults(PROMOTE.read_text(), tmp_path) == []
+
+
+def test_R115_published_tag_is_never_moved_and_unknown_is_not_absent_detects_violation(
+    tmp_path,
+):
+    good = PROMOTE.read_text()
+    assert tag_check_faults(good, tmp_path) == []
+    # The form that failed whatever the registry held.
+    assert tag_check_faults(
+        good.replace(
+            'podman manifest inspect "$1"', 'podman manifest inspect "docker://$1"'
+        ),
+        tmp_path,
+    )
+    # Any failure read as absent.
+    assert tag_check_faults(
+        good.replace("grep -Eiq 'manifest unknown|name unknown'", "true"), tmp_path
+    )
+    # Any failure read as unknown, an absent tag included.
+    assert tag_check_faults(
+        good.replace("manifest unknown|name unknown", "never"), tmp_path
+    )
+    # Unknown does not stop the step.
+    assert tag_check_faults(
+        good.replace('[ "$state" = "unknown" ]', '[ "$state" = "never" ]'), tmp_path
+    )
+    assert tag_check_faults(good.replace("tag_state()", "other()"), tmp_path)
+    # An existing tag read as absent.
+    assert tag_check_faults(good.replace("echo exists", "echo absent"), tmp_path)
+
+
+# ---- R155: what the release tool writes is not formatted by us and is licensed (PM-012) -------
+
+RELEASE_CONFIG = ROOT / ".github" / "release-please-config.json"
+PRETTIER_IGNORE = ROOT / ".prettierignore"
+REUSE = ROOT / "REUSE.toml"
+
+
+def written_files(config):
+    """The files the release tool writes besides the manifest: one changelog per package."""
+    if config.get("skip-changelog"):
+        return []
+    found = []
+    for path, package in config.get("packages", {}).items():
+        base = "" if path == "." else path.rstrip("/") + "/"
+        found.append(base + package.get("changelog-path", "CHANGELOG.md"))
+    return found
+
+
+def release_file_faults(files, prettier_ignore, reuse):
+    """Each written file that the formatter would check, or that no licensing annotation covers."""
+    ignored = {
+        line.strip().rstrip("/")
+        for line in prettier_ignore.splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    annotated = [
+        glob
+        for a in reuse.get("annotations", [])
+        for glob in ([a["path"]] if isinstance(a["path"], str) else a["path"])
+    ]
+    faults = []
+    for f in files:
+        if f not in ignored:
+            faults.append(f"{f} is checked by the formatter")
+        if "**" not in annotated and f not in annotated:
+            faults.append(f"{f} has no licensing annotation")
+    return faults
+
+
+def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed():
+    """The tool writes its changelog in its own layout, which Prettier rejects
+    (PM-012), so the release pull request could not pass the required check."""
+    files = written_files(json.loads(RELEASE_CONFIG.read_text()))
+    assert files
+    reuse = tomllib.loads(REUSE.read_text())
+    assert release_file_faults(files, PRETTIER_IGNORE.read_text(), reuse) == []
+
+
+def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed_detects_violation():
+    reuse = {"annotations": [{"path": "**"}]}
+    assert release_file_faults(["CHANGELOG.md"], "# x\nthird_party\n", reuse)
+    assert release_file_faults(["CHANGELOG.md"], "CHANGELOG.md\n", {"annotations": []})
+    assert not release_file_faults(["CHANGELOG.md"], "CHANGELOG.md\n", reuse)
+    assert written_files({"packages": {".": {}}}) == ["CHANGELOG.md"]
+    assert written_files({"packages": {"a": {"changelog-path": "N.md"}}}) == ["a/N.md"]
