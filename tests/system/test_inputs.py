@@ -87,6 +87,8 @@ def test_R99_image_tag_depends_on_every_input(containerfile, tmp_path):
     copy_inputs(containerfile, tmp_path)
     assert tag_of(containerfile, tmp_path) == tag_of(containerfile, tmp_path)  # stable
     assert inputs_that_leave_the_tag(tag_of, containerfile, tmp_path) == []
+    if containerfile == SECRETS:
+        assert lock_file_faults(tmp_path / "locks") == []
 
 
 def test_R99_image_tag_depends_on_every_input_detects_violation(tmp_path):
@@ -97,6 +99,58 @@ def test_R99_image_tag_depends_on_every_input_detects_violation(tmp_path):
     missed = inputs_that_leave_the_tag(naive_tag, containerfile, tmp_path)
     assert missed == copied_files(containerfile)
     assert "engine/database/prepare.sql" in missed
+    # A tag that is not given the lock files leaves both of them out.
+    secrets_inputs(tmp_path / "locks")
+    assert locks_that_leave_the_tag(tmp_path / "locks", "") == LOCK_FILES.split()
+
+
+LOCK_FILES = "third_party/openbao/go.mod third_party/openbao/go.sum"
+SECRETS = "engine/secrets/Containerfile"
+
+
+def secrets_tag(directory: Path, extra: str, commits: str = COMMITS) -> str:
+    return subprocess.run(
+        [str(ROOT / "mise-tasks/engine/tag"), SECRETS, str(directory)],
+        input=commits,
+        env={"PATH": "/usr/bin:/bin", "ANIMA_TAG_EXTRA": extra},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def secrets_inputs(directory: Path) -> None:
+    (directory / "engine/secrets").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / SECRETS, directory / SECRETS)
+    for lock in LOCK_FILES.split():
+        (directory / lock).parent.mkdir(parents=True, exist_ok=True)
+        (directory / lock).write_text(f"{lock}\n")
+
+
+def locks_that_leave_the_tag(directory: Path, extra: str) -> list[str]:
+    before = secrets_tag(directory, extra)
+    left = []
+    for lock in LOCK_FILES.split():
+        original = (directory / lock).read_text()
+        (directory / lock).write_text(original + "changed\n")
+        if secrets_tag(directory, extra) == before:
+            left.append(lock)
+        (directory / lock).write_text(original)
+    return left
+
+
+def lock_file_faults(tmp_path: Path) -> list[str]:
+    """What is wrong with how the secret store's tags take the fork's lock files: the
+    build task gives go.mod and go.sum as extra inputs to the dependencies image and to
+    the image built on it, and a change to either changes the tag."""
+    build = (ROOT / "mise-tasks/engine/build").read_text()
+    faults = []
+    if f'extra="{LOCK_FILES}"' not in build:
+        faults.append("the build task does not name the lock files")
+    if build.count('ANIMA_TAG_EXTRA="$extra"') != 2:
+        faults.append("the dependencies image and the image do not both take them")
+    secrets_inputs(tmp_path)
+    return faults + locks_that_leave_the_tag(tmp_path, LOCK_FILES)
 
 
 def test_generated_rules_are_inputs_of_the_database_tag(tmp_path):

@@ -59,9 +59,9 @@
             "groupName": "mise"
         },
         {
-            "description": "The Maven image that builds the identity provider stays on the long-term-support line of the JDK (21): no proposal of a later major",
+            "description": "The Maven image that builds the identity provider stays on the Maven version that the fork's wrapper names (R168) and on the long-term-support line of the JDK (21, R124): no other tag is proposed, only the digest of this one; a new Maven is a decision that changes the register and this pattern together",
             "matchPackageNames": ["docker.io/library/maven"],
-            "allowedVersions": "/^[0-9.]+-eclipse-temurin-21$/"
+            "allowedVersions": "/^3\\.9\\.16-eclipse-temurin-21$/"
         },
         {
             "description": "Names given at build time (--build-context) to the pinned sources, not images of a registry",

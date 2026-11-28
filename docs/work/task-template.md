@@ -36,6 +36,6 @@ What and why.
 (`docs/work/handback-template.md`, when done)
 ```
 
-- Acceptance lines are verification names from `model/anima.sysml` (the task is done when those tests exist and pass) or begin with `Check:`.
+- Acceptance lines are verification names from `model/requirements/` (the task is done when those tests exist and pass) or begin with `Check:`.
 - `gaps` lists the gap ids the task is about; an open gap has at least one task that names it.
 - `fork` is set on a task whose remedy is a contribution upstream (label `upstream`).

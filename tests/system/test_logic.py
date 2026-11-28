@@ -10,12 +10,16 @@ from engine_logic import (
     certificate_facts,
     container_phase,
     form_submission,
+    inner_start_times,
     issuer_faults,
+    on_hosted_runner,
     production_faults,
     regress_tests_passed,
     renewal_failure_faults,
     renewal_faults,
     secret_store_storage_stage,
+    session_duration_faults,
+    shared_engine_faults,
     temporary_administrators,
 )
 
@@ -175,3 +179,58 @@ def test_R117_no_temporary_administrator_remains_detects_violation():
     assert temporary_administrators([marked, other, plain]) == ["service-account-x"]
     assert temporary_administrators([other, plain]) == []
     assert temporary_administrators([]) == []
+
+
+ENGINE = {
+    "container": "c1",
+    "started": "t0",
+    "health": "healthy",
+    "ready": True,
+    "inner": {"database": "100", "access": "101", "secrets": "102"},
+}
+
+
+def test_R181_shared_engine_stays_undisturbed_detects_violation():
+    """A test that restarted or replaced the engine or one of its parts, stopped
+    one, or left the engine not ready has disturbed it; one that changed nothing
+    that matters has not. A snapshot that could not be taken is a fault."""
+    assert shared_engine_faults(ENGINE, dict(ENGINE)) == []
+    assert shared_engine_faults(ENGINE, {**ENGINE, "container": "c2"})
+    assert shared_engine_faults(ENGINE, {**ENGINE, "started": "t1"})
+    restarted = {**ENGINE, "inner": {**ENGINE["inner"], "database": "200"}}
+    assert shared_engine_faults(ENGINE, restarted) == ["database was started again"]
+    gone = {**ENGINE, "inner": {"access": "101", "secrets": "102"}}
+    assert shared_engine_faults(ENGINE, gone) == ["database no longer runs"]
+    assert shared_engine_faults(ENGINE, {**ENGINE, "health": "unhealthy"})
+    assert shared_engine_faults(ENGINE, {**ENGINE, "ready": False})
+    assert shared_engine_faults({**ENGINE, "health": "starting"}, ENGINE)
+    assert shared_engine_faults(None, ENGINE)
+    assert shared_engine_faults(ENGINE, None)
+    # A part that started after the first snapshot is not a disturbance.
+    more = {**ENGINE, "inner": {**ENGINE["inner"], "probe": "300"}}
+    assert shared_engine_faults(ENGINE, more) == []
+    listing = "database 100\naccess 101\n\nodd line here\nsecrets 102\n"
+    assert inner_start_times(listing) == ENGINE["inner"]
+    assert inner_start_times("") == {}
+
+
+def test_R180_system_tests_stay_fast_detects_violation():
+    """A session over the limit, a limit missing, in another unit or not positive,
+    and a text that states a number of its own are faults."""
+    limits = {"maxSystemTestTime": (1500, "s")}
+    assert session_duration_faults(900.0, limits, "within the bound") == []
+    assert session_duration_faults(1501.0, limits, "within the bound")
+    assert session_duration_faults(900.0, {}, "within the bound")
+    assert session_duration_faults(900.0, {"maxSystemTestTime": (1500, "B")}, "x")
+    assert session_duration_faults(900.0, {"maxSystemTestTime": (0, "s")}, "x")
+    assert session_duration_faults(900.0, limits, "within 25 minutes")
+    # Off the hosted runner the time is reported, not judged; a wrong limit still is.
+    assert session_duration_faults(2100.0, limits, "within the bound", False) == []
+    assert session_duration_faults(2100.0, {}, "within the bound", False)
+    # On the hosted runner an over-budget session fails, and the runner is told
+    # apart by GitHub's variable only: absent, empty or another value is not it.
+    hosted = on_hosted_runner({"GITHUB_ACTIONS": "true"})
+    assert hosted
+    assert session_duration_faults(2100.0, limits, "within the bound", hosted)
+    for other in ({}, {"GITHUB_ACTIONS": ""}, {"GITHUB_ACTIONS": "false"}):
+        assert not on_hosted_runner(other)

@@ -4,20 +4,27 @@
 # Export a SysML v2 file to JSON with the OMG SysML v2 Pilot Implementation
 # and print the path of the JSON file.
 #
-# Usage: mise run model:export [file.sysml]   (default: model/anima.sysml)
+# Usage: mise run model:export [file.sysml | directory]   (default: model/)
+#
+# The model is a directory (R190, R191): the root file model/anima.sysml and one
+# file per requirement under model/requirements/. The exporter reads a directory,
+# every .sysml file in it at any depth, as one model; packages are resolved
+# across files whatever their order.
 set -euo pipefail
 
 : "${SYSML_PILOT_VERSION:?set in mise.toml}"
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
-input="$(realpath "${1:-$root/model/anima.sysml}")"
+input="$(realpath "${1:-$root/model}")"
 # GAP-003, PM-003: the exporter names its output by cutting the input path at the
 # first dot, so it is given a bare file name and run from the directory that
 # holds it.
 # Each export starts the pilot's JVM, which is slow, so the result is cached
 # under .cache/sysml-export/<pilot version>/<SHA-256 of the input>/. A run that
 # finds the cache prints its path and does nothing else. The cache is never
-# stale: a changed input has another hash. Callers must not delete it.
+# stale: a changed input has another hash. Callers must not delete it. The hash
+# of a directory covers the path and the content of every .sysml file in it, so
+# a changed, added, renamed or removed file has another one (R191).
 #
 # Safe under parallel runs, and run once (R108): callers that find no cache
 # take a lock per input, check the cache again once they hold it, and only the
@@ -25,7 +32,12 @@ input="$(realpath "${1:-$root/model/anima.sysml}")"
 # exports in a directory of its own and moves it into place in one step, so a
 # reader never sees a half-written one. If the first run fails the next in the
 # queue tries for itself.
-hash="$(sha256sum "$input" | cut -d' ' -f1)"
+if [ -d "$input" ]; then
+    hash="$(cd "$input" && find . -type f -name '*.sysml' -print0 | LC_ALL=C sort -z \
+        | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+else
+    hash="$(sha256sum "$input" | cut -d' ' -f1)"
+fi
 base="$root/.cache/sysml-export"
 cached="$base/$SYSML_PILOT_VERSION/$hash"
 if [ -f "$cached/model.json" ]; then
@@ -46,10 +58,19 @@ mkdir -p "$base/$SYSML_PILOT_VERSION"
 
         out="$(mktemp -d "$base/run.XXXXXX")"
         trap 'rm -rf "$out"' EXIT
-        cp "$input" "$out/model.sysml"
+        if [ -d "$input" ]; then
+            # Only the model's files, in a directory named like the output.
+            mkdir "$out/model"
+            (cd "$input" && find . -type f -name '*.sysml' -print0 \
+                | tar --null -T - -cf -) | tar -xf - -C "$out/model"
+            source=model
+        else
+            cp "$input" "$out/model.sysml"
+            source=model.sysml
+        fi
         cd "$out"
         if ! timeout 300 java -cp "$jar" org.omg.sysml.xtext.util.SysML2JSON \
-                -l "$lib" model.sysml \
+                -l "$lib" "$source" \
                 "Kernel Libraries" "Systems Library" "Domain Libraries" \
                 > "$out/output.txt" 2>&1 || [ ! -f "$out/model.json" ]; then
             grep -v '^log4j' "$out/output.txt" >&2

@@ -40,8 +40,10 @@ Look here before building something. Each section is derived from its source; th
 | R87 | catalog synonym keys exist | written |
 | R118 | certificate renewed before expiry | written |
 | R172 | change filter decides from the comparison | written |
+| R192 | check validates every file of the model | written |
 | R108 | checks pass from empty cache | written |
 | R55 | checks stay fast | written |
+| R178 | compile stages run with network off | written |
 | R17 | component licenses allowed | written |
 | R49 | configuration names no adapter | written |
 | R48 | configuration validated before ready | written |
@@ -59,6 +61,7 @@ Look here before building something. Each section is derived from its source; th
 | R54 | directories named by capability | written |
 | R39 | each fact declared once | written |
 | R28 | each port has one default adapter | written |
+| R190 | each requirement in file of its own | written |
 | R15 | encrypted connections only | written |
 | R134 | engine authority certificate obtainable | pending |
 | R1 | engine built from pinned sources | written |
@@ -82,6 +85,7 @@ Look here before building something. Each section is derived from its source; th
 | R65 | every setting has production default | pending |
 | R71 | every test verifies requirement | written |
 | R3.2 | expired token rejected | pending |
+| R191 | export reads every file of the model | written |
 | R90 | export writes nothing outside cache | written |
 | R36 | failed first start repeatable | pending |
 | R119 | failed renewal leaves engine not ready | written |
@@ -123,6 +127,7 @@ Look here before building something. Each section is derived from its source; th
 | R94 | no reference to missing record | written |
 | R117 | no temporary administrator remains | written |
 | R30 | nothing reachable by default | written |
+| R179 | offline build succeeds and names what is missing | written |
 | R59 | one adapter active per port | pending |
 | R42 | one start path after crash | written |
 | R93 | only architecture records exist | written |
@@ -153,6 +158,7 @@ Look here before building something. Each section is derived from its source; th
 | R7 | secrets generated | pending |
 | R61 | server serves without secret store | written |
 | R40 | serves only when converged | pending |
+| R181 | shared engine stays undisturbed | written |
 | R9 | single command start | written |
 | R81 | size limits kept | written |
 | R74 | skill paths match something | written |
@@ -163,6 +169,7 @@ Look here before building something. Each section is derived from its source; th
 | R12 | superuser local only | written |
 | R133 | supplied certificate selected by one parameter | pending |
 | R114 | system tests report on every change | written |
+| R180 | system tests stay fast | written |
 | R3.1 | tampered token rejected | written |
 | R80 | task acceptance names verifications | written |
 | R57 | texts do not age | written |
@@ -300,8 +307,10 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R47, builds reproducible, when an image is promoted: `test_R47_builds_reproducible` (pending).
 - R87, catalog synonym keys exist, at every commit: `test_R87_catalog_synonym_keys_exist` (written).
 - R172, change filter decides from the comparison, at every commit: `test_R172_change_filter_decides_from_the_comparison` (written).
+- R192, check validates every file of the model, at every commit: `test_R192_check_validates_every_file_of_the_model` (written).
 - R108, checks pass from empty cache, at every commit: `test_R108_export_runs_once_for_one_input` (written).
 - R55, checks stay fast, at every commit: `test_R55_checks_stay_fast` (written).
+- R178, compile stages run with network off, at every commit: `test_R178_compile_stages_run_with_network_off` (written).
 - R17, component licenses allowed, at every commit: `test_R17_component_licenses_allowed` (written).
 - R49, configuration names no adapter, at every commit: `test_R49_configuration_names_no_adapter` (written).
 - R45, contractions register well formed, at every commit: `test_R45_contractions_register_well_formed` (written).
@@ -312,6 +321,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R54, directories named by capability, at every commit: `test_R54_directories_named_by_capability` (written).
 - R39, each fact declared once, at every commit: `test_R39_each_fact_declared_once` (written).
 - R28, each port has one default adapter, at every commit: `test_R28_each_port_has_one_default_adapter` (written).
+- R190, each requirement in file of its own, at every commit: `test_R190_each_requirement_in_a_file_of_its_own` (written).
 - R125, engine image cache refreshed, at every commit: `test_R125_cache_of_inner_images_refreshed_when_they_changed` (written).
 - R52, engine parts validated without starting, at every commit: `test_R52_engine_parts_validated_without_starting` (written).
 - R67, every adapter is part of the engine, at every commit: `test_R67_every_adapter_is_part_of_the_engine` (written).
@@ -326,6 +336,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R10, every requirement verified, at every commit: `test_R10_every_requirement_verified` (written).
 - R65, every setting has production default, at every commit: `test_R65_every_setting_has_production_default` (pending).
 - R71, every test verifies requirement, at every commit: `test_R71_every_test_verifies_a_requirement` (written).
+- R191, export reads every file of the model, at every commit: `test_R191_export_reads_every_file_of_the_model` (written).
 - R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
 - R177, fork sync passes its arguments and fails loudly, at every commit: `test_R177_fork_sync_passes_its_arguments_to_the_platform_tool` (written).
@@ -348,6 +359,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R53, no product in requirement, at every commit: `test_R53_no_product_in_a_requirement` (written).
 - R94, no reference to missing record, at every commit: `test_R94_no_reference_to_a_record_that_does_not_exist` (written).
 - R30, nothing reachable by default, against the running system: `test_R30_listen_address_follows_the_way_of_starting` (written).
+- R179, offline build succeeds and names what is missing, when an image is promoted: `test_R179_offline_build_succeeds_and_names_what_is_missing` (written).
 - R42, one start path after crash, when an image is promoted: `test_R42_abrupt_stop_in_secret_store_first_start_recovers` (written).
 - R93, only architecture records exist, at every commit: `test_R93_only_architecture_records_exist` (written).
 - R82, postmortem guards exist, at every commit: `test_R82_postmortem_guards_exist` (written).
@@ -369,6 +381,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R76, routing reaches every skill, at every commit: `test_R76_routing_reaches_every_skill` (written).
 - R7, secrets generated, when an image is promoted: `test_R7_secrets_generated` (pending).
 - R40, serves only when converged, when an image is promoted: `test_R40_serves_only_when_converged` (pending).
+- R181, shared engine stays undisturbed, when an image is promoted: `test_R181_shared_engine_stays_undisturbed` (written).
 - R9, single command start, when an image is promoted: `test_R9_single_command_start` (written).
 - R81, size limits kept, at every commit: `test_R81_size_limits_kept` (written).
 - R74, skill paths match something, at every commit: `test_R74_skill_paths_match_something` (written).
@@ -376,6 +389,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R167, spike brief states why no test answers, at every commit: `test_R167_spike_brief_states_why_no_test_answers` (written).
 - R89, submodule working trees clean, at every commit: `test_R89_submodule_working_trees_clean` (written).
 - R114, system tests report on every change, at every commit: `test_R114_system_tests_report_under_one_name` (written).
+- R180, system tests stay fast, when an image is promoted: `test_R180_system_tests_stay_fast` (written).
 - R80, task acceptance names verifications, at every commit: `test_R80_task_acceptance_names_verifications` (written).
 - R57, texts do not age, at every commit: `test_R57_texts_do_not_age` (written).
 - R102, undeclared client gets no role scope, when an image is promoted: `test_R102_undeclared_client_gets_no_role_scope` (written).

@@ -326,6 +326,101 @@ def test_R108_export_runs_once_for_one_input_detects_violation(tmp_path):
     assert len(runs.read_text().splitlines()) > 1
 
 
+# ---- R191: the export reads every file of the model, and its cache key covers them ----------
+
+
+def directory_export_faults(script_text, tmp_path, only=None):
+    """Export a directory of files with the script under test, with a stand-in
+    for the JVM that lists the files it is given, and change the directory: the
+    export reads every file; the same files give the same cache entry and no new
+    run; a changed, added, renamed or removed file gives another entry. `only`
+    limits the changes made, for a check that needs one."""
+    export, env, _model, runs = fake_export_root(tmp_path, script_text)
+    seen = tmp_path / "seen"
+    java = tmp_path / "bin" / "java"
+    java.write_text(
+        "#!/usr/bin/env bash\n"
+        f'echo x >> "{runs}"\n'
+        f'find model -type f -name "*.sysml" | LC_ALL=C sort >> "{seen}"\n'
+        'echo "[]" > model.json\n'
+    )
+    tree = tmp_path / "tree"
+    (tree / "requirements" / "day0").mkdir(parents=True)
+    (tree / "anima.sysml").write_text("package Anima {}\n")
+    requirement = tree / "requirements" / "day0" / "R1-first.sysml"
+    requirement.write_text("package R1 {}\n")
+    (tree / "README.md").write_text("not a model file\n")
+
+    def run():
+        done = subprocess.run(
+            [str(export), str(tree)],
+            check=False,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert done.returncode == 0, done.stderr
+        return done.stdout.strip(), len(runs.read_text().splitlines())
+
+    faults = []
+    first, count = run()
+    if seen.read_text().splitlines() != [
+        "model/anima.sysml",
+        "model/requirements/day0/R1-first.sysml",
+    ]:
+        faults.append(f"the export did not read every file: {seen.read_text()}")
+    if run() != (first, count):
+        faults.append("the same files did not give the same entry without a run")
+    changes = {
+        "changed": lambda: requirement.write_text("package R1 { part x; }\n"),
+        "added": lambda: (
+            tree / "requirements" / "day0" / "R2-second.sysml"
+        ).write_text("package R2 {}\n"),
+        "renamed": lambda: requirement.rename(requirement.with_name("R1-other.sysml")),
+        "removed": lambda: (
+            tree / "requirements" / "day0" / "R2-second.sysml"
+        ).unlink(),
+    }
+    before_path, before = first, count
+    for what, change in changes.items():
+        if only is not None and what not in only:
+            continue
+        change()
+        path, after = run()
+        if path == before_path or after != before + 1:
+            faults.append(f"a {what} file did not give another cache entry")
+        before_path, before = path, after
+    return faults
+
+
+def test_R191_export_reads_every_file_of_the_model(tmp_path):
+    """Proves, with a stand-in for the JVM, that the export script reads a
+    directory of files as one input and keys its cache on all of them. That the
+    pilot resolves packages across files is shown by the export of the model
+    itself, which every other test reads."""
+    assert directory_export_faults(EXPORT.read_text(), tmp_path) == []
+
+
+def test_R191_export_reads_every_file_of_the_model_detects_violation(tmp_path):
+    text = EXPORT.read_text()
+    # A key that covers only the root file: a changed requirement leaves the
+    # cache stale.
+    hashed = "find . -type f -name '*.sysml' -print0 | LC_ALL=C sort -z"
+    assert text.count(hashed) == 1
+    root_only = text.replace(hashed, "find . -type f -name 'anima.sysml' -print0")
+    assert directory_export_faults(root_only, tmp_path, only=("changed",))
+    # A copy of the root file alone.
+    (tmp_path / "again").mkdir()
+    assert directory_export_faults(
+        text.replace(
+            "-name '*.sysml' -print0 \\\n                | tar",
+            "-name 'anima.sysml' -print0 \\\n                | tar",
+        ),
+        tmp_path / "again",
+        only=(),
+    )
+
+
 # ---- R110: releases stay patch-only until the founder decides otherwise ---------------------
 
 RELEASE_CONFIG = ROOT / ".github" / "release-please-config.json"
