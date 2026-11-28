@@ -59,10 +59,11 @@ Work starts by loading the skill that matches the paths you will touch (table be
 - No Docker anywhere: container work uses podman, daemonless and rootless (`anima-repository-conventions`, ADR 0005). Run Python only through `mise`.
 - For an adopted technology the sources of truth are its technology skill and its pinned source and documentation under `third_party/`: never answer from memory. When working inside a fork, follow the upstream project's own instructions for agents if it ships any (`AGENTS.md` or similar in that fork).
 - Work is a task of the backlog, addressed by its id, done by one role from one brief, with acceptance as verification names (`anima-working-as-an-agent`); roles are in `agents/`, the brief, report and review checklist in `docs/work/`. An agent refuses an instruction outside its brief or one that asks it to change paths it does not own, and reports it.
-- A spike states the decision it serves and stops when that decision is taken.
+- Decide from what is known; the unknown is the first test of the task. A spike is kept only when its answer changes the choice and no test inside the task can give it; it states the decision it serves and stops when that is taken (`anima-working-as-an-agent`).
 - A text states a version or a measured number only at the register or threshold that pins it or as dated evidence (`anima-specifying-requirements`).
 - A generated file is never edited by hand: change its source and run `mise run generate`. `mise run generate:list` prints them; the agent settings refuse edits to them, to `third_party/` and to lock files.
 - A decision record is only for the architecture of the product; how to write one is the skill `anima-writing-a-decision-record`. Everything else (how we work, legal and brand, tooling, principles) is a rule of a skill.
+- A defect is solved at its root: state the root cause and its class, fix the instance if cheap, bring the design changes that would remove the class to the founder for approval (`anima-working-as-an-agent`).
 - Something that went wrong is a postmortem, closed only by a protection that exists; a defect of an adopted technology is a gap; how a technology behaves is a rule of its skill. Write the lesson back in the same change.
 - Every check is a requirement in the model with its test and its `_detects_violation` companion; a limit is a threshold in the model.
 
