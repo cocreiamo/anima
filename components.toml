@@ -261,11 +261,11 @@ packages = ["aspnetcore-runtime-10.0-10.0.15", "dotnet-sdk-10.0-10.0.115"]
 [[component]]
 name = "fedora-minimal"
 role = "base of the HTTP entry point's image: the distribution's minimal image, onto which the .NET runtime packages are installed"
-version = "45"
+version = "46"
 license = "LicenseRef-Fedora-Distribution"
 upstream = "https://fedoraproject.org/"
 image = "quay.io/fedora/fedora-minimal"
-digest = "sha256:7c06ebfe11ce10d5f3df9b901ff03627981d15c7168e0a4988f56dab481160e8"
+digest = "sha256:9e007be8c8db93e222ce3c63b634ca80cb75ac60da4296e3be856b8f51b89e3a"
 mirror = "ghcr.io/cocreiamo/anima-mirror/fedora-minimal"
 
 # The library that forwards requests. Pinned by version and by the content hash

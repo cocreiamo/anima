@@ -15,7 +15,7 @@
 # The base is the distribution's minimal image, pinned by the digest of its image
 # index (the manifest list; checked at the registry on 2026-11-28).
 
-ARG BASE=quay.io/fedora/fedora-minimal:45@sha256:7c06ebfe11ce10d5f3df9b901ff03627981d15c7168e0a4988f56dab481160e8
+ARG BASE=quay.io/fedora/fedora-minimal:46@sha256:9e007be8c8db93e222ce3c63b634ca80cb75ac60da4296e3be856b8f51b89e3a
 
 FROM ${BASE} AS build
 ARG DOTNET_SDK=dotnet-sdk-10.0-10.0.115
