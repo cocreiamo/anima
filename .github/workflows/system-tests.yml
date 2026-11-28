@@ -97,6 +97,13 @@ jobs:
         if: steps.changes.outputs.relevant == 'true'
         run: mise run promote:test
 
+      # The commands that the promotion workflow calls, run against real podman
+      # and a throwaway registry (R170, R171, PM-014); they pull small images
+      # and never touch the engine image.
+      - name: Run the commands of the promotion
+        if: steps.changes.outputs.relevant == 'true'
+        run: mise run promote:test
+
       - name: Build the engine image
         if: steps.changes.outputs.relevant == 'true'
         run: |
