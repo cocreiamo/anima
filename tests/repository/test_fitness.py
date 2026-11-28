@@ -159,8 +159,10 @@ def over_budget(elapsed, budget):
 def test_R55_checks_stay_fast(model, seconds_in_session):
     """Measures the wall-clock time from the loading of this directory's
     conftest, at the start of collection, to the start of this test, which runs
-    last. It covers collection, the export of the
-    model (cold or warm) and every other test. It does not cover the other tasks
+    last. It covers collection, the read of the exported
+    model and every other test; the export itself is made before, by the task
+    `model:export` that `mise run test` depends on (R55: "on a warm cache"; a
+    cold export of a changed model took 30 to 50 s in CI). It does not cover the other tasks
     of `mise run check` (model:check, lint, licences, secrets, workflows, ADRs,
     build), the start of `uv` and `mise`, the teardown, or a cold cache of the
     tools: the limit of the requirement is on the whole of the checks, this test
