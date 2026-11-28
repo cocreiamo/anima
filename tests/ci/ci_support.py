@@ -77,6 +77,16 @@ def stub_command(directory, name, script):
     return {"PATH": f"{directory}:{os.environ['PATH']}"}
 
 
+def lister_command(directory, name, lists):
+    """A copy of the fixture `gh-lister` first on the PATH: it answers `variable list`
+    and `secret list` from the files of that name in `lists` and records the calls
+    there, in `calls`."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / "gh-lister", directory / name)
+    return {"PATH": f"{directory}:{os.environ['PATH']}", "GH_LISTS": str(lists)}
+
+
 def recorder_command(directory, name, record):
     """A copy of the fixture `gh-recorder` first on the PATH, writing what it was
     called with, and the credential it was given, to `record`. Returns the

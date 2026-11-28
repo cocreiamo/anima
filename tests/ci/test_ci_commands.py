@@ -21,6 +21,7 @@ import tomllib
 from ci_support import (
     FIXTURES,
     ROOT,
+    lister_command,
     recorder_command,
     register_entry,
     stub_command,
@@ -368,17 +369,12 @@ def app_names_env(tmp_path, variables, secrets, workflow=APP_WORKFLOW):
     workflows = tmp_path / "workflows"
     workflows.mkdir(parents=True, exist_ok=True)
     (workflows / "w.yml").write_text(workflow)
-    log = tmp_path / "log"
-    env = stub_command(
-        tmp_path / "bin",
-        "gh",
-        f'echo "$@" >> "{log}"\n'
-        'case "$1 $2 $3 $4" in\n'
-        f'  "variable list --org o") printf "%s\\n" {" ".join(variables)};;\n'
-        f'  "secret list --org o") printf "%s\\n" {" ".join(secrets)};;\n'
-        "  *) exit 1;;\n"
-        "esac\n",
-    )
+    lists = tmp_path / "lists"
+    lists.mkdir(exist_ok=True)
+    (lists / "variable").write_text("".join(f"{n}\n" for n in variables))
+    (lists / "secret").write_text("".join(f"{n}\n" for n in secrets))
+    env = lister_command(tmp_path / "bin", "gh", lists)
+    log = lists / "calls"
     return {**env, "WORKFLOWS": str(workflows)}, log
 
 
