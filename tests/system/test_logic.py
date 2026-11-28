@@ -33,7 +33,9 @@ def test_R21_upstream_regression_suite_passes_detects_violation():
 
 def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     """A kill counts only when the container is seen stopped: a running, paused,
-    created, missing or unreadable one is not."""
+    created, missing or unreadable one is not, and neither is one that podman
+    reports `stopped` after giving up waiting for the exit (ExitCode -1): the
+    previous run is not finished and a start would be undone by its late exit."""
     assert container_phase(EXITED) == "stopped"
     assert container_phase(RUNNING) == "running"
     paused = json.dumps({"Status": "paused", "Running": True, "Paused": True})
@@ -43,6 +45,8 @@ def test_R42_abrupt_stop_recovers_with_same_start_detects_violation():
     assert container_phase("Error: no such container") == "unknown"
     created = json.dumps({"Status": "created", "Running": False})
     assert container_phase(created) == "unknown"
+    gave_up = json.dumps({"Status": "stopped", "Running": False, "ExitCode": -1})
+    assert container_phase(gave_up) == "stopping"
 
 
 def test_R42_abrupt_stop_in_secret_store_first_start_recovers_detects_violation():
