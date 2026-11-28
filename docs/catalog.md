@@ -94,6 +94,8 @@ Look here before building something. Each section is derived from its source; th
 | R6 | identities declared | written |
 | R14 | identities reapplied | written |
 | R5 | identity maps to role | written |
+| R168 | identity provider build downloads no build tool | written |
+| R169 | identity provider build retries downloads bounded | written |
 | R135 | identity provider reachable only through entry | written |
 | R123 | identity provider runs in production mode | written |
 | R32 | idp database only for its role | pending |
@@ -325,6 +327,8 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
 - R177, fork sync passes its arguments and fails loudly, at every commit: `test_R177_fork_sync_passes_its_arguments_to_the_platform_tool` (written).
 - R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
+- R168, identity provider build downloads no build tool, at every commit: `test_R168_build_downloads_no_build_tool` (written).
+- R169, identity provider build retries downloads bounded, at every commit: `test_R169_build_retries_downloads_bounded` (written).
 - R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
 - R150, independent additions do not conflict in generated files, at every commit: `test_R150_independent_additions_do_not_conflict_in_generated_files` (written).
 - R173, inner image cache key follows its inputs, at every commit: `test_R173_cache_key_follows_what_the_inner_images_are_made_of` (written).
