@@ -145,6 +145,7 @@ Look here before building something. Each section is derived from its source; th
 | R120 | update bot follows configurator releases | written |
 | R121 | update bot follows task runner everywhere | written |
 | R122 | update bot ignores build contexts | written |
+| R124 | update bot keeps jdk on lts line | written |
 
 ## Components
 
@@ -303,6 +304,7 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R120, update bot follows configurator releases, at every commit: `test_R120_update_bot_follows_the_configurators_releases` (written).
 - R121, update bot follows task runner everywhere, at every commit: `test_R121_update_bot_follows_the_task_runner_everywhere` (written).
 - R122, update bot ignores build contexts, at every commit: `test_R122_update_bot_ignores_build_contexts` (written).
+- R124, update bot keeps jdk on lts line, at every commit: `test_R124_update_bot_keeps_the_jdk_on_its_lts_line` (written).
 
 ## Skills
 

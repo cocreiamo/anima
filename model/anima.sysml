@@ -375,6 +375,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R124'> updateBotKeepsJdkOnLtsLine {
+            doc /* The configuration of the update bot shall propose no version of the Java toolchain image that builds the identity provider beyond the long-term-support line of its register entry. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R71'> everyTestVerifiesRequirement {
             doc /* Every automated check of the repository shall verify a requirement of the model or be the negative case of one. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1574,6 +1579,10 @@ package Anima {
         verification def test_R122_update_bot_ignores_build_contexts {
             subject tools : Toolchain;
             objective { verify Day0::updateBotIgnoresBuildContexts; }
+        }
+        verification def test_R124_update_bot_keeps_the_jdk_on_its_lts_line {
+            subject tools : Toolchain;
+            objective { verify Day0::updateBotKeepsJdkOnLtsLine; }
         }
         verification def test_R99_image_tag_depends_on_every_input {
             subject tools : Toolchain;

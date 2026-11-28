@@ -300,3 +300,57 @@ def test_R122_update_bot_ignores_build_contexts_detects_violation():
     assert unignored_contexts({"packageRules": [partial]}, [text]) == ["other"]
     enabled = {k: v for k, v in rule.items() if k != "enabled"}
     assert unignored_contexts({"packageRules": [enabled]}, [text])
+
+
+# ---- R124: the JDK that builds the identity provider stays on its LTS line --
+
+
+def line_problems(config, image, current, newer, older):
+    """What keeps the update bot from proposing a version of `image` beyond the
+    line of its current version: the rule's pattern must accept the current
+    version and the `older` ones of the line, and refuse the `newer` ones."""
+    rules = [
+        r
+        for r in config.get("packageRules", [])
+        if image in r.get("matchPackageNames", []) and "allowedVersions" in r
+    ]
+    if len(rules) != 1:
+        return [f"{len(rules)} rules cap {image}, one expected"]
+    allowed = rules[0]["allowedVersions"]
+    if not (allowed.startswith("/") and allowed.endswith("/")):
+        return [f"not a regular expression: {allowed}"]
+    pattern = re.compile(allowed[1:-1])
+    problems = [f"refuses {v}" for v in [current, *older] if not pattern.search(v)]
+    problems += [f"accepts {v}" for v in newer if pattern.search(v)]
+    return problems
+
+
+def test_R124_update_bot_keeps_the_jdk_on_its_lts_line():
+    (entry,) = [t for t in tool_images() if t["name"] == "eclipse-temurin"]
+    major = entry["version"].split("-")[0]
+    assert major == "21", "the LTS line of the register changed: decide, then edit"
+    assert not line_problems(
+        renovate_config(),
+        entry["image"],
+        entry["version"],
+        newer=["22-jdk", "25-jdk", "27-jdk", "27.0.1_9-jdk"],
+        older=["21.0.9_10-jdk", "21-jdk-noble"],
+    )
+
+
+def test_R124_update_bot_keeps_the_jdk_on_its_lts_line_detects_violation():
+    jdk = "registry" + ".example/jdk"  # put together: no reference in this file
+    rule = {"matchPackageNames": [jdk], "allowedVersions": "/^21([.-]|$)/"}
+    args = (jdk, "21-jdk", ["22-jdk", "210-jdk"], ["21.0.1_1-jdk"])
+    assert line_problems({"packageRules": [rule]}, *args) == []
+    # no rule, a rule for another image, a rule that allows the next line
+    assert line_problems({}, *args)
+    assert line_problems(
+        {"packageRules": [{**rule, "matchPackageNames": ["x"]}]}, *args
+    )
+    assert line_problems({"packageRules": [{**rule, "allowedVersions": "/^2/"}]}, *args)
+    # a rule that is not a pattern, or that refuses the current version
+    assert line_problems({"packageRules": [{**rule, "allowedVersions": "<22"}]}, *args)
+    assert line_problems(
+        {"packageRules": [{**rule, "allowedVersions": "/^25/"}]}, *args
+    )
