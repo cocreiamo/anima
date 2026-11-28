@@ -1,17 +1,17 @@
 ---
-id: PM-014
+id: PM-015
 date: 2026-11-28
 title: The identity provider's build failed while downloading its build tool, and failed the first release
 class: a build that depends on inputs the repository does not hold
 status: guarded
 guards:
   - kind: test
-    ref: test_R167_build_downloads_no_build_tool
+    ref: test_R168_build_downloads_no_build_tool
     added: 2026-11-28
 recurrences: []
 ---
 
-# PM-014: The identity provider's build failed while downloading its build tool, and failed the first release
+# PM-015: The identity provider's build failed while downloading its build tool, and failed the first release
 
 ## Overview
 
@@ -27,11 +27,11 @@ The build fetched its build tool from the network at build time, unverified and 
 
 ## Class and earlier occurrences
 
-The class is a build that depends on inputs the repository does not hold. Earlier occurrences, all on 2026-11-28 or before: a base image whose digest its registry deleted (GAP-060); the three failures of this download, one of them the promotion run 46146056321 of the first release. The other inputs of the same kind are still fetched at build time: the dependency graph, the Node, pnpm and npm packages, and the distribution's packages (TASK-43).
+The class is a build that depends on inputs the repository does not hold. Earlier occurrences, all on 2026-11-28 or before: a base image whose digest its registry deleted (GAP-060); the three failures of this download, one of them the promotion run 46146056321 of the first release. The class of PM-014, which also stopped the first release's promotion, is a different one (a command written for one meaning that the tool reads as another): the two share the run they failed, not a cause. The other inputs of the same kind are still fetched at build time: the dependency graph, the Node, pnpm and npm packages, and the distribution's packages (TASK-43).
 
 ## Resolution
 
-The builder is the official Maven image, pinned by digest and registered with the mirror like the other base images; the build calls `mvn`, which the image holds, and no longer calls the wrapper. The Maven version of the image is recorded in the register and must equal the version the fork's wrapper names. The dependency downloads that remain retry up to ten times through the resolver's own settings (R168).
+The builder is the official Maven image, pinned by digest and registered with the mirror like the other base images; the build calls `mvn`, which the image holds, and no longer calls the wrapper. The Maven version of the image is recorded in the register and must equal the version the fork's wrapper names. The dependency downloads that remain retry up to ten times through the resolver's own settings (R169).
 
 ## Impact
 
@@ -63,5 +63,5 @@ Approved by the founder: mirroring the base images (in progress, TASK-96) and th
 
 ## Guards
 
-- test `test_R167_build_downloads_no_build_tool` (requirement R167, with its `_detects_violation` companion): the build uses the register's pinned Maven image and calls neither the wrapper nor a download program; with `test_R167_maven_version_equals_the_forks_wrapper`, the Maven version of the image equals the fork's when the fork is checked out. A test, because the file can be read and the property is fixed by its text.
-- Not protected: the downloads of dependencies, Node, pnpm and npm packages, which remain, are retried (R168) and can still fail.
+- test `test_R168_build_downloads_no_build_tool` (requirement R168, with its `_detects_violation` companion): the build uses the register's pinned Maven image and calls neither the wrapper nor a download program; with `test_R168_maven_version_equals_the_forks_wrapper`, the Maven version of the image equals the fork's when the fork is checked out. A test, because the file can be read and the property is fixed by its text.
+- Not protected: the downloads of dependencies, Node, pnpm and npm packages, which remain, are retried (R169) and can still fail.

@@ -1,4 +1,4 @@
-"""The build of the identity provider's image. R167 and R168 (PM-014, TASK-43).
+"""The build of the identity provider's image. R168 and R169 (PM-015, TASK-43).
 
 The container file is read as text: building it takes minutes and the network.
 Each check is a function of its inputs and has a `_detects_violation` companion
@@ -97,11 +97,11 @@ def retry_faults(containerfile):
 # ---- the checks -------------------------------------------------------------------------------
 
 
-def test_R167_build_downloads_no_build_tool():
+def test_R168_build_downloads_no_build_tool():
     assert build_faults(CONTAINERFILE.read_text(), tool_images()) == []
 
 
-def test_R167_build_downloads_no_build_tool_detects_violation():
+def test_R168_build_downloads_no_build_tool_detects_violation():
     # The samples take the image's name from the register: no reference of their own.
     entry = {
         **maven_entry(tool_images()),
@@ -126,7 +126,7 @@ def test_R167_build_downloads_no_build_tool_detects_violation():
     assert build_faults(good.replace("RUN mvn", "RUN echo"), register)
 
 
-def test_R167_maven_version_equals_the_forks_wrapper():
+def test_R168_maven_version_equals_the_forks_wrapper():
     if not WRAPPER.is_file():
         pytest.skip(
             "third_party/keycloak is not checked out: the wrapper cannot be read"
@@ -134,7 +134,7 @@ def test_R167_maven_version_equals_the_forks_wrapper():
     assert version_faults(WRAPPER.read_text(), tool_images()) == []
 
 
-def test_R167_maven_version_equals_the_forks_wrapper_detects_violation():
+def test_R168_maven_version_equals_the_forks_wrapper_detects_violation():
     register = [{"name": "maven", "version": "3.9.16-eclipse-temurin-21"}]
     url = "distributionUrl=https://r.example/maven2/org/apache/maven/apache-maven/{}/apache-maven-{}-bin.zip\n"
     assert version_faults(url.format("3.9.16", "3.9.16"), register) == []
@@ -143,11 +143,11 @@ def test_R167_maven_version_equals_the_forks_wrapper_detects_violation():
     assert version_faults(url.format("3.9.16", "3.9.16"), [])
 
 
-def test_R168_build_retries_downloads_bounded():
+def test_R169_build_retries_downloads_bounded():
     assert retry_faults(CONTAINERFILE.read_text()) == []
 
 
-def test_R168_build_retries_downloads_bounded_detects_violation():
+def test_R169_build_retries_downloads_bounded_detects_violation():
     good = "RUN mvn -B -Daether.connector.http.retryHandler.count=10 clean install\n"
     assert retry_faults(good) == []
     assert retry_faults("RUN mvn -B clean install\n")

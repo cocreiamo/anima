@@ -4,10 +4,10 @@
 # (third_party/keycloak/docs/building.md: mvn -pl quarkus/deployment,quarkus/dist
 # -am -DskipTests clean install), run with the Maven that the builder image
 # holds: the source's wrapper would download Maven once, with no retry and no
-# checksum, and a failure of that download failed a release (PM-014, R167).
-# The builder's Maven version equals the one the wrapper names (R167). The
+# checksum, and a failure of that download failed a release (PM-015, R168).
+# The builder's Maven version equals the one the wrapper names (R168). The
 # dependency downloads that remain retry, bounded, through Maven's own settings
-# (R168). The final stage is upstream's own container
+# (R169). The final stage is upstream's own container
 # file (quarkus/container/Dockerfile) with its two base images pinned by digest
 # and its distribution taken from the stage above instead of a download.
 #

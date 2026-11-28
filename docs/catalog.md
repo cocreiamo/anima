@@ -92,8 +92,8 @@ Look here before building something. Each section is derived from its source; th
 | R6 | identities declared | written |
 | R14 | identities reapplied | written |
 | R5 | identity maps to role | written |
-| R167 | identity provider build downloads no build tool | written |
-| R168 | identity provider build retries downloads bounded | written |
+| R168 | identity provider build downloads no build tool | written |
+| R169 | identity provider build retries downloads bounded | written |
 | R135 | identity provider reachable only through entry | pending |
 | R123 | identity provider runs in production mode | written |
 | R32 | idp database only for its role | pending |
@@ -299,8 +299,8 @@ Requirements marked as fitness functions in the model, when each runs and its te
 - R90, export writes nothing outside cache, at every commit: `test_R90_export_writes_nothing_outside_cache` (written).
 - R69, fitness markers complete, at every commit: `test_R69_fitness_markers_are_complete` (written).
 - R112, format and test exclude each other, at every commit: `test_R112_format_and_test_exclude_each_other` (written).
-- R167, identity provider build downloads no build tool, at every commit: `test_R167_build_downloads_no_build_tool` (written).
-- R168, identity provider build retries downloads bounded, at every commit: `test_R168_build_retries_downloads_bounded` (written).
+- R168, identity provider build downloads no build tool, at every commit: `test_R168_build_downloads_no_build_tool` (written).
+- R169, identity provider build retries downloads bounded, at every commit: `test_R169_build_retries_downloads_bounded` (written).
 - R99, image rebuilt when any input changes, at every commit: `test_R99_image_tag_depends_on_every_input` (written).
 - R150, independent additions do not conflict in generated files, at every commit: `test_R150_independent_additions_do_not_conflict_in_generated_files` (written).
 - R68, limits held in model, at every commit: `test_R68_limits_are_held_in_the_model` (written).
