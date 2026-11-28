@@ -354,3 +354,111 @@ def test_R110_releases_stay_patch_only_detects_violation():
     assert release_faults({**good, "versioning": "default"})
     assert release_faults({**good, "release-as": "0.0.1"})
     assert release_faults({**good, "packages": {".": {"versioning": "default"}}})
+
+
+# ---- R112: a run of format and a run of test exclude each other (PM-006) --------------------
+
+FORMAT = ROOT / "mise-tasks" / "format"
+TEST = ROOT / "mise-tasks" / "test"
+FORMAT_COMMANDS = ("mise", "ruff", "buildifier", "prettier", "taplo")
+
+
+def overlaps(events):
+    """The moments at which a format run and a test run were in progress together.
+    `events` are (nanoseconds, "start" or "end", "format" or "test") from one shared
+    log."""
+    alive = {"format": 0, "test": 0}
+    found = []
+    for t, what, who in sorted(events):
+        alive[who] += 1 if what == "start" else -1
+        if what == "start" and alive["format"] and alive["test"]:
+            found.append(t)
+    return found
+
+
+def stub_tools(tmp_path):
+    """Stand-ins for the formatters and the test runner that log when they start and
+    end and take a moment between, and the environment that points the tasks at a
+    root of their own. No network, nothing of the repository is touched."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "log"
+    for name, who in [(c, "format") for c in FORMAT_COMMANDS] + [("uv", "test")]:
+        tool = bin_dir / name
+        tool.write_text(
+            "#!/usr/bin/env bash\n"
+            f'echo "$(date +%s%N) start {who}" >> "{log}"\n'
+            "sleep 0.4\n"
+            f'echo "$(date +%s%N) end {who}" >> "{log}"\n'
+        )
+        tool.chmod(0o755)
+    root = tmp_path / "root"
+    root.mkdir()
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "MISE_PROJECT_ROOT": str(root),
+    }
+    return env, log
+
+
+def run_together(env, log, format_script, test_script, tests=1):
+    """Start one format run and `tests` test runs at once; returns the exit codes
+    and the events logged by the stand-ins."""
+    root = env["MISE_PROJECT_ROOT"]
+    procs = [subprocess.Popen([str(format_script)], env=env, cwd=root)]
+    procs += [
+        subprocess.Popen([str(test_script)], env=env, cwd=root) for _ in range(tests)
+    ]
+    codes = [p.wait() for p in procs]
+    events = []
+    for line in log.read_text().splitlines():
+        t, what, who = line.split()
+        events.append((int(t), what, who))
+    return codes, events
+
+
+def unguarded_copy(tmp_path):
+    """The two tasks with the lock taken out: what a change that dropped it would be."""
+    copies = []
+    for script in (FORMAT, TEST):
+        copy = tmp_path / "unguarded" / script.name
+        copy.parent.mkdir(exist_ok=True)
+        text = "\n".join(
+            "true" if "flock" in line else line
+            for line in script.read_text().splitlines()
+        )
+        copy.write_text(text + "\n")
+        copy.chmod(0o755)
+        copies.append(copy)
+    return copies
+
+
+def test_R112_format_and_test_exclude_each_other(tmp_path):
+    """Proves that one format run started together with test runs never overlaps
+    with them in time: the tasks run with stand-ins for the formatters and the test
+    runner that log their start and end. It does not prove that the real formatters
+    or pytest are the commands inside the lock, nor that a run started by hand
+    outside `mise run` takes it."""
+    env, log = stub_tools(tmp_path)
+    codes, events = run_together(env, log, FORMAT, TEST, tests=3)
+    assert codes == [0] * 4, codes
+    # Both kinds really ran, so that no overlap is not for want of a run.
+    assert {who for _t, _w, who in events} == {"format", "test"}
+    assert overlaps(events) == []
+
+
+def test_R112_format_and_test_exclude_each_other_detects_violation(tmp_path):
+    assert overlaps([(1, "start", "format"), (2, "start", "test"), (3, "end", "test")])
+    assert overlaps(
+        [(1, "start", "test"), (2, "start", "format"), (3, "end", "format")]
+    )
+    assert not overlaps(
+        [(1, "start", "format"), (2, "end", "format"), (3, "start", "test")]
+    )
+    # The same tasks without the lock do overlap.
+    env, log = stub_tools(tmp_path)
+    format_copy, test_copy = unguarded_copy(tmp_path)
+    codes, events = run_together(env, log, format_copy, test_copy)
+    assert codes == [0, 0]
+    assert overlaps(events)

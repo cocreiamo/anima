@@ -44,7 +44,8 @@ SYSML_PILOT_VERSION = "0.63.1"
 SYSML_PILOT_SHA256 = "2ab938037b8d3a02a3518019b6e81b356a994f4a5214727bfedcfd64bad25415"
 
 # model:check and model:export are file tasks in mise-tasks/model/;
-# generate and generate:check are file tasks in mise-tasks/generate/.
+# generate and generate:check are file tasks in mise-tasks/generate/;
+# format and test are file tasks that take one lock together (PM-006, R112).
 
 [tasks."licenses:check"]
 description = "Check that every file carries copyright and licence information (REUSE)"
@@ -67,7 +68,7 @@ description = "Lint and check the formatting of Anima's own files"
 run = [
   "ruff check .",
   "ruff format --check .",
-  "shellcheck mise-tasks/model/check mise-tasks/model/export mise-tasks/model/fetch",
+  "shellcheck mise-tasks/model/check mise-tasks/model/export mise-tasks/model/fetch mise-tasks/format mise-tasks/test",
   # Listed by name: `-r .` would descend into the forks.
   "buildifier -mode=check -lint=warn MODULE.bazel BUILD.bazel",
   "prettier --check .",
@@ -75,23 +76,9 @@ run = [
   "typos",
 ]
 
-[tasks.format]
-description = "Write the generated files, then format Anima's own files"
-depends = ["generate"]
-run = [
-  "ruff format .",
-  "buildifier MODULE.bazel BUILD.bazel",
-  "prettier --write .",
-  "taplo fmt",
-]
-
 [tasks.build]
 description = "Build Anima's own code with Bazel"
 run = "bazelisk build //..."
-
-[tasks.test]
-description = "Run the automated verifications"
-run = "uv run --locked pytest"
 
 [tasks.check]
 description = "Run every check"

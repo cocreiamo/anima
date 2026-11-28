@@ -493,6 +493,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R112'> formatAndTestExcludeEachOther {
+            doc /* A run of the formatter and a run of the automated verifications shall never overlap in time: the formatter shall wait for running verifications and the verifications shall wait for a running formatter. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R93'> onlyArchitectureRecordsExist {
             doc /* Every decision record shall carry the category architecture, its number shall be the one in its file name, and the directory of the records shall hold nothing but records and their generated index. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -935,6 +940,7 @@ package Anima {
     satisfy Day0::imageRebuiltWhenAnyInputChanges by toolchain;
     satisfy Day0::declarationsFollowProviderGuards by anima.engine;
     satisfy Day0::bareInterpreterRefused by toolchain;
+    satisfy Day0::formatAndTestExcludeEachOther by toolchain;
     satisfy Day0::checksPassFromEmptyCache by toolchain;
     satisfy Day0::onlyArchitectureRecordsExist by toolchain;
     satisfy Day0::noReferenceToMissingRecord by toolchain;
@@ -1480,6 +1486,10 @@ package Anima {
         verification def test_R107_agent_settings_refuse_bare_interpreter {
             subject tools : Toolchain;
             objective { verify Day0::bareInterpreterRefused; }
+        }
+        verification def test_R112_format_and_test_exclude_each_other {
+            subject tools : Toolchain;
+            objective { verify Day0::formatAndTestExcludeEachOther; }
         }
         verification def test_R63_fault_messages_name_no_credential_value {
             subject sys : System;
