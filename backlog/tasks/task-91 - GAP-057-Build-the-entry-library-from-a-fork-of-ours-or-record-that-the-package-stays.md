@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-28T10:05:45Z'
+updated_date: '2026-11-28T17:35:27Z'
 labels:
   - gap
 dependencies: []
@@ -30,6 +31,12 @@ GAP-057 (YARP): the entry's library is taken from its NuGet package, pinned by v
 - [ ] #1 Check: the mirror fork of YARP exists and the entry's build compiles the library from the fork's pinned commit, or the founder records that the package stays
 - [ ] #2 Check: GAP-057 is updated in gaps.toml (status)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-28: the mirror fork cocreiamo/anima-yarp exists (fork of dotnet/yarp, default branch main, read with the API) and sync-forks.yml fast-forwards its main branch. Decision: no submodule, because the entry takes the library from its package and builds nothing from the fork (anima-adopting-a-component rule 5 applies to a component built from source); GAP-057 and components.toml say the fork exists. Remains: the build compiling the library from the fork's pinned commit, or the founder's record that the package stays; the gap stays open.
+<!-- SECTION:NOTES:END -->
 
 ## Brief
 

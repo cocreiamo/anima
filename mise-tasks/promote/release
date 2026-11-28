@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Release the version a verified commit carries, naming the image published for it"
 #
-# Usage: GITHUB_REPOSITORY=<owner/name> IMAGE=<repository@digest> [EXISTING=true] mise run promote:release <commit sha>
+# Usage: GH_TOKEN=<installation token of the promote App> GITHUB_REPOSITORY=<owner/name> IMAGE=<repository@digest> [EXISTING=true] mise run promote:release <commit sha>
 #
 # The version is read from the release manifest at that commit. Nothing is
 # released when no version is prepared or it is already released; a version
@@ -11,6 +11,7 @@ set -euo pipefail
 
 sha="${1:?usage: promote:release <commit sha>}"
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
+: "${GH_TOKEN:?GH_TOKEN is not set: the installation token of the promote App}"
 image="${IMAGE:-}"
 
 version="$(gh api "repos/$repo/contents/.github/release-please-manifest.json?ref=$sha" \

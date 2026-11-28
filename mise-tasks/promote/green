@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Move main-green to a commit that passed every verification (a fast-forward, never forced)"
 #
-# Usage: GITHUB_REPOSITORY=<owner/name> mise run promote:green <commit sha>
+# Usage: GH_TOKEN=<installation token of the promote App> GITHUB_REPOSITORY=<owner/name> mise run promote:green <commit sha>
 #
 # The branch is created when it does not exist and updated with force=false
 # when it does, so that GitHub refuses anything but a fast-forward.
@@ -9,6 +9,7 @@ set -euo pipefail
 
 sha="${1:?usage: promote:green <commit sha>}"
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
+: "${GH_TOKEN:?GH_TOKEN is not set: the installation token of the promote App}"
 
 if gh api "repos/$repo/git/ref/heads/main-green" --silent 2>/dev/null; then
   gh api --method PATCH "repos/$repo/git/refs/heads/main-green" \

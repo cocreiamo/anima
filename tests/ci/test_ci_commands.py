@@ -310,12 +310,16 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool(tmp_path):
     fork, the upstream and the branch reach the tool in the right places and that
     the command ends with the tool's own status."""
     log = tmp_path / "log"
-    env = stub_command(tmp_path / "bin", "gh", f'echo "$@" >> "{log}"\n')
+    env = stub_command(
+        tmp_path / "bin", "gh", f'echo "$@ token=$GH_TOKEN" >> "{log}"\n'
+    )
+    # The token is the installation token of the fork-sync App that the step gave.
+    env["GH_TOKEN"] = "fork-sync-app-token"
     result = task("sync-fork", "org/fork", "up/stream", "release/1.2", env=env)
     assert result.returncode == 0, result.stderr
-    assert (
-        log.read_text()
-        == "repo sync org/fork --source up/stream --branch release/1.2\n"
+    assert log.read_text() == (
+        "repo sync org/fork --source up/stream --branch release/1.2 "
+        "token=fork-sync-app-token\n"
     )
 
 
@@ -330,10 +334,16 @@ def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool_detects_violat
         "gh",
         f'echo called >> "{log}"\necho "branch has diverged" >&2\nexit 1\n',
     )
+    env["GH_TOKEN"] = "fork-sync-app-token"
     result = task("sync-fork", "org/fork", "up/stream", "main", env=env)
     assert result.returncode != 0
     assert "branch has diverged" in result.stderr
     log.unlink()
+    # No token: it fails before the tool is called, naming the variable.
+    no_token = {**env, "GH_TOKEN": ""}
+    result = task("sync-fork", "org/fork", "up/stream", "main", env=no_token)
+    assert result.returncode != 0 and "GH_TOKEN" in result.stderr
+    assert not log.exists()
     for arguments in ((), ("a", "b"), ("a", "", "c"), ("a", "b", "c", "d")):
         assert task("sync-fork", *arguments, env=env).returncode != 0
     assert not log.exists()

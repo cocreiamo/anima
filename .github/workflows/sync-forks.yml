@@ -1,9 +1,11 @@
 name: Sync forks
 
 # Fast-forwards the upstream branches mirrored in each fork (`anima-maintaining-a-fork`).
-# Needs the secret FORK_SYNC_TOKEN: a token that can write to the forks. The one
-# step calls a command of the repository that has a test that runs it
-# (`mise-tasks/ci/`, `tests/ci/`, R170); no tool is installed in the job.
+# Writes to the forks with an installation token of the fork-sync App (the
+# organization's variable FORK_SYNC_APP_ID and secret FORK_SYNC_APP_PRIVATE_KEY),
+# limited to the one fork of the job. The sync step calls a command of the
+# repository that has a test that runs it (`mise-tasks/ci/`, `tests/ci/`, R170);
+# no tool is installed in the job.
 
 on:
   schedule:
@@ -23,42 +25,56 @@ jobs:
         include:
           - {
               fork: cocreiamo/anima-postgres,
+              repository: anima-postgres,
               upstream: postgres/postgres,
               branch: master,
             }
           - {
               fork: cocreiamo/anima-postgres,
+              repository: anima-postgres,
               upstream: postgres/postgres,
               branch: REL_18_STABLE,
             }
           - {
               fork: cocreiamo/anima-keycloak,
+              repository: anima-keycloak,
               upstream: keycloak/keycloak,
               branch: main,
             }
           - {
               fork: cocreiamo/anima-keycloak,
+              repository: anima-keycloak,
               upstream: keycloak/keycloak,
               branch: release/26.8,
             }
           - {
               fork: cocreiamo/anima-pg-oidc-validator,
+              repository: anima-pg-oidc-validator,
               upstream: percona/pg_oidc_validator,
               branch: main,
             }
           - {
               fork: cocreiamo/anima-pgvector,
+              repository: anima-pgvector,
               upstream: pgvector/pgvector,
               branch: master,
             }
           - {
               fork: cocreiamo/anima-pgbackrest,
+              repository: anima-pgbackrest,
               upstream: pgbackrest/pgbackrest,
               branch: main,
             }
           - {
               fork: cocreiamo/anima-openbao,
+              repository: anima-openbao,
               upstream: openbao/openbao,
+              branch: main,
+            }
+          - {
+              fork: cocreiamo/anima-yarp,
+              repository: anima-yarp,
+              upstream: dotnet/yarp,
               branch: main,
             }
     steps:
@@ -70,9 +86,19 @@ jobs:
           version: 2026.11.14
           install: false
           cache: false
+      - id: app-token
+        name: Obtain the installation token of the fork-sync App, for this fork only
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.FORK_SYNC_APP_ID }}
+          private-key: ${{ secrets.FORK_SYNC_APP_PRIVATE_KEY }}
+          owner: cocreiamo
+          repositories: ${{ matrix.repository }}
+          permission-contents: write
+          permission-workflows: write
       - run: mise run ci:sync-fork "$FORK" "$UPSTREAM" "$BRANCH"
         env:
-          GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           MISE_TASK_RUN_AUTO_INSTALL: "false"
           FORK: ${{ matrix.fork }}
           UPSTREAM: ${{ matrix.upstream }}

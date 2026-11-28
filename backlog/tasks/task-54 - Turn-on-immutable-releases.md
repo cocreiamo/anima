@@ -1,10 +1,11 @@
 ---
 id: TASK-54
 title: Turn on immutable releases
-status: To Do
+status: Done
 assignee:
   - '@founder'
 created_date: '2026-11-27T18:18:45Z'
+updated_date: '2026-11-28T17:35:26Z'
 labels:
   - founder
 dependencies: []
@@ -24,8 +25,14 @@ A published tag is never moved or reused (`anima-branching-and-releasing`, rule 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: the setting is on for the repository and a published release cannot be changed
+- [x] #1 Check: the setting is on for the repository and a published release cannot be changed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-28: done by the platform team (session of the infrastructure repository), by the founder's sign-in. Verified read-only the same day: GET repos/cocreiamo/anima/immutable-releases answered enabled true, enforced_by_owner false.
+<!-- SECTION:NOTES:END -->
 
 ## Brief
 

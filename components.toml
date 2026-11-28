@@ -271,9 +271,10 @@ mirror = "ghcr.io/cocreiamo/anima-mirror/fedora-minimal"
 # The library that forwards requests. Pinned by version and by the content hash
 # of the package, which is the SHA-256 of the file
 # https://api.nuget.org/v3-flatcontainer/yarp.reverseproxy/2.3.0/yarp.reverseproxy.2.3.0.nupkg
-# measured on 2026-11-28; the commit is the release tag of its source. A mirror
-# fork for upstream contributions is planned (GAP-057), and its governance is a
-# risk (GAP-059).
+# measured on 2026-11-28; the commit is the release tag of its source. The mirror
+# fork cocreiamo/anima-yarp exists for upstream contributions and is synced by
+# the fork-sync workflow; it is not a submodule, because nothing is built from it
+# yet (GAP-057), and its governance is a risk (GAP-059).
 [[component]]
 name = "yarp"
 role = "adapter: HTTP entry point (the library that forwards requests, hosted by the entry's own program, part of the engine)"

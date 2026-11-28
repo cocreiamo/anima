@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@founder'
 created_date: '2026-11-27T18:18:45Z'
+updated_date: '2026-11-28T17:35:26Z'
 labels:
   - founder
 dependencies: []
@@ -24,8 +25,14 @@ The scheduled workflow that fast-forwards the mirror branches of the forks needs
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Check: the secret FORK_SYNC_TOKEN exists and a run of the sync-forks workflow fast-forwards a mirror branch
+- [ ] #1 Check: the organization variable FORK_SYNC_APP_ID and secret FORK_SYNC_APP_PRIVATE_KEY exist, and a run of the sync-forks workflow fast-forwards a mirror branch
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-28: the secret FORK_SYNC_TOKEN is replaced by the App cocreiamo-fork-sync (contents and workflows write, installed on the anima-* forks, anima-yarp included): sync-forks.yml makes an installation token per fork with actions/create-github-app-token (R195) and ci:sync-fork requires GH_TOKEN. Remains: the founder stores FORK_SYNC_APP_ID (variable) and FORK_SYNC_APP_PRIVATE_KEY (secret) in the organization, visible to this repository; read on 2026-11-28 they did not exist yet. Then the first scheduled sync is the proof.
+<!-- SECTION:NOTES:END -->
 
 ## Brief
 

@@ -630,6 +630,11 @@ package Anima {
             @FitnessFunction { trigger = Trigger::commit; }
             subject tools : Toolchain;
         }
+        requirement <'R195'> workflowsWriteWithOrganizationApps {
+            doc /* A workflow that moves a branch, creates a release, syncs a fork or opens a pull request shall do it with an installation token of the organization App named for that capability, made in the job that needs it by the pinned token action with only the permissions the write needs, and never with the workflow's own token, so that the credential that writes is the one the rulesets and the organization can name and restrict. */
+            @FitnessFunction { trigger = Trigger::commit; }
+            subject tools : Toolchain;
+        }
         requirement <'R114'> systemTestsReportOnEveryChange {
             doc /* The automated verification of the engine image shall run on every proposed change and every queued change that touches the engine, its configuration, its pinned sources, the commands of the promotion or its own verification, and shall report under one name whether or not the change touches them, so that the report can be required. */
             @FitnessFunction { trigger = Trigger::commit; }
@@ -1888,6 +1893,10 @@ package Anima {
         verification def test_R177_fork_sync_passes_its_arguments_to_the_platform_tool {
             subject tools : Toolchain;
             objective { verify Day0::forkSyncPassesItsArgumentsAndFailsLoudly; }
+        }
+        verification def test_R195_workflows_write_with_organization_app_tokens {
+            subject tools : Toolchain;
+            objective { verify Day0::workflowsWriteWithOrganizationApps; }
         }
         verification def test_R165_signed_image_is_copied_with_its_signatures {
             subject tools : Toolchain;
