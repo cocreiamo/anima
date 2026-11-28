@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Run the automated verifications (waits for a running format)"
+#
+# Takes the lock that `mise run format` holds exclusively (PM-006); shared here,
+# so test sessions may run together but never with a formatter rewriting files.
+set -euo pipefail
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root"
+mkdir -p .cache
+exec 9>.cache/format-test.lock
+flock -s 9
+
+exec uv run --locked pytest "$@"
