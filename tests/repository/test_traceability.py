@@ -66,12 +66,12 @@ def pending_file():
 
 def test_R10_every_requirement_verified(model):
     pending, text = pending_file()
-    faults = traceability_faults(model, names_of_tests(), pending, text)
+    faults = traceability_faults(model, names_of_tests(model), pending, text)
     assert not faults, faults
 
 
 def test_R10_every_requirement_verified_detects_violation(model):
-    tests = names_of_tests()
+    tests = names_of_tests(model)
     pending, text = pending_file()
     assert traceability_faults(model, tests, pending, text) == []
 

@@ -60,11 +60,18 @@ def referenced(model, element):
 
 
 def is_requirement(model, element):
+    """A requirement is identified by its name. A short name, `R<n>`, is the
+    alias of one that had a number before the name became the identifier."""
     return (
         element["@type"] == "RequirementUsage"
-        and element.get("declaredShortName")
+        and element.get("declaredName")
         and referenced(model, element) is None
     )
+
+
+def alias(element):
+    """The legacy number of a requirement, `R55`, or None for one without."""
+    return element.get("declaredShortName")
 
 
 def verifications(model):
@@ -85,10 +92,11 @@ def verifications(model):
     return found
 
 
-# A check that verifies a requirement is named test_R<id>_<what>. Its companion,
-# which shows that the check fails on a deliberately wrong input, has the same
-# name with this suffix (R56). A companion verifies nothing in the model, so
-# names_of_tests() leaves it out.
+# A check that verifies a requirement is named after it: `test_<snake_case name>`,
+# or `test_R<n>_<what>` for a requirement that has a legacy number. Its
+# companion, which shows that the check fails on a deliberately wrong input, has
+# the same name with this suffix (R56). A companion verifies nothing in the
+# model, so names_of_tests() leaves it out.
 NEGATIVE_SUFFIX = "_detects_violation"
 
 
@@ -101,13 +109,16 @@ def defined_function_names(directory):
     return names
 
 
-def names_of_tests():
-    """Names of the written tests that implement a verification (test_R...),
+def names_of_tests(model):
+    """Names of the written tests that implement a verification of the model:
+    those named `test_R<n>_...` and those that carry the name of a verification,
     without their companions that show the check failing."""
+    verified = set(verifications(model))
     return {
         name
         for name in defined_function_names(ROOT / "tests")
-        if name.startswith("test_R") and not name.endswith(NEGATIVE_SUFFIX)
+        if (name.startswith("test_R") or name in verified)
+        and not name.endswith(NEGATIVE_SUFFIX)
     }
 
 
@@ -115,11 +126,11 @@ def names_of_tests():
 
 
 def requirement_docs(model):
-    """The `doc` text of every requirement, by short name (R1, R3.1, ...)."""
+    """The `doc` text of every requirement, by name."""
     docs = {}
     for element in model.values():
         if is_requirement(model, element):
-            docs[element["declaredShortName"]] = " ".join(
+            docs[element["declaredName"]] = " ".join(
                 child["body"].strip()
                 for child in children(model, element)
                 if child["@type"] == "Documentation"
@@ -217,14 +228,14 @@ def _quantity(model, expression):
 
 
 def thresholds(model):
-    """{requirement short name: {threshold name: (value, unit)}}: the attributes
+    """{requirement name: {threshold name: (value, unit)}}: the attributes
     of a requirement that are bound to a literal, with or without a unit. The
     pilot does not check that the unit fits the attribute's quantity, so a test
     that reads a threshold also asserts its unit."""
     found = {}
     for requirement in model.values():
         if requirement["@type"] != "RequirementUsage" or not requirement.get(
-            "declaredShortName"
+            "declaredName"
         ):
             continue
         values = {}
@@ -234,18 +245,18 @@ def thresholds(model):
                 if quantity is not None:
                     values[attribute.get("declaredName")] = quantity
         if values:
-            found[requirement["declaredShortName"]] = values
+            found[requirement["declaredName"]] = values
     return found
 
 
 def threshold_types(model):
-    """{requirement short name: {attribute name: declared type name}} for the
+    """{requirement name: {attribute name: declared type name}} for the
     attributes of a requirement that are bound to a literal: `Integer` for a
     plain count, a quantity type for a duration."""
     found = {}
     for requirement in model.values():
         if requirement["@type"] != "RequirementUsage" or not requirement.get(
-            "declaredShortName"
+            "declaredName"
         ):
             continue
         for attribute in children(model, requirement, "FeatureMembership"):
@@ -253,7 +264,7 @@ def threshold_types(model):
                 continue
             if _quantity(model, _bound_value(model, attribute)) is None:
                 continue
-            found.setdefault(requirement["declaredShortName"], {})[
+            found.setdefault(requirement["declaredName"], {})[
                 attribute.get("declaredName")
             ] = _type_name(model, attribute)
     return found
@@ -269,7 +280,7 @@ def _type_name(model, element):
 
 
 def fitness_functions(model, metadata="FitnessFunction"):
-    """{requirement short name: trigger} for every requirement marked with
+    """{requirement name: trigger} for every requirement marked with
     `@FitnessFunction { trigger = Trigger::commit; }`. The trigger is the name of
     the enumeration value, or None when the marker sets none: the pilot does not
     report a missing trigger, so a test does."""
@@ -306,7 +317,7 @@ def fitness_functions(model, metadata="FitnessFunction"):
             if (
                 target
                 and target["@type"] == "RequirementUsage"
-                and target.get("declaredShortName")
+                and target.get("declaredName")
             ):
-                found[target["declaredShortName"]] = trigger
+                found[target["declaredName"]] = trigger
     return found
