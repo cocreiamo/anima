@@ -6,7 +6,9 @@ GitHub runs them as written is shown only by their first runs on `main`
 has a `_detects_violation` companion that feeds it a deliberately wrong one.
 """
 
+import json
 import re
+import tomllib
 
 from sysml_model import ROOT
 
@@ -411,3 +413,60 @@ def test_R115_promotion_publishes_only_what_it_verified_detects_violation():
     assert publish_faults(
         good.replace("      - id: pilot", cache + "      - id: pilot")
     )
+
+
+# ---- R155: what the release tool writes is not formatted by us and is licensed (PM-012) -------
+
+RELEASE_CONFIG = ROOT / ".github" / "release-please-config.json"
+PRETTIER_IGNORE = ROOT / ".prettierignore"
+REUSE = ROOT / "REUSE.toml"
+
+
+def written_files(config):
+    """The files the release tool writes besides the manifest: one changelog per package."""
+    if config.get("skip-changelog"):
+        return []
+    found = []
+    for path, package in config.get("packages", {}).items():
+        base = "" if path == "." else path.rstrip("/") + "/"
+        found.append(base + package.get("changelog-path", "CHANGELOG.md"))
+    return found
+
+
+def release_file_faults(files, prettier_ignore, reuse):
+    """Each written file that the formatter would check, or that no licensing annotation covers."""
+    ignored = {
+        line.strip().rstrip("/")
+        for line in prettier_ignore.splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    annotated = [
+        glob
+        for a in reuse.get("annotations", [])
+        for glob in ([a["path"]] if isinstance(a["path"], str) else a["path"])
+    ]
+    faults = []
+    for f in files:
+        if f not in ignored:
+            faults.append(f"{f} is checked by the formatter")
+        if "**" not in annotated and f not in annotated:
+            faults.append(f"{f} has no licensing annotation")
+    return faults
+
+
+def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed():
+    """The tool writes its changelog in its own layout, which Prettier rejects
+    (PM-012), so the release pull request could not pass the required check."""
+    files = written_files(json.loads(RELEASE_CONFIG.read_text()))
+    assert files
+    reuse = tomllib.loads(REUSE.read_text())
+    assert release_file_faults(files, PRETTIER_IGNORE.read_text(), reuse) == []
+
+
+def test_R155_files_written_by_the_release_tool_are_not_formatted_and_are_licensed_detects_violation():
+    reuse = {"annotations": [{"path": "**"}]}
+    assert release_file_faults(["CHANGELOG.md"], "# x\nthird_party\n", reuse)
+    assert release_file_faults(["CHANGELOG.md"], "CHANGELOG.md\n", {"annotations": []})
+    assert not release_file_faults(["CHANGELOG.md"], "CHANGELOG.md\n", reuse)
+    assert written_files({"packages": {".": {}}}) == ["CHANGELOG.md"]
+    assert written_files({"packages": {"a": {"changelog-path": "N.md"}}}) == ["a/N.md"]
