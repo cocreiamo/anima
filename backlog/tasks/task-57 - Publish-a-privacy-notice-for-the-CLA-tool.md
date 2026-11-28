@@ -62,7 +62,8 @@ Task: TASK-57. Role: explorer (the founder delegated the writing). Date: 2026-11
 
 ### Done
 
-- AC 1: `PRIVACY.md` (new) is the notice; `CLA.md` ends with a note linking it (the text the tool shows must carry the same line: a setting of the founder, not done); `CONTRIBUTING.md` and `README.md` link it.
+- AC 1 is complete only after TASK-95 (the Gist the tool shows carries the privacy note) is done; until then the notice is published and linked from `CLA.md` but not from the text the tool shows. TASK-94 publishes a private contact route.
+- `PRIVACY.md` (new) is the notice; `CLA.md` ends with a note linking it (the text the tool shows must carry the same line: a setting of the founder, not done); `CONTRIBUTING.md` and `README.md` link it.
 - R140 and its test (`tests/repository/test_repository.py`) check that the notice exists and that `CLA.md` and `CONTRIBUTING.md` link it; the model has the requirement and verification.
 - The skill `anima-licensing-and-brand` (rule 11, paths) records the notice and what stays unverified.
 

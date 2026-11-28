@@ -17,14 +17,15 @@ Italy, in the European Union.
 You sign the CLA on your first pull request, through CLA Assistant, an
 open-source tool that runs as a GitHub App. It records:
 
-- your GitHub user name and your numeric GitHub user identifier;
-- the date and time you signed, the address and version of the CLA text you
-  signed, the organization and repository it was signed for, and how you
-  signed (the tool's `origin` field);
-- the numbers of the pull requests the tool checked for you;
-- the access token that GitHub gives the tool when you sign in with GitHub,
-  which the tool keeps with your user name to read your pull requests and to
-  post its comment.
+- your GitHub user name and numeric GitHub user identifier;
+- the repository (and its owner) you signed for, the version of the CLA text
+  you signed, and the date and time you signed;
+- the address of the CLA text and how you signed (the tool's `origin` field).
+
+For you as the signed-in user, the tool's operator also holds the numbers of
+the pull requests it checked for you and the sign-in token that GitHub gives
+the tool when you sign in with GitHub, which it uses to read your pull
+requests and to post its comment.
 
 CLA Assistant can also ask for more fields (for example a name or an e-mail
 address) when its owner configures a form. Cocreiamo does not configure one,
@@ -51,6 +52,12 @@ signs you in, process your data under their own privacy statements:
 
 - [Privacy statement of cla-assistant.io](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30)
 - [GitHub privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
+
+According to its own privacy statement, SAP SE shares data with companies of
+its group and with service providers, and where data leaves the European
+Economic Area without an adequacy decision it relies on the standard
+contractual clauses of the European Commission. Read its statement, linked
+above, for the details; they are SAP SE's, not Cocreiamo's.
 
 Cocreiamo does not keep a copy of the records in its repositories. Nobody
 else receives them. A pull request, its comments and your commits are public
@@ -79,10 +86,10 @@ protezione dei dati personali.
 
 To use a right, open an issue in the
 [issue tracker of this repository](https://github.com/cocreiamo/anima/issues)
-titled "Privacy request" and say only that you wish to make one, without
-personal details and without naming the right in detail; Cocreiamo will answer
-there, and move the exchange to a private channel for anything that needs
-personal data. Cocreiamo answers within one month.
+titled "Privacy request". The issue is public, so it must contain no personal
+data and no detail of your request. It only asks Cocreiamo for a private
+channel; Cocreiamo answers there, and the request itself goes through that
+channel. Cocreiamo answers within one month.
 
 ## Changes
 
